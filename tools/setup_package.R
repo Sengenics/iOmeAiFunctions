@@ -32,8 +32,12 @@ usethis::use_github_links()
 
 # --- Install and load all required packages into the renv environment ---
 source("tools/required_packages.R")
+# Install dependencies
+source("tools/install_dependencies.R")
 
 # --- Lock versions for reproducibility going forward ---
 renv::snapshot()
 
 message("✔️ Package setup complete with version control.")
+
+
