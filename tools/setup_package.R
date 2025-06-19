@@ -1,5 +1,9 @@
 # tools/setup_package.R
 
+options(renv.consent = TRUE)
+options(renv.config.auto.snapshot = FALSE)  # prevent renv from snapping during install
+options(install.packages.check.source = "no")  # speed up CRAN downloads
+
 # --- Install required scaffolding packages ---
 if (!requireNamespace("usethis", quietly = TRUE)) install.packages("usethis")
 if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")

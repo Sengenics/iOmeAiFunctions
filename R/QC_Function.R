@@ -2,6 +2,7 @@
 
 
 #' QC Spot Filtering Report
+#' @file QC_Function.R
 #'
 #' Generates a QC report summarizing spot and protein filtering statistics 
 #' for either per-sample or per-protein analysis based on flags and thresholds.
