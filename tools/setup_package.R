@@ -40,8 +40,9 @@ renv::snapshot()
 
 message("✔️ Package setup complete with version control.")
 
+devtools::clean_vignettes()
 devtools::document()
-devtools::install()
+devtools::install(build_vignettes = FALSE)
 
 # --- Lock versions for reproducibility going forward ---
 renv::snapshot()
