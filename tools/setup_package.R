@@ -1,8 +1,14 @@
 # tools/setup_package.R
 
-options(renv.consent = TRUE)
-options(renv.config.auto.snapshot = FALSE)  # prevent renv from snapping during install
-options(install.packages.check.source = "no")  # speed up CRAN downloads
+options(
+	renv.consent = TRUE,
+	renv.config.install.prompt = FALSE,
+	renv.config.restore.prompt = FALSE,
+	renv.config.snapshot.prompt = FALSE,
+	install.packages.check.source = "no",
+	install.packages.compile.from.source = "never",
+	menu.graphics = FALSE  # Important for macOS
+)
 
 # --- Install required scaffolding packages ---
 if (!requireNamespace("usethis", quietly = TRUE)) install.packages("usethis")
