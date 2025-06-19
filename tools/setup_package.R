@@ -41,3 +41,10 @@ renv::snapshot()
 message("✔️ Package setup complete with version control.")
 
 devtools::document()
+devtools::install()
+
+# --- Lock versions for reproducibility going forward ---
+renv::snapshot()
+
+message("✔️ Package setup complete with version control.")
+
