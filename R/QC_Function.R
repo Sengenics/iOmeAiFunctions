@@ -1,6 +1,4 @@
 
-
-
 #' QC Spot Filtering Report
 #' @file QC_Function.R
 #'
@@ -146,3 +144,5 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample') {
 	
 	return(spot_filtering_qc)
 }
+
+

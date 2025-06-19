@@ -40,4 +40,4 @@ renv::snapshot()
 
 message("✔️ Package setup complete with version control.")
 
-
+devtools::document()
