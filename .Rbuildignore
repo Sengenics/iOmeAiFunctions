@@ -1,2 +1,8 @@
+^renv$
+^renv\.lock$
 ^iOmeAiFunctions\.Rproj$
 ^\.Rproj\.user$
+^LICENSE\.md$
+^README\.Rmd$
+^tools$
+^tools/required_packages\.R$
