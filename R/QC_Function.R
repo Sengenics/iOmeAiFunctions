@@ -15,6 +15,7 @@
 #'   \item{filter_outlier}{Summary of spot filtering and outlier removal}
 #'   \item{protein_filter_BG}{Summary of protein filtering based on background thresholds}
 #' }
+#' @note Version 1.1.1
 #' @export
 QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample') {
 	print('QC_Spot_Filtering_Report')
