@@ -31,9 +31,9 @@ lapply(required_github, function(pkg) devtools::install_github(pkg, quiet = TRUE
 
 zzz_path <- file.path("R", "zzz.R")
 
-zzz_content = paste("
-.onLoad <- function(libname, pkgname) {
-  packages_to_load <- ",c(required_cran,required_bioc),"
+zzz_content <- sprintf(
+	".onLoad <- function(libname, pkgname) {
+  packages_to_load <- c(%s)
 
   for (pkg in packages_to_load) {
     if (requireNamespace(pkg, quietly = TRUE)) {
@@ -43,7 +43,9 @@ zzz_content = paste("
     }
   }
 }
-")
+",
+paste0('"', c(required_cran, required_bioc), '"', collapse = ", ")
+)
 
 writeLines(zzz_content, con = zzz_path)
 message("✔ Auto-generated R/zzz.R to load dependencies silently on package load.")
