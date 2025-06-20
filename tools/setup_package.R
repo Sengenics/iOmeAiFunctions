@@ -36,13 +36,13 @@ source("tools/required_packages.R")
 source("tools/install_dependencies.R")
 
 # --- Lock versions for reproducibility going forward ---
-renv::snapshot()
+#renv::snapshot()
 
 message("✔️ Package setup complete with version control.")
 
-devtools::clean_vignettes()
+#devtools::clean_vignettes()
 devtools::document()
-devtools::install(build_vignettes = FALSE)
+devtools::install()
 
 # --- Lock versions for reproducibility going forward ---
 renv::snapshot()
