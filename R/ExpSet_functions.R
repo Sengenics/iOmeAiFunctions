@@ -30,9 +30,11 @@
 #' @import Biobase
 #' @importFrom magrittr %>%
 #' 
+#' @export
+#' 
 #' @examples
 #' result <- ExpSet_list_extract_function(my_ExpSet_list, "clinical", "loess_normalisation", TRUE, "retain")
-#' @export
+
 ExpSet_list_extract_function <- function(ExpSet_list, 
 																				 data = 'clinical', 
 																				 normalisation = 'loess_normalisation', 
