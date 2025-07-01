@@ -1,5 +1,4 @@
 Package: iOmeAiFunctions
-Version: 0.0.1
 Imports:
     AUC,
     callr,
@@ -27,11 +26,11 @@ Imports:
     hilbertSimilarity,
     Hmisc,
     imputeLCMD,
-    jpeg,
     kableExtra,
     limma,
     lubridate,
     magick,
+    magrittr,
     markdown,
     metagenomeSeq,
     naniar,
@@ -56,7 +55,6 @@ Imports:
     readr,
     readtext,
     reshape,
-    rlang,
     ROCR,
     Rtsne,
     rvg,
@@ -71,16 +69,19 @@ Imports:
     shinyWidgets,
     stringr,
     sva,
+    tibble,
     tidyr,
     tidyverse,
     uuid,
     vegan,
     viridis,
     writexl
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
-License: MIT + file LICENSE
+Type: Package
+Title: Functions for i-Ome AI Platform
+Version: 0.1.0
 Encoding: UTF-8
+Authors@R: person("Shaun", "Garnett", email = "shaun.garnett@example.com", role = c("aut", "cre"))
+Description: Internal functions and dependencies for the i-Ome AI Shiny app.
+License: MIT + file LICENSE
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2

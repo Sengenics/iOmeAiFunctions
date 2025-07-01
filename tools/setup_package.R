@@ -7,45 +7,46 @@ options(
 	renv.config.snapshot.prompt = FALSE,
 	install.packages.check.source = "no",
 	install.packages.compile.from.source = "never",
-	menu.graphics = FALSE  # Important for macOS
+	menu.graphics = FALSE
 )
 
-# --- Install required scaffolding packages ---
+# --- Scaffolding ---
 if (!requireNamespace("usethis", quietly = TRUE)) install.packages("usethis")
 if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
 
-# --- Initialize renv ---
 if (!file.exists("renv.lock")) {
 	renv::init(bare = TRUE)
 } else {
 	renv::restore()
 }
 
-# --- usethis scaffolding ---
 usethis::use_mit_license("Shaun Garnett")
 usethis::use_readme_rmd()
 usethis::use_build_ignore("tools/")
-usethis::use_build_ignore("tools/required_packages.R")
-usethis::use_git()
-usethis::use_github_links()
+#usethis::use_git(commit_first = FALSE)
+#usethis::use_github_links()
 
-
-# --- Install and load all required packages into the renv environment ---
-source("tools/required_packages.R")
-# Install dependencies
+# --- Install & sync dependencies ---
 source("tools/install_dependencies.R")
 
-# --- Lock versions for reproducibility going forward ---
-#renv::snapshot()
+# --- Set Version and Encoding if missing ---
+desc_path <- "DESCRIPTION"
+desc <- readLines(desc_path)
+if (!any(grepl("^Version:", desc))) {
+	desc <- append(desc, "Version: 0.1.0", after = grep("^Package:", desc))
+	writeLines(desc, desc_path)
+	message("✔ DESCRIPTION Version set to 0.1.0")
+}
+if (!any(grepl("^Encoding:", desc))) {
+	desc <- append(desc, "Encoding: UTF-8", after = grep("^Version:", desc))
+	writeLines(desc, desc_path)
+	message("✔ DESCRIPTION Encoding set to UTF-8")
+}
 
-message("✔️ Package setup complete with version control.")
-
-#devtools::clean_vignettes()
+# --- Finalize ---
+unlink(file.path("NAMESPACE"))
 devtools::document()
-devtools::install()
+remotes::install_local(upgrade = "never")
 
-# --- Lock versions for reproducibility going forward ---
 renv::snapshot()
-
-message("✔️ Package setup complete with version control.")
-
+message("✔ Package setup complete")
