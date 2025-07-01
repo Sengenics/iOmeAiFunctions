@@ -46,7 +46,8 @@ if (!any(grepl("^Encoding:", desc))) {
 # --- Finalize ---
 unlink(file.path("NAMESPACE"))
 devtools::document()
-remotes::install_local(upgrade = "never")
+devtools::install(upgrade = "never")
+#remotes::install_local(upgrade = "never")
 
 renv::snapshot()
 message("✔ Package setup complete")

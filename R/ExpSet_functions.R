@@ -31,7 +31,6 @@
 #' @importFrom magrittr %>%
 #' 
 #' @export
-#' 
 #' @examples
 #' result <- ExpSet_list_extract_function(my_ExpSet_list, "clinical", "loess_normalisation", TRUE, "retain")
 
