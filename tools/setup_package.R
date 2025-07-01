@@ -44,7 +44,8 @@ if (!any(grepl("^Encoding:", desc))) {
 }
 
 # --- Finalize ---
-unlink(file.path("NAMESPACE"))
+unlink("NAMESPACE")
+unlink("man", recursive = TRUE)
 devtools::document()
 devtools::install(upgrade = "never")
 #remotes::install_local(upgrade = "never")
