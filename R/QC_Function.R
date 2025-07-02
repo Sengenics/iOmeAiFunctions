@@ -12,6 +12,14 @@ NULL
 #'
 #' @param datCollate A list object containing all relevant assay data, including RawData, Data, parameters, and counts.
 #' @param type Character, either `"PerSample"` (default) or `"PerProtein"` to specify the grouping level for filtering.
+#' @param thresholds
+#' \describe{
+#'  \item{PerSample}
+#'   \item{datCollate$param$BGFilter_ThrPer = 10}
+#'   \item{datCollate$param$BGFilter_ThrPer_Protein = 1}
+#'  \item(PerProtein)
+#'    \item{datCollate$param$PerProtein_BGFilter_ThrPer}
+#'    \item{datCollate$param$PerProtein_BGFilter_ThrPer_Protein}
 #'
 #' @return A list with two components:
 #' \describe{
@@ -41,12 +49,14 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 	feature_df <- datCollate$data$Data %>%
 		dplyr::select(!!sym(feature_column), data) %>%
 		distinct()
+	unique(feature_df$data)
 
 	# Filter by type
 	if (type == 'PerProtein') {
 		df <- df %>%
 			left_join(feature_df) %>%
-			filter(data != 'ctrl')
+		  filter(data == 'feature' | data == 'analyte')
+		unique(df$data)
 		sample_number <- df %>%
 			pull(Sample) %>%
 			unique() %>%
@@ -93,7 +103,7 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 
 		protein_data <- datCollate$data$Data %>%
 			filter(!Sample %in% datCollate$param$BOC_samples) %>%
-			filter(data == 'feature')
+			filter(data == 'feature' | data == 'analyte')
 	}
 
 	if (type == 'PerProtein') {
@@ -109,7 +119,7 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 
 		protein_data <- datCollate$data$Data %>%
 			filter(!Sample %in% datCollate$param$BOC_samples) %>%
-			filter(data != 'ctrl')
+			filter(data == 'feature' | data == 'analyte')
 	}
 
 	# Assign missing values based on num_test
@@ -119,6 +129,11 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 	# Define valid flag list
 	flag_list <- c('Filtered', 'low RFU', 'Saturated')
 	df <- protein_data
+	#if(!is.na(lowRFU)){
+	#  df$flag[df$mean < lowRFU] = 'low RFU'
+	#}
+	unique(df$flag)
+	unique(df$source)
 	df$flag[!df$flag %in% flag_list] <- NA
 
 	# Run protein filter QC
@@ -135,7 +150,7 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 	}
 
 	if (type == 'PerProtein') {
-		grouping_column <- 'Protein'
+		grouping_column <- feature_column
 		number <- sample_number
 
 		multi_protein <- multi_spot_filter_count_function(
@@ -177,16 +192,16 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 #' @export
 bg_fg_metrics <- function(datCollate, feature_column = "Protein") {
 	feature_sym <- rlang::sym(feature_column)
-	
+
 	# Join with data annotations
 	feature_data <- datCollate$data$Data %>%
 		dplyr::select(!!feature_sym, data) %>%
 		distinct()
-	
+
 	df <- datCollate$data$RawData %>%
 		left_join(feature_data) %>%
 		filter(data %in% c("feature", "analyte"))
-	
+
 	# Log2 transform and clean
 	df <- df %>%
 		mutate(
@@ -196,7 +211,7 @@ bg_fg_metrics <- function(datCollate, feature_column = "Protein") {
 		) %>%
 		mutate(across(c(FG, BG, NetI), ~ ifelse(is.finite(.), ., NA_real_))) %>%
 		filter(!is.na(!!feature_sym))
-	
+
 	# Calculate metrics
 	flag_df <- df %>%
 		group_by(Sample) %>%
@@ -205,23 +220,23 @@ bg_fg_metrics <- function(datCollate, feature_column = "Protein") {
 			FG_mode = mode_function(FG),
 			FG_median = median(FG, na.rm = TRUE),
 			FG_sd = sd(FG, na.rm = TRUE),
-			
+
 			BG_mean = mean(BG, na.rm = TRUE),
 			BG_mode = mode_function(BG),
 			BG_median = median(BG, na.rm = TRUE),
 			BG_sd = sd(BG, na.rm = TRUE),
-			
+
 			NetI_mean = mean(NetI, na.rm = TRUE),
 			NetI_mode = mode_function(NetI),
 			NetI_median = median(NetI, na.rm = TRUE),
 			NetI_sd = sd(NetI, na.rm = TRUE),
 			.groups = "drop"
 		)
-	
+
 	# BG overlap calculation
 	metric <- datCollate$param$BG_overlap_metric
 	multiple <- datCollate$param$BG_FG_sd_mutiple
-	
+
 	flag_df <- flag_df %>%
 		mutate(
 			BG_overlap = dplyr::case_when(
@@ -231,20 +246,20 @@ bg_fg_metrics <- function(datCollate, feature_column = "Protein") {
 				TRUE               ~ NA_real_
 			)
 		)
-	
+
 	# Count % of BG values above BG_overlap
 	plot_data <- df %>%
 		select(Sample, BG) %>%
 		rename(value = BG) %>%
 		mutate(key = "BG")
-	
+
 	flag_df <- BG_count_function(
 		plot_data = plot_data,
 		flag_df = flag_df,
 		col_name = "BG_overlap",
 		spot_total_number = length(unique(df$spot))
 	)
-	
+
 	return(flag_df)
 }
 
@@ -298,7 +313,7 @@ BG_count_function = function(plot_data, flag_df, col_name, spot_total_number) {
     summarise(count = n(), .groups = "drop") %>%
     mutate(
       spot_total = spot_total_number
-    ) %>% 
+    ) %>%
   	mutate(
       Percentage = count / spot_total * 100
     ) %>%
@@ -343,22 +358,22 @@ BG_count_function = function(plot_data, flag_df, col_name, spot_total_number) {
 Merge_QC_function = function(QC, type = "PerSample", feature_column = "Protein") {
 	print('Merge_QC')
 	output_list <- NULL
-	
+
 	flagged_df <- if (type == 'PerSample') {
 		data.frame(Sample = character(0), value = double(0), QC = character(0), Thr = integer(0), metric = character(0))
 	} else {
 		stats::setNames(
-			data.frame(value = double(0), QC = character(0), Thr = integer(0), metric = character(0)),
+			data.frame(feature = character(0),value = double(0), QC = character(0), Thr = integer(0), metric = character(0)),
 			c(feature_column, "value", "QC", "Thr", "metric")
 		)
 	}
-	
+
 	if (type == "PerProtein" && !feature_column %in% colnames(flagged_df)) {
 		stop(paste("feature_column", feature_column, "not found in flagged_df"))
 	}
-	
+
 	Avg_df <- data.frame(metric = character(0), Thr = double(0), Avg = double(0), data_type = character(0))
-	
+
 	for (level_1 in names(QC)) {
 		if (level_1 != 'QC') {
 			print(level_1)
@@ -384,7 +399,7 @@ Merge_QC_function = function(QC, type = "PerSample", feature_column = "Protein")
 			}
 		}
 	}
-	
+
 	if ('IgR2' %in% names(QC$ctrl_QC)) {
 		igQC <- QC$ctrl_QC$IgR2$ratio
 		if (nrow(igQC$data) > 0) {
@@ -403,9 +418,9 @@ Merge_QC_function = function(QC, type = "PerSample", feature_column = "Protein")
 			)
 		}
 	}
-	
+
 	flagged_df <- flagged_df %>% filter(!is.na(QC))
-	
+
 	flagged <- if (type == 'PerSample') {
 		flagged_df %>%
 			dplyr::select(Sample, QC) %>%
@@ -419,13 +434,13 @@ Merge_QC_function = function(QC, type = "PerSample", feature_column = "Protein")
 			distinct() %>%
 			pull(!!sym(feature_column))
 	}
-	
+
 	output_list <- list(
 		flagged_df = flagged_df,
 		flagged = flagged,
 		Avg_df = Avg_df
 	)
-	
+
 	return(output_list)
 }
 
