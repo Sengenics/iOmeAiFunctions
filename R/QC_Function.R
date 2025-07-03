@@ -1,8 +1,3 @@
-#' @import rlang
-#' @import dplyr
-#' @import tidyr
-NULL
-
 
 #' Spot Quality Control
 #'

@@ -51,4 +51,14 @@ devtools::install(upgrade = "never")
 #remotes::install_local(upgrade = "never")
 
 renv::snapshot()
+
+# --- Manage package conflicts ---
+if (!requireNamespace("conflicted", quietly = TRUE)) install.packages("conflicted")
+library(conflicted)
+
+# Set conflict preferences
+conflict_prefer('exprs', 'Biobase')
+conflict_prefer('setdiff', 'base')
+conflict_prefer('filter', 'dplyr')
+
 message("✔ Package setup complete")
