@@ -85,3 +85,4 @@ Description: Internal functions and dependencies for the i-Ome AI Shiny app.
 License: MIT + file LICENSE
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Depends: 

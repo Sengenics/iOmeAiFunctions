@@ -65,3 +65,70 @@ ExpSet_list_extract_function <- function(ExpSet_list,
 		ExpSet = ExpSet
 	))
 }
+
+
+#' Add Columns to phenoData (pData) of an ExpressionSet
+#'
+#' Merges new metadata columns into the `pData` slot of an `ExpressionSet` object.
+#'
+#' @param ExpSet An `ExpressionSet` object.
+#' @param meta_add A data frame with `Sample` and columns to add.
+#' @param add_cols Character vector of column names from `meta_add` to add to `pData`.
+#'
+#' @return The updated `ExpressionSet` object with modified `pData`.
+#'
+#' @note
+#' Version 1.0 from  
+#' ExpSet_functions.R
+ExpSet_add_pData_function <- function(ExpSet, meta_add, add_cols) {
+	print(phenoData(ExpSet)) 
+	
+	meta <- pData(ExpSet)
+	
+	cat(paste('\nAdd Metadata column(s):', paste(add_cols, collapse = ', '), '\n\n'))
+	
+	meta <- meta %>%
+		dplyr::select(-any_of(add_cols)) %>%
+		left_join(meta_add %>% dplyr::select(any_of(c("Sample", add_cols))), by = "Sample") %>%
+		mutate(row_name = Sample) %>%
+		column_to_rownames("row_name")
+	
+	pData(ExpSet) <- meta
+	print(phenoData(ExpSet))
+	
+	return(ExpSet)
+}
+
+
+#' Add Columns to featureData (fData) of an ExpressionSet
+#'
+#' Merges new feature metadata columns into the `fData` slot of an `ExpressionSet` object.
+#'
+#' @param ExpSet An `ExpressionSet` object.
+#' @param meta_add A data frame with `Protein` and columns to add.
+#' @param add_cols Character vector of column names from `meta_add` to add to `fData`.
+#'
+#' @return The updated `ExpressionSet` object with modified `fData`.
+#'
+#' @note
+#' Version 1.0 from  
+#' ExpSet_functions.R
+ExpSet_add_fData_function <- function(ExpSet, meta_add, add_cols) {
+	print(featureData(ExpSet))
+	
+	meta <- fData(ExpSet)
+	
+	cat(paste('\nAdd Metadata column(s):', paste(add_cols, collapse = ', '), '\n\n'))
+	
+	meta <- meta %>%
+		dplyr::select(-any_of(add_cols)) %>%
+		left_join(meta_add %>% dplyr::select(any_of(c("Protein", add_cols))), by = "Protein") %>%
+		mutate(row_name = Protein) %>%
+		column_to_rownames("row_name")
+	
+	fData(ExpSet) <- meta
+	print(featureData(ExpSet))
+	
+	return(ExpSet)
+}
+
