@@ -36,7 +36,7 @@
 
 ExpSet_list_extract_function <- function(ExpSet_list, 
 																				 data = 'clinical', 
-																				 normalisation = 'loess_normalisation', 
+																				 normalisation = 'loess_normalised', 
 																				 ComBat = FALSE,
 																				 ncf_select = 'retain') {
 	
@@ -113,7 +113,7 @@ ExpSet_add_pData_function <- function(ExpSet, meta_add, add_cols) {
 #' @note
 #' Version 1.0 from  
 #' ExpSet_functions.R
-ExpSet_add_fData_function <- function(ExpSet, meta_add, add_cols) {
+ExpSet_add_fData_function <- function(ExpSet, meta_add, add_cols, feature_column = 'Protein') {
 	print(featureData(ExpSet))
 	
 	meta <- fData(ExpSet)
@@ -122,8 +122,8 @@ ExpSet_add_fData_function <- function(ExpSet, meta_add, add_cols) {
 	
 	meta <- meta %>%
 		dplyr::select(-any_of(add_cols)) %>%
-		left_join(meta_add %>% dplyr::select(any_of(c("Protein", add_cols))), by = "Protein") %>%
-		mutate(row_name = Protein) %>%
+		left_join(meta_add %>% dplyr::select(any_of(c(feature_column, add_cols))), by = feature_column) %>%
+		mutate(row_name = !!sym(feature_column)) %>%
 		column_to_rownames("row_name")
 	
 	fData(ExpSet) <- meta

@@ -7,7 +7,7 @@
 ExpSet_list_extract_function(
   ExpSet_list,
   data = "clinical",
-  normalisation = "loess_normalisation",
+  normalisation = "loess_normalised",
   ComBat = FALSE,
   ncf_select = "retain"
 )

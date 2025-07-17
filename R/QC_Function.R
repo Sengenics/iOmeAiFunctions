@@ -184,6 +184,10 @@ QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_colu
 #'   - BG_overlap threshold
 #'   - BG_overlap_BG_Percentage: % of BG values exceeding BG_overlap threshold
 #'
+#' @note
+#' Version 1.0.0 from
+#' QC_Function.R
+#'
 #' @export
 bg_fg_metrics <- function(datCollate, feature_column = "Protein") {
 	feature_sym <- rlang::sym(feature_column)
@@ -338,6 +342,9 @@ BG_count_function = function(plot_data, flag_df, col_name, spot_total_number) {
 #'
 #' @examples
 #' Merge_QC_function(QC_list, type = "PerSample")
+#' @note
+#' Version 1.0.0 from
+#' QC_Function.R
 #'
 #' @export
 #'

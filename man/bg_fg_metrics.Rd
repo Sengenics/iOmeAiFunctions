@@ -30,3 +30,7 @@ Calculates mean, mode, median, and standard deviation of foreground (FG), backgr
 and net intensity (NetI) values per sample, and computes a BG overlap threshold. Also returns
 the percentage of background values above the BG_overlap threshold.
 }
+\note{
+Version 1.0.0 from
+QC_Function.R
+}

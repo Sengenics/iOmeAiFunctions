@@ -24,9 +24,12 @@ A list with:
 \description{
 Aggregates QC data from a structured QC object across either samples or features.
 }
+\note{
+Version 1.0.0 from
+QC_Function.R
+}
 \examples{
 Merge_QC_function(QC_list, type = "PerSample")
-
 }
 \author{
 Shaun Garnett
