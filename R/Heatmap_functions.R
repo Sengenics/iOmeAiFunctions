@@ -23,7 +23,7 @@ Heatmap_data_function <- function(m, meta, s_cols) {
 	rownames(meta) <- meta$Sample
 	# Reorder matrix columns to match metadata
 	m <- m[, rownames(meta)]
-
+	(s_cols = sort(s_cols,decreasing = T))
 	# Convert selected metadata columns to factor
 	meta[, s_cols] <- lapply(meta[, s_cols, drop = FALSE], factor)
 	# Keep only annotation-relevant columns in meta
@@ -79,7 +79,7 @@ heatmap_module_ui <- function(id) {
 #' heatmap_functions.R
 heatmap_module_server <- function(id,
 																	data_list,
-																	input_values,
+																	heatmap_view = 'zoom',
 																	show_rownames = FALSE,
 																	show_colnames = FALSE,
 																	clustering_distance_cols = "euclidean") {
@@ -106,21 +106,21 @@ heatmap_module_server <- function(id,
 																		 show_rownames = TRUE,
 																		 show_colnames = TRUE)
 				
-				if (input_values()$ncf_heatmap_view == "zoom") {
-					p <- simple
-					row_width <- 0.01
-					plot_height <- heatmap_zoom_height
-				} else {
-					p <- detail
-					row_width <- 0.15
-					plot_height <- plot_height_function(nrow(data$m), row_width)
-				}
+		
+				# if (heatmap_view() == "zoom") {
+				# 	p <- simple
+				# 	row_width <- 0.01
+				# 	plot_height <- heatmap_zoom_height
+				# } else {
+				# 	p <- detail
+				# 	row_width <- 0.15
+				# 	plot_height <- plot_height_function(nrow(data$m), row_width)
+				# }
 				
 				list(
 					simple = simple,
 					detail = detail,
-					rows = nrow(data$m),
-					plot_height = plot_height
+					rows = nrow(data$m)
 				)
 			}
 		})
@@ -128,7 +128,7 @@ heatmap_module_server <- function(id,
 		output$heatmap_mod_ui <- renderUI({
 			heatmap_list <- heatmap_data()
 			
-			if (input_values()$ncf_heatmap_view == "zoom") {
+			if (heatmap_view() == "zoom") {
 				p <- heatmap_list$simple
 				row_width <- 0.01
 				plot_height <- heatmap_zoom_height
