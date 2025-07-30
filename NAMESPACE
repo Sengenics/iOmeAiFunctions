@@ -2,6 +2,7 @@
 
 export(AvgCV_function)
 export(BG_count_function)
+export(ComBat_function)
 export(ExpSet_list_extract_function)
 export(Heatmap_data_function)
 export(KL_palette)
