@@ -1,3 +1,22 @@
+# R/PSA_ROs_pkg.R
+
+#' PSA_ROs_pkg gene list
+#'
+#' A vector of prostate-specific antigens used for quality control.
+#'
+#' @format A character vector of gene names.
+#'
+#' @note
+#' Version 1.0 from  
+#' tools/PSA_ROs_data.R
+#'
+#' @usage data(PSA_ROs_pkg)
+#' @export
+"PSA_ROs_pkg"
+
+
+
+
 #' PSA Type 2 Shiny Function
 #'
 #' Computes PSA scores and classifications using a fold-change threshold and a baseline reference

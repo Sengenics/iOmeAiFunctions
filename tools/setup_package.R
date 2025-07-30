@@ -27,7 +27,8 @@ usethis::use_build_ignore("tools/")
 #usethis::use_github_links()
 
 # Source the PSA_ROs vector from the temp directory
-source("tools/PSA_ROs_data.R")
+source("data-raw/PSA_ROs_data.R")
+usethis::use_data(PSA_ROs_pkg, overwrite = TRUE)
 
 # Save it as internal data (won’t be exported to users)
 usethis::use_data(PSA_ROs_pkg, internal = TRUE, overwrite = TRUE)
