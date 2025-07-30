@@ -18,6 +18,7 @@
 #' @note
 #' Version 1.0 from
 #' Heatmap_functions.R
+#' @export
 Heatmap_data_function <- function(m, meta, s_cols) {
 	meta <- as.data.frame(meta)
 	rownames(meta) <- meta$Sample
@@ -54,6 +55,7 @@ Heatmap_data_function <- function(m, meta, s_cols) {
 #' @note
 #' Version 1.0 from  
 #' heatmap_functions.R
+#' @export
 heatmap_module_ui <- function(id) {
 	ns <- NS(id)
 	uiOutput(ns("heatmap_mod_ui"))
@@ -77,6 +79,7 @@ heatmap_module_ui <- function(id) {
 #' @note
 #' Version 1.0 from  
 #' heatmap_functions.R
+#' @export
 heatmap_module_server <- function(id,
 																	data_list,
 																	heatmap_view = 'zoom',
