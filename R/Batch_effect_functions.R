@@ -14,6 +14,7 @@
 #' Version 1.0 from  
 #' Batch_effect_functions.R
 #' @importFrom sva ComBat
+#' @export
 ComBat_function <- function(meta,m,ComBat_columns) {
 	
 	ComBat_columns = ComBat_columns[ComBat_columns %in% colnames(meta)]
