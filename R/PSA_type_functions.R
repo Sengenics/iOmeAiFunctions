@@ -19,6 +19,7 @@
 #' @note
 #' Version 2.0 from  
 #' PSA_type_functions.R
+#' @export
 PSA_type_2_shiny <- function(PSA_ROs, df, metadata,
 														 FC_threshold,
 														 PSA_threshold,

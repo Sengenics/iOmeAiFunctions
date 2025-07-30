@@ -30,10 +30,9 @@
 #' @import Biobase
 #' @importFrom magrittr %>%
 #' 
-#' @export
 #' @examples
 #' result <- ExpSet_list_extract_function(my_ExpSet_list, "clinical", "loess_normalisation", TRUE, "retain")
-
+#' @export
 ExpSet_list_extract_function <- function(ExpSet_list, 
 																				 data = 'clinical', 
 																				 normalisation = 'loess_normalised', 
@@ -80,6 +79,7 @@ ExpSet_list_extract_function <- function(ExpSet_list,
 #' @note
 #' Version 1.0 from  
 #' ExpSet_functions.R
+#' @export
 ExpSet_add_pData_function <- function(ExpSet, meta_add, add_cols) {
 	print(phenoData(ExpSet)) 
 	
@@ -113,6 +113,7 @@ ExpSet_add_pData_function <- function(ExpSet, meta_add, add_cols) {
 #' @note
 #' Version 1.0 from  
 #' ExpSet_functions.R
+#' @export
 ExpSet_add_fData_function <- function(ExpSet, meta_add, add_cols, feature_column = 'Protein') {
 	print(featureData(ExpSet))
 	

@@ -9,6 +9,7 @@
 #' @note
 #' Version 1.0 from  
 #' colour_functions.R
+#' @export
 KL_palette <- {
 	qual_col_pals <- RColorBrewer::brewer.pal.info[RColorBrewer::brewer.pal.info$category == 'qual', ]
 	KL_palette = unlist(mapply(RColorBrewer::brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
@@ -41,6 +42,7 @@ KL_palette <- {
 #' @note
 #' Version 1.0 from  
 #' colour_functions.R
+#' @export
 color_distinct <- function(meta_colors = NULL, variables = NULL, palette = KL_palette) {
 	
 	# Subset metadata based on number of columns

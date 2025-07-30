@@ -14,6 +14,7 @@
 #' @note
 #' Version 1.0 from  
 #' NCF_function.R
+#' @export
 NCF_Corr <- function(input_data, zz = "ZZ_con2") { 
 	# Calculate correlation of all features (rows) to the specified zz row
 	ZZ_cors <- apply(input_data, 1, function(x) corr.test(x, as.matrix(input_data)[zz, ]))
@@ -66,6 +67,7 @@ NCF_Corr <- function(input_data, zz = "ZZ_con2") {
 #' @note
 #' Version 1.0 from  
 #' NCF_function.R
+#' @export
 NCF_threshold <- function(input_data, df_ZZ, threshold, percentage = FALSE) {
 	
 	# Remove placeholder summary rows

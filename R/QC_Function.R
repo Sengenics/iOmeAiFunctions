@@ -25,7 +25,6 @@
 #' @note
 #' Version 1.0.0 from
 #' QC_Function.R
-#'
 #' @export
 QC_Spot_Filtering_Report <- function(datCollate, type = 'PerSample',feature_column = 'Protein') {
 	print('QC_Spot_Filtering_Report')
@@ -599,10 +598,9 @@ bg_fg_metrics <- function(datCollate, feature_column = "Protein") {
 #' QC_Function.R
 #'
 #' @import dplyr
-#' @export
-#'
 #' @examples
 #' BG_count_function(plot_data, flag_df, col_name = "BG_overlap", spot_total_number = 200)
+#' @export
 BG_count_function = function(plot_data, flag_df, col_name, spot_total_number) {
 
   # Extract BG values and merge with thresholds
@@ -655,8 +653,6 @@ BG_count_function = function(plot_data, flag_df, col_name, spot_total_number) {
 #' Version 1.0.0 from
 #' QC_Function.R
 #'
-#' @export
-#'
 #' @author Shaun Garnett
 #'
 # Notes:
@@ -665,7 +661,7 @@ BG_count_function = function(plot_data, flag_df, col_name, spot_total_number) {
 # - Updated to support dynamic `feature_column` (e.g., "Protein" or "feature")
 # - Replaced hardcoded Protein references with flexible column input
 # - Added inline comments for future improvements (bind_rows, verbosity toggle, etc.)
-
+#' @export
 Merge_QC_function = function(QC, type = "PerSample", feature_column = "Protein") {
 	print('Merge_QC')
 	output_list <- NULL

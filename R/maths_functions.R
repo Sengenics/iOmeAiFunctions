@@ -15,6 +15,7 @@
 #' @examples
 #' mode_function(c(1, 2, 2, 3, 4))
 #' mode_function(c(NA, 2, 2, NA, 3))
+#' @export
 mode_function = function(values){
 	values = values[!is.na(values)]
 	if (length(values) > 3) {
