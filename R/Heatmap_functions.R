@@ -82,7 +82,8 @@ heatmap_module_server <- function(id,
 																	heatmap_view = 'zoom',
 																	show_rownames = FALSE,
 																	show_colnames = FALSE,
-																	clustering_distance_cols = "euclidean") {
+																	clustering_distance_cols = "euclidean",
+																	view = 'basic') {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
 		
@@ -142,8 +143,23 @@ heatmap_module_server <- function(id,
 				p
 			}, height = plot_height)
 			
-			plotOutput(ns("heatmap_mod_plot"), height = plot_height) %>%
-				shinycssloaders::withSpinner(type = 4, color = style_defaults$spinner_colour)
+			if(view() == 'basic'){
+				lst = list(
+					plotOutput(ns("heatmap_mod_plot"), height = plot_height) %>%
+					shinycssloaders::withSpinner(type = 4, color = style_defaults$spinner_colour)
+				)
+			}else{
+				lst = list(
+					tabsetPanel(selected = "Heatmap",
+						tabPanel('Overview'),
+						tabPanel('Heatmap',
+										 plotOutput(ns("heatmap_mod_plot"), height = plot_height) %>%
+										 	shinycssloaders::withSpinner(type = 4, color = style_defaults$spinner_colour)
+										 )
+					)
+				)
+			}
+			do.call(tagList,lst)
 		})
 		return(heatmap_data)
 	})

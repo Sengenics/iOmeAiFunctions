@@ -10,7 +10,8 @@ heatmap_module_server(
   heatmap_view = "zoom",
   show_rownames = FALSE,
   show_colnames = FALSE,
-  clustering_distance_cols = "euclidean"
+  clustering_distance_cols = "euclidean",
+  view = "basic"
 )
 }
 \arguments{
