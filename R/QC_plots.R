@@ -105,54 +105,73 @@ generate_Cy3BSA_lineplot_list <- function(datCollate,
 		left_join(labels_df, by = "Sample")
 
 	# Extract PerSample Cy3AvgCV table
-	PerSample_sub_data <- PerSample_data[[QC]][[data_name]]$data
+
 
 	# PerSample line plot: x = feature, group = Sample
 	data = PerSample_data
 	grouping_column = 'Sample'
 	x = feature_column
 
-	(PerSample <- QC_line_plot_list_function(
-		Data,
-		PerSample_data,
-		QC,
-		data_name,
-		'Sample',
-		x,
-		feature_column
-	) +
-		geom_hline(yintercept = datCollate$param$Cy3BSA_log2RFU,
-							 col = 'blue', linetype = 'dashed'))
+
+	#names(PerSample_data)
+	PerSample = ggplot()
+	NetI_histogram = ggplot()
+	if(QC %in% names(PerSample_data)){
+	  if(data_name %in% names(PerSample_data[[QC]])){
+	    PerSample_sub_data <- PerSample_data[[QC]][[data_name]]$data
+	    # Histogram of log2 mean NetI
+	    NetI_histogram <- ggplot(PerSample_sub_data) +
+	      geom_histogram(aes(x = log2meanNetI), fill = 'dark grey', col = 'white') +
+	      geom_vline(xintercept = datCollate$param$Cy3BSA_log2RFU,
+	                 col = 'blue', linetype = 'dashed')
+
+    	PerSample <- QC_line_plot_list_function(
+    		Data,
+    		PerSample_data,
+    		QC,
+    		data_name,
+    		'Sample',
+    		x,
+    		feature_column
+    	) +
+    		geom_hline(yintercept = datCollate$param$Cy3BSA_log2RFU,
+    							 col = 'blue', linetype = 'dashed')
+	  }
+	}
 
 	# PerProtein line plot: x = Sample, group = feature
-	PerProtein <- QC_line_plot_list_function(
-		Data,
-		PerProtein_data,
-		QC,
-		data_name,
-		'Protein',
-		'Sample',
-		feature_column
-	) +
-		geom_hline(yintercept = datCollate$param$Cy3BSA_log2RFU,
-							 col = 'blue', linetype = 'dashed')
+	PerProtein = ggplot()
+	if(QC %in% names(PerProtein_data)){
+	  if(data_name %in% names(PerProtein_data[[QC]])){
+    	PerProtein <- QC_line_plot_list_function(
+    		Data,
+    		PerProtein_data,
+    		QC,
+    		data_name,
+    		'Protein',
+    		'Sample',
+    		feature_column
+    	) +
+    		geom_hline(yintercept = datCollate$param$Cy3BSA_log2RFU,
+    							 col = 'blue', linetype = 'dashed')
+	  }
+	}
 
-	# Histogram of log2 mean NetI
-	NetI_histogram <- ggplot(PerSample_sub_data) +
-		geom_histogram(aes(x = log2meanNetI), fill = 'dark grey', col = 'white') +
-		geom_vline(xintercept = datCollate$param$Cy3BSA_log2RFU,
-							 col = 'blue', linetype = 'dashed')
+
 
 	# Batch vs NetI plot
-	batch_column <- datCollate$param$batch_column
-	label_df <- datCollate$manifest %>%
-		dplyr::select(Sample, Labels, !!sym(batch_column))
+	NetI_Batch = ggplot()
+	if('batch_column' %in% names(datCollate$param)){
+  	batch_column <- datCollate$param$batch_column
+  	label_df <- datCollate$manifest %>%
+  		dplyr::select(Sample, Labels, !!sym(batch_column))
 
-	NetI_Batch <- PerSample_sub_data %>%
-		left_join(label_df, by = "Sample") %>%
-		ggplot() +
-		geom_point(aes(x = !!sym(batch_column), y = log2meanNetI, col = Labels)) +
-		theme(axis.text.x = element_text(angle = 90))
+  	NetI_Batch <- PerSample_sub_data %>%
+  		left_join(label_df, by = "Sample") %>%
+  		ggplot() +
+  		geom_point(aes(x = !!sym(batch_column), y = log2meanNetI, col = Labels)) +
+  		theme(axis.text.x = element_text(angle = 90))
+	}
 
 	list(
 		PerSample = PerSample,
@@ -287,5 +306,223 @@ QC_line_plotly_function <- function(plot_data,
 
 	return(p)
 }
+
+
+#' Plot Histogram of Protein Coefficient of Variation (CV)
+#'
+#' This function creates a histogram of the coefficient of variation (CV) values
+#' for proteins, with a vertical dashed line indicating a threshold value.
+#'
+#' @param data A data.frame containing at least two columns: `cv` (numeric CV values) and `threshold` (single numeric value).
+#'
+#' @return A ggplot2 histogram plot object showing the distribution of CV values.
+#'
+#' @export
+#'
+#' @note
+#' Version 1.0.0 from
+#' QC_Plots.R
+QC_protein_cv_histogram_function <- function(data) {
+	## QC_Plots.R ##
+	protein_cv_histogram <- ggplot(data) +
+		geom_histogram(aes(x = `cv`), binwidth = 1, col = 'white', fill = 'grey') +
+		geom_vline(aes(xintercept = threshold), col = 'blue', linetype = "dashed") +
+		ggtitle(paste0('Mean inter-replica and intra-array CV = ',
+									 round(mean(data$cv, na.rm = TRUE), 3), '%')) +
+		theme(plot.title = element_text(hjust = 0.5)) +
+		scale_x_continuous(breaks = seq(0, 100, by = 10), limits = c(0, 100))
+
+	return(protein_cv_histogram)
+}
+
+#' Generate QC Plot List for a Given Data Type
+#'
+#' This function generates plots based on QC-filtered data, including histograms,
+#' barplots, or boxplots depending on the selected `type`. It returns a list
+#' containing the data subset, QC type, data name, and grouping column.
+#'
+#' @param data A nested list structure containing QC results.
+#' @param QC Character. Name of the QC method used (e.g., "CV", "flagging").
+#' @param data_name Character. Name of the specific dataset within `data[[QC]]`.
+#' @param grouping_column Symbol or character. Column name used for grouping (e.g., `Sample`, `Protein`).
+#' @param plot_title Character. Title for the plots. Default is `"title"`.
+#' @param type Character. Type of plot to generate: `"Percentage"`, `"AvgCV"`, or `"count"`. Default is `"Percentage"`.
+#' @param Data Optional. Additional data for merging, used when `type == "AvgCV"`.
+#' @param CV_threshold Optional. Threshold value for CV when `type == "AvgCV"`.
+#'
+#' @return A list with components: `data`, `QC`, `data_name`, and `grouping_column`. The `data` sublist contains `plot_list` with relevant plots.
+#'
+#' @export
+#'
+#' @note
+#' Version 1.0.0 from
+#' QC_Plots.R
+QC_data_list_function <- function(data, QC, data_name, grouping_column,
+																	plot_title = 'title', type = 'Percentage',
+																	Data = '', CV_threshold = '') {
+	## QC_Plots.R ##
+	sym = rlang::sym
+	sub_data = data[[QC]][[data_name]]
+
+	Avg = sub_data$Avg
+	flag_sample_order = sub_data$flag_sample_order
+	sub_data$plot_list = list()
+
+	if (type == 'Percentage') {
+		flag_count = sub_data$flag_count
+		sample_order = flag_count %>%
+			arrange(Percentage) %>%
+			pull(!!grouping_column)
+
+		if (grouping_column == 'Sample') {
+			flag_count$Sample = factor(flag_count$Sample, levels = unique(sample_order))
+		} else {
+			flag_count$Protein = factor(flag_count$Protein, levels = unique(sample_order))
+		}
+
+		barplot = QC_filter_outlier_plot_function(flag_count, plot_title, Avg, grouping_column)
+		sub_data$plot_list$barplot = barplot
+
+		histogram = QC_filter_outlier_histogram(flag_sample_order, plot_title, grouping_column)
+		sub_data$plot_list$histogram = histogram
+	}
+
+	if (type == 'AvgCV') {
+		plot_data = Data %>%
+			filter(data == 'feature') %>%
+			left_join(sub_data$data)
+
+		value_var = 'AvgCV'
+		boxplot = QC_AvgCV_boxplot_function(plot_data, grouping_column, value_var, Avg, CV_threshold, plot_title)
+		sub_data$plot_list$boxplot = boxplot
+
+		histogram = QC_filter_outlier_histogram(sub_data$data, plot_title, grouping_column, 'AvgCV')
+		sub_data$plot_list$histogram = histogram
+	}
+
+	if (type == 'count') {
+		plot_data = sub_data$data
+		sample_order = plot_data %>%
+			arrange(value) %>%
+			pull(Sample)
+
+		plot_data$Sample = factor(plot_data$Sample, levels = sample_order)
+
+		barplot = ggplot(plot_data) +
+			geom_col(aes(y = Sample, x = value)) +
+			geom_vline(aes(xintercept = Thr), col = 'blue', linetype = 'dashed') +
+			scale_x_continuous(position = "top") +
+			scale_fill_brewer(palette = "Set2", drop = FALSE, na.translate = FALSE) +
+			labs(fill = NULL) +
+			facet_grid(QC ~ ., space = 'free', scale = 'free') +
+			ggtitle(plot_title) +
+			labs(
+				subtitle = paste0('Average = ', round(Avg, 3)),
+				x = NULL
+			) +
+			theme(
+				axis.title = element_text(size = 14),
+				plot.title = element_text(size = 14),
+				axis.text.x = element_text(angle = 0, hjust = 0, size = 10)
+			)
+		sub_data$plot_list$barplot = barplot
+
+		histogram = ggplot(plot_data) +
+			geom_histogram(aes(x = value), fill = 'dark grey', col = 'white') +
+			geom_vline(aes(xintercept = Thr), col = 'blue', linetype = 'dashed') +
+			ggtitle(plot_title)
+		sub_data$plot_list$histogram = histogram
+	}
+
+	list(
+		data = sub_data,
+		QC = QC,
+		data_name = data_name,
+		grouping_column = grouping_column
+	)
+}
+
+
+#' Plot Outlier Filtering Barplot
+#'
+#' Creates a horizontal barplot showing the percentage (or other metric) of flagged features (e.g., proteins or samples),
+#' colored by flag type. Includes a threshold line and facets by QC type.
+#'
+#' @param flag_count A data.frame containing the grouping column, flag column, metric column (e.g., `Percentage`), and `PerThr`.
+#' @param plot_title Character. The title to display on the plot.
+#' @param Avg Numeric. The average percentage (or value) to show in the subtitle.
+#' @param grouping_column Character. Name of the column to group by (e.g., `"Sample"` or `"Protein"`).
+#' @param col_name Character. Name of the column containing the metric to plot (e.g., `"Percentage"`). Default is `"Percentage"`.
+#'
+#' @return A ggplot object representing the barplot.
+#'
+#' @export
+#'
+#' @note
+#' Version 1.0.0 from
+#' QC_Plots.R
+QC_filter_outlier_plot_function <- function(flag_count, plot_title, Avg, grouping_column, col_name = 'Percentage') {
+	## QC_Plots.R ##
+
+	filter_outlier_plot <- ggplot(flag_count) +
+		geom_col(aes(y = !!sym(grouping_column), x = !!sym(col_name), fill = flag)) +
+		scale_x_continuous(position = "top") +
+		scale_fill_brewer(palette = "Set2", drop = FALSE, na.translate = FALSE) +
+		labs(fill = NULL) +
+		geom_vline(aes(xintercept = PerThr), col = 'blue', linetype = 'dashed') +
+		facet_grid(QC ~ ., space = 'free', scale = 'free') +
+		ggtitle(plot_title) +
+		labs(
+			subtitle = paste0('Average = ', Avg, '%'),
+			x = NULL
+		) +
+		theme(
+			axis.title = element_text(size = 14),
+			plot.title = element_text(size = 14),
+			axis.text.x = element_text(angle = 0, hjust = 0, size = 10)
+		)
+
+	return(filter_outlier_plot)
+}
+
+
+#' Plot Histogram of QC Filtering Results
+#'
+#' Generates a histogram showing the distribution of a given QC metric (e.g., Percentage)
+#' across samples or proteins. A vertical line indicates the threshold used for filtering.
+#'
+#' @param flag_sample_order A data.frame containing the filtering results. Must include `PerThr` and the column specified in `col_name`.
+#' @param plot_title Character. Title for the plot.
+#' @param grouping_column Character. The name of the column representing the grouping (e.g., "Sample" or "Protein").
+#' @param col_name Character. The name of the variable to plot on the x-axis. Default is `"Percentage"`.
+#'
+#' @return A ggplot2 histogram plot object.
+#'
+#' @export
+#'
+#' @note
+#' Version 1.0.0 from
+#' QC_Plots.R
+QC_filter_outlier_histogram <- function(flag_sample_order, plot_title, grouping_column, col_name = 'Percentage') {
+	## QC_Plots.R ##
+	filter_outlier_histogram <- ggplot(flag_sample_order) +
+		geom_histogram(aes(x = !!sym(col_name)), binwidth = 1, fill = 'dark grey', col = 'white') +
+		geom_vline(aes(xintercept = PerThr), col = 'blue', linetype = 'dashed') +
+		labs(
+			y = paste0('Number of ', grouping_column, 's'),
+			x = paste0(col_name, ' per ', grouping_column)
+		) +
+		ggtitle(plot_title) +
+		theme(
+			legend.position = "none",
+			axis.title = element_text(size = 14),
+			plot.title = element_text(size = 14),
+			axis.text.x = element_text(angle = 0, hjust = 0, size = 10)
+		)
+
+	return(filter_outlier_histogram)
+}
+
+
 
 
