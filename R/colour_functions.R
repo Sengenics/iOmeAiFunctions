@@ -12,9 +12,9 @@
 #' @export
 KL_palette <- {
 	qual_col_pals <- RColorBrewer::brewer.pal.info[RColorBrewer::brewer.pal.info$category == 'qual', ]
-	KL_palette = unlist(mapply(RColorBrewer::brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+	KL_palette_o = unlist(mapply(RColorBrewer::brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 	remove_cols = c('#FFFF99','#FFFFCC','#FFFF33',"#FFFFB3","#FFF2AE") #yellow colours can be hard to see
-	KL_palette = KL_palette[!KL_palette %in% remove_cols]
+	KL_palette = KL_palette_o[!KL_palette_o %in% remove_cols]
 	KL_palette
 }
 
