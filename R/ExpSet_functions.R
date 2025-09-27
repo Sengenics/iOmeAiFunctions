@@ -203,9 +203,16 @@ ExpSet_create_feature_data <- function(data, feature_df, PSA_list = NULL, featur
       dplyr::mutate(PSA_list = ifelse(!!rlang::sym(feature_col) %in% PSA_list, 'PSA list', ''))
   }
 
+  # Remove overlapping columns EXCEPT the join column
+  cols_to_remove <- setdiff(names(feature_info), feature_col)
+
   feature_info %>%
-    dplyr::left_join(feature_df, by = feature_col) %>%
-    tibble::column_to_rownames(feature_col) %>%
+    dplyr::left_join(
+      feature_df %>% dplyr::select(-any_of(cols_to_remove)),
+      by = feature_col
+    ) %>%
+    mutate(row_names = !!rlang::sym(feature_col)) %>%
+    tibble::column_to_rownames('row_names') %>%
     Biobase::AnnotatedDataFrame()
 }
 
@@ -237,7 +244,8 @@ ExpSet_create_metadata <- function(datCollate, manifest_full) {
       TRUE ~ 'Sample'
     )) %>%
     dplyr::left_join(manifest_full %>% dplyr::select(Sample, QC), by = "Sample") %>%
-    tibble::column_to_rownames('Sample') %>%
+    mutate(row_names = Sample) %>%
+    tibble::column_to_rownames('row_names') %>%
     Biobase::AnnotatedDataFrame()
 
   return(metadata)
@@ -495,7 +503,7 @@ ExpSet_create_imputed <- function(datCollate, metadata, params, PSA_list = NULL)
 #' \dontrun{
 #' expset <- ExpSet_create_neti(datCollate, metadata, failed_samples)
 #' }
-ExpSet_create_neti <- function(datCollate, metadata, failed_samples, PSA_list = NULL, round_digits = 3) {
+ExpSet_create_neti <- function(datCollate, metadata, params, failed_samples, PSA_list = NULL, round_digits = 3) {
   Data <- datCollate$data$Data
 
   # Create feature data
@@ -520,6 +528,41 @@ ExpSet_create_neti <- function(datCollate, metadata, failed_samples, PSA_list = 
   Biobase::assayData(expset) <- Biobase::assayDataNew(
     NetI_ImputedlogMeanNetI = ImputedlogMeanNetI
   )
+
+  expset@experimentData@other$PreProcessingParams <- params
+  expset@experimentData@other$AnalysisParams <- list()
+
+  return(expset)
+}
+
+ExpSet_create_neti_o <- function(datCollate, metadata, params, failed_samples, PSA_list = NULL, round_digits = 3) {
+  Data <- datCollate$data$Data
+
+  # Create feature data
+  features <- ExpSet_create_feature_data(Data, datCollate$data$feature_df, PSA_list)
+
+  # Create imputed matrix (excluding failed samples)
+  ImputedlogMeanNetI <- Data %>%
+    dplyr::filter(!is.na(log2_mean_impute), !Sample %in% failed_samples) %>%
+    ExpSet_create_matrix(feature_col = "Protein", value_col = "log2_mean_impute")
+
+  # Round values
+  ImputedlogMeanNetI <- round(ImputedlogMeanNetI, round_digits)
+
+  # Create ExpressionSet with ImputedlogMeanNetI as initial exprs
+  expset <- Biobase::ExpressionSet(
+    assayData = ImputedlogMeanNetI,
+    phenoData = metadata[colnames(ImputedlogMeanNetI), ],
+    featureData = features[rownames(ImputedlogMeanNetI), ]
+  )
+
+  # Add all assay data
+  Biobase::assayData(expset) <- Biobase::assayDataNew(
+    NetI_ImputedlogMeanNetI_o = ImputedlogMeanNetI
+  )
+
+  expset@experimentData@other$PreProcessingParams <- params
+  expset@experimentData@other$AnalysisParams <- list()
 
   return(expset)
 }
@@ -718,7 +761,8 @@ ExpSet_create_list <- function(dat, datCollate, QC = NULL, project_info = NULL, 
     RawData_ExpSet = ExpSet_create_rawdata(datCollate, metadata, params),
     Mean_ExpSet = ExpSet_create_mean(datCollate, metadata, params, PSA_list),
     Imputed_ExpSet = ExpSet_create_imputed(datCollate, metadata, params, PSA_list),
-    NetI_ExpSet = ExpSet_create_neti(datCollate, metadata, failed_samples, PSA_list),
+    NetI_ExpSet = ExpSet_create_neti(datCollate, metadata, params, failed_samples, PSA_list),
+    NetI_ExpSet_o = ExpSet_create_neti_o(datCollate, metadata, params, failed_samples, PSA_list),
     norm_ExpSet = ExpSet_create_norm(datCollate, metadata, params, PSA_list),
     clinical_ExpSet = ExpSet_create_clinical(datCollate, metadata, other, PSA_list)
   )
