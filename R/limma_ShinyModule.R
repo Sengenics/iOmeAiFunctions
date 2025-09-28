@@ -21,21 +21,21 @@
 #' }
 limmaContrastUI <- function(id) {
 	ns <- NS(id)
-	
+
 	tagList(
 		fluidRow(
 			column(6,
-						 selectInput(ns("variable"), 
+						 selectInput(ns("variable"),
 						 						"Select Comparison Variable:",
 						 						choices = NULL)
 			),
 			column(6,
-						 checkboxInput(ns("use_contrast"), 
-						 							"Specify Custom Contrast", 
+						 checkboxInput(ns("use_contrast"),
+						 							"Specify Custom Contrast",
 						 							value = FALSE)
 			)
 		),
-		
+
 		# Custom contrast builder
 		conditionalPanel(
 			condition = paste0("input['", ns("use_contrast"), "'] == true"),
@@ -56,33 +56,33 @@ limmaContrastUI <- function(id) {
 				)
 			)
 		),
-		
+
 		# Covariate selection
 		fluidRow(
 			column(6,
-						 selectInput(ns("covariate1"), 
+						 selectInput(ns("covariate1"),
 						 						"Covariate 1 (optional):",
 						 						choices = c("None" = ""))
 			),
 			column(6,
-						 selectInput(ns("covariate2"), 
+						 selectInput(ns("covariate2"),
 						 						"Covariate 2 (optional):",
 						 						choices = c("None" = ""))
 			)
 		),
-		
+
 		# Analysis parameters
 		fluidRow(
 			column(6,
-						 numericInput(ns("p_val"), "P-value threshold:", 
+						 numericInput(ns("p_val"), "P-value threshold:",
 						 						 value = 0.05, min = 0, max = 1, step = 0.01)
 			),
 			column(6,
-						 numericInput(ns("fc_cut"), "Fold change cutoff:", 
+						 numericInput(ns("fc_cut"), "Fold change cutoff:",
 						 						 value = 1.1, min = 1, step = 0.1)
 			)
 		),
-		
+
 		fluidRow(
 			column(6,
 						 checkboxInput(ns("eb_trend"), "eBayes trend", value = TRUE)
@@ -91,7 +91,7 @@ limmaContrastUI <- function(id) {
 						 checkboxInput(ns("eb_robust"), "eBayes robust", value = TRUE)
 			)
 		),
-		
+
 		# Sample distribution summary
 		fluidRow(
 			column(12,
@@ -99,12 +99,12 @@ limmaContrastUI <- function(id) {
 						 tableOutput(ns("group_summary"))
 			)
 		),
-		
+
 		# Run button
 		fluidRow(
 			column(12,
-						 actionButton(ns("run_limma"), 
-						 						 "Run Limma Analysis", 
+						 actionButton(ns("run_limma"),
+						 						 "Run Limma Analysis",
 						 						 class = "btn-primary",
 						 						 width = "100%")
 			)
@@ -134,91 +134,109 @@ limmaContrastUI <- function(id) {
 #' @examples
 #' \dontrun{
 #' server <- function(input, output, session) {
-#'   results <- limmaContrastServer("limma1", 
-#'                                   reactive(my_eset), 
+#'   results <- limmaContrastServer("limma1",
+#'                                   reactive(my_eset),
 #'                                   reactive(selected_features))
 #' }
 #' }
 limmaContrastServer <- function(id, eSet, feature_select) {
 	moduleServer(id, function(input, output, session) {
-		
+
 		# Extract metadata from ExpressionSet
 		metadata <- reactive({
 			req(eSet())
 			pData(eSet())
 		})
-		
+
 		# Update variable choices
+		# observe({
+		# 	req(metadata())
+		# 	choices <- colnames(metadata())
+		# 	updateSelectInput(session, "variable", choices = choices)
+		#
+		# 	# Update covariate choices
+		# 	covariate_choices <- c("None" = "", choices)
+		# 	updateSelectInput(session, "covariate1", choices = covariate_choices)
+		# 	updateSelectInput(session, "covariate2", choices = covariate_choices)
+		# })
+
 		observe({
-			req(metadata())
-			choices <- colnames(metadata())
-			updateSelectInput(session, "variable", choices = choices)
-			
-			# Update covariate choices
-			covariate_choices <- c("None" = "", choices)
-			updateSelectInput(session, "covariate1", choices = covariate_choices)
-			updateSelectInput(session, "covariate2", choices = covariate_choices)
+		  req(metadata())
+		  choices <- colnames(metadata())
+
+		  # Set "Labels" as default if it exists, otherwise use first choice
+		  default_variable <- if("Labels" %in% choices) "Labels" else choices[1]
+		  updateSelectInput(session, "variable", choices = choices, selected = default_variable)
+
+		  # Update covariate choices
+		  covariate_choices <- c("None" = "", choices)
+
+		  # Set "PSA_class" as default for covariate1 if it exists
+		  default_covariate1 <- if("PSA_class" %in% choices) "PSA_class" else ""
+		  updateSelectInput(session, "covariate1", choices = covariate_choices, selected = default_covariate1)
+
+		  updateSelectInput(session, "covariate2", choices = covariate_choices)
 		})
-		
+
 		# Get levels of selected variable
 		variable_levels <- reactive({
 			req(input$variable, metadata())
 			var_data <- metadata()[[input$variable]]
-			
+
 			# Make syntactically valid names
 			if(!is.numeric(var_data) & !is.integer(var_data)){
 				var_data[!is.na(var_data)] <- make.names(var_data[!is.na(var_data)])
 			}
-			
+
 			if(is.factor(var_data) | is.character(var_data)){
 				unique(as.character(var_data[!is.na(var_data)]))
 			} else {
 				NULL
 			}
 		})
-		
+
 		# Dynamic contrast builder UI
 		output$contrast_builder <- renderUI({
 			req(input$use_contrast)
 			req(variable_levels())
-			
+
 			ns <- session$ns
 			levels <- variable_levels()
-			
+
 			lapply(levels, function(level) {
 				fluidRow(
 					column(6,
 								 tags$label(level)
 					),
 					column(6,
-								 numericInput(ns(paste0("coef_", level)), 
-								 						 NULL, 
-								 						 value = 0, 
+								 numericInput(ns(paste0("coef_", level)),
+								 						 NULL,
+								 						 value = 0,
 								 						 step = 0.5)
 					)
 				)
 			})
 		})
-		
+
 		# Build contrast matrix
 		contrast_matrix <- reactive({
 			req(input$use_contrast)
 			req(variable_levels())
-			
+
 			levels <- variable_levels()
 			coefficients <- sapply(levels, function(level) {
 				coef <- input[[paste0("coef_", level)]]
 				if(is.null(coef)) return(0)
 				coef
 			})
-			
+
 			# Only create contrast if at least one coefficient is non-zero
 			if(any(coefficients != 0)){
 				# Build contrast string
 				contrast_terms <- paste0(coefficients, "*", levels)
 				contrast_terms <- contrast_terms[coefficients != 0]
 				contrast_string <- paste(contrast_terms, collapse = " ")
-				
+
 				# Create contrast matrix
 				tryCatch({
 					makeContrasts(contrasts = contrast_string, levels = levels)
@@ -229,19 +247,19 @@ limmaContrastServer <- function(id, eSet, feature_select) {
 				NULL
 			}
 		})
-		
+
 		# Display contrast formula
 		output$contrast_formula <- renderText({
 			req(input$use_contrast)
 			req(variable_levels())
-			
+
 			levels <- variable_levels()
 			coefficients <- sapply(levels, function(level) {
 				coef <- input[[paste0("coef_", level)]]
 				if(is.null(coef)) return(0)
 				coef
 			})
-			
+
 			if(any(coefficients != 0)){
 				terms <- mapply(function(coef, level) {
 					if(coef == 0) return(NULL)
@@ -249,32 +267,32 @@ limmaContrastServer <- function(id, eSet, feature_select) {
 					if(coef == -1) return(paste0("-", level))
 					paste0(coef, "*", level)
 				}, coefficients, levels)
-				
+
 				terms <- terms[!sapply(terms, is.null)]
 				paste("Contrast:", paste(terms, collapse = " "))
 			} else {
 				"Specify coefficients to build contrast"
 			}
 		})
-		
+
 		# Group summary table
 		output$group_summary <- renderTable({
 			req(input$variable, metadata())
-			
+
 			var_data <- metadata()[[input$variable]]
 			summary_df <- as.data.frame(table(var_data))
 			colnames(summary_df) <- c(input$variable, "N")
-			
+
 			summary_df
 		}, rownames = FALSE)
-		
+
 		# Run limma analysis when button clicked
 		limma_results <- eventReactive(input$run_limma, {
 			req(eSet(), feature_select())
-			
+
 			withProgress(message = 'Running limma analysis...', {
 				tryCatch({
-					limma_analysis(
+					results = limma_analysis(
 						eSet = eSet(),
 						variable = input$variable,
 						feature_select = feature_select(),
@@ -286,13 +304,34 @@ limmaContrastServer <- function(id, eSet, feature_select) {
 						FC_cut = input$fc_cut,
 						p_val = input$p_val
 					)
+
+				  # Calculate up and downregulated features
+				  if(!is.null(results) && length(results$sig_features) > 0) {
+				    sig_table <- results$topTable[results$sig_features, ]
+				    n_upregulated <- sum(sig_table$logFC > 0)
+				    n_downregulated <- sum(sig_table$logFC < 0)
+				    total_sig <- length(results$sig_features)
+
+				    # Show success notification with counts
+				    showNotification(
+				      paste0("Limma analysis completed successfully! ",
+				             "Found ", total_sig, " significant features: ",
+				             n_upregulated, " upregulated, ",
+				             n_downregulated, " downregulated"),
+				      type = "message",
+				      duration = 10
+				    )
+				  }
+
+					return(results)
+
 				}, error = function(e) {
 					showNotification(paste("Error:", e$message), type = "error")
 					NULL
 				})
 			})
 		})
-		
+
 		return(limma_results)
 	})
 }
@@ -317,11 +356,11 @@ limmaVolcanoUI <- function(id) {
 	tagList(
 		fluidRow(
 			column(3,
-						 numericInput(ns("max_labels"), "Max labels:", 
+						 numericInput(ns("max_labels"), "Max labels:",
 						 						 value = 20, min = 0, max = 100)
 			),
 			column(3,
-						 numericInput(ns("point_size"), "Point size:", 
+						 numericInput(ns("point_size"), "Point size:",
 						 						 value = 2, min = 0.5, max = 5, step = 0.5)
 			),
 			column(3,
@@ -356,57 +395,57 @@ limmaVolcanoUI <- function(id) {
 #' @export
 limmaVolcanoServer <- function(id, limma_results) {
 	moduleServer(id, function(input, output, session) {
-		
+
 		volcano_plot <- reactive({
 			req(limma_results())
-			
+
 			results <- limma_results()
 			TT <- results$topTable
 			p_val <- results$p_threshold
 			FC_cut <- results$fc_threshold
 			max_labels <- input$max_labels
-			
+
 			# Prepare data
 			sigs_ordered <- TT[order(TT$P.Value),]
-			sigs_ordered$genelabels <- sigs_ordered$P.Value < p_val & 
+			sigs_ordered$genelabels <- sigs_ordered$P.Value < p_val &
 				abs(sigs_ordered$logFC) > log2(FC_cut)
 			sigs_ordered$threshold <- sigs_ordered$genelabels
 			sigs_ordered$symbol <- rownames(sigs_ordered)
-			
+
 			# Limit number of labels
 			if(sum(sigs_ordered$genelabels) > max_labels){
 				label_idx <- which(sigs_ordered$genelabels)[1:max_labels]
 				sigs_ordered$genelabels <- FALSE
 				sigs_ordered$genelabels[label_idx] <- TRUE
 			}
-			
+
 			# Create plot
 			p <- ggplot(sigs_ordered) +
 				geom_point(aes(x = logFC, y = -log10(P.Value), colour = threshold),
 									 size = input$point_size) +
 				scale_color_brewer(palette = input$color_palette) +
 				geom_text_repel(aes(x = logFC, y = -log10(P.Value),
-														label = ifelse(genelabels, symbol, "")), 
+														label = ifelse(genelabels, symbol, "")),
 												max.overlaps = 50) +
-				geom_vline(xintercept = c(-log2(FC_cut), log2(FC_cut)), 
+				geom_vline(xintercept = c(-log2(FC_cut), log2(FC_cut)),
 									 linetype = "dashed", alpha = 0.5) +
-				geom_hline(yintercept = -log10(p_val), 
+				geom_hline(yintercept = -log10(p_val),
 									 linetype = "dashed", alpha = 0.5) +
 				ggtitle("Differential Expression Volcano Plot") +
-				xlab("log2 fold change") + 
+				xlab("log2 fold change") +
 				ylab("-log10 p-value") +
 				theme_bw() +
 				theme(legend.position = "none",
 							plot.title = element_text(size = rel(1.5), hjust = 0.5),
 							axis.title = element_text(size = rel(1.25)))
-			
+
 			return(p)
 		})
-		
+
 		output$volcano_plot <- renderPlot({
 			volcano_plot()
 		})
-		
+
 		output$download_plot <- downloadHandler(
 			filename = function() {
 				paste0("volcano_plot_", Sys.Date(), ".pdf")
@@ -482,36 +521,36 @@ limmaHeatmapUI <- function(id) {
 #' @export
 limmaHeatmapServer <- function(id, limma_results) {
 	moduleServer(id, function(input, output, session) {
-		
+
 		# UI for additional annotations
 		output$add_anno_ui <- renderUI({
 			req(limma_results())
-			
+
 			ns <- session$ns
 			metadata <- limma_results()$metadata
 			variable <- limma_results()$variable
-			
+
 			# Get other columns for annotation
 			other_cols <- setdiff(colnames(metadata), variable)
-			
+
 			if(length(other_cols) > 0){
-				selectInput(ns("add_anno"), 
+				selectInput(ns("add_anno"),
 										"Additional annotations:",
 										choices = c("None" = "", other_cols),
 										multiple = TRUE)
 			}
 		})
-		
+
 		# Prepare plot data
 		plot_data_prep <- reactive({
 			req(limma_results())
-			
+
 			add_anno <- if(is.null(input$add_anno) || input$add_anno == "") {
 				NULL
 			} else {
 				input$add_anno
 			}
-			
+
 			tryCatch({
 				prepare_limma_plot_data(
 					limma_results = limma_results(),
@@ -523,14 +562,14 @@ limmaHeatmapServer <- function(id, limma_results) {
 				NULL
 			})
 		})
-		
+
 		heatmap_plot <- reactive({
 			req(plot_data_prep())
-			
+
 			plot_prep <- plot_data_prep()
-			
+
 			# Create heatmap
-			pheatmap(plot_prep$plot_data,
+			p = pheatmap(plot_prep$plot_data,
 							 annotation_col = plot_prep$plot_metadata,
 							 annotation_colors = plot_prep$annotation_colors,
 							 cluster_cols = input$cluster_cols,
@@ -539,13 +578,14 @@ limmaHeatmapServer <- function(id, limma_results) {
 							 show_colnames = FALSE,
 							 gaps_col = if(!input$cluster_cols) plot_prep$gap_col else NULL,
 							 main = "Significant Features Heatmap")
+			return(p)
 		})
-		
+
 		output$heatmap_plot <- renderPlot({
 			req(heatmap_plot())
-			heatmap_plot()
+			print(heatmap_plot())
 		})
-		
+
 		output$download_plot <- downloadHandler(
 			filename = function() {
 				paste0("heatmap_", Sys.Date(), ".pdf")
@@ -575,42 +615,59 @@ limmaHeatmapServer <- function(id, limma_results) {
 #' @import shiny
 #' @export
 limmaViolinUI <- function(id) {
-	ns <- NS(id)
-	tagList(
-		fluidRow(
-			column(4,
-						 numericInput(ns("n_features"), "Number of features to plot:", 
-						 						 value = 9, min = 1, max = 50)
-			),
-			column(4,
-						 selectInput(ns("sort_by"), "Sort features by:",
-						 						choices = c("P-value" = "P.Value", 
-						 												"Log FC" = "logFC",
-						 												"Abs Log FC" = "abs_logFC"))
-			),
-			column(4,
-						 downloadButton(ns("download_plot"), "Download", class = "btn-sm")
-			)
-		),
-		fluidRow(
-			column(3,
-						 numericInput(ns("n_col"), "Columns:", 
-						 						 value = 3, min = 1, max = 6)
-			),
-			column(3,
-						 numericInput(ns("n_row"), "Rows:", 
-						 						 value = 3, min = 1, max = 6)
-			),
-			column(3,
-						 numericInput(ns("plot_height"), "Plot height (px):", 
-						 						 value = 800, min = 400, max = 1200, step = 100)
-			),
-			column(3,
-						 checkboxInput(ns("free_scales"), "Free scales", value = TRUE)
-			)
-		),
-		uiOutput(ns("violin_plot_ui"))
-	)
+  ns <- NS(id)
+  tagList(
+    fluidRow(
+      column(4,
+             radioButtons(ns("protein_selection"), "Protein Selection:",
+                          choices = c("All significant" = "all",
+                                      "Manual selection" = "manual"),
+                          selected = "all")
+      ),
+      column(8,
+             conditionalPanel(
+               condition = paste0("input['", ns("protein_selection"), "'] == 'manual'"),
+               # selectInput(ns("selected_proteins"), "Select Proteins:",
+               #             choices = NULL, multiple = TRUE,
+               #             options = list(placeholder = "Choose proteins..."))
+               selectizeInput(ns("selected_proteins"), "Select Proteins:",
+                              choices = NULL, multiple = TRUE,
+                              options = list(placeholder = "Choose proteins..."))
+             )
+      )
+    ),
+
+    fluidRow(
+      column(3,
+             numericInput(ns("plots_per_page"), "Plots per page:",
+                          value = 9, min = 1, max = 50)
+      ),
+      column(3,
+             numericInput(ns("n_col"), "Columns:",
+                          value = 3, min = 1, max = 6)
+      ),
+      column(3,
+             checkboxInput(ns("free_scales"), "Free scales", value = TRUE)
+      ),
+      column(3,
+             downloadButton(ns("download_plot"), "Download", class = "btn-sm")
+      )
+    ),
+
+    # Pagination controls
+    conditionalPanel(
+      condition = paste0("input['", ns("protein_selection"), "'] == 'all'"),
+      fluidRow(
+        column(12, style = "text-align: center;",
+               actionButton(ns("prev_page"), "◀ Previous", class = "btn-sm"),
+               span(" Page ", textOutput(ns("page_info"), inline = TRUE), " "),
+               actionButton(ns("next_page"), "Next ▶", class = "btn-sm")
+        )
+      )
+    ),
+
+    uiOutput(ns("violin_plot_ui"))
+  )
 }
 
 
@@ -633,86 +690,230 @@ limmaViolinUI <- function(id) {
 #' @import reshape2
 #' @export
 limmaViolinServer <- function(id, limma_results) {
-	moduleServer(id, function(input, output, session) {
-		
-		# Dynamic UI for plot height
-		output$violin_plot_ui <- renderUI({
-			ns <- session$ns
-			plotOutput(ns("violin_plot"), height = paste0(input$plot_height, "px"))
-		})
-		
-		violin_plot <- reactive({
-			req(limma_results())
-			
-			results <- limma_results()
-			TT <- results$topTable
-			sig_features <- results$sig_features
-			
-			if(length(sig_features) < 1){
-				return(NULL)
-			}
-			
-			# Sort and select features
-			if(input$sort_by == "abs_logFC"){
-				TT$abs_logFC <- abs(TT$logFC)
-				TT <- TT[order(-TT$abs_logFC),]
-			} else {
-				TT <- TT[order(TT[[input$sort_by]]),]
-			}
-			
-			sig_features_subset <- intersect(rownames(TT), sig_features)[1:min(input$n_features, length(sig_features))]
-			sig_features_subset <- sig_features_subset[!is.na(sig_features_subset)]
-			
-			# Prepare data
-			df <- melt(as.matrix(results$expression[sig_features_subset, 
-																							rownames(results$metadata), drop = FALSE]))
-			colnames(df)[1:2] <- c("feature", "Sample")
-			
-			meta_df <- results$metadata
-			meta_df$Sample <- rownames(meta_df)
-			
-			merge_df <- merge(meta_df, df, by = "Sample")
-			
-			# Define colors
-			violin_cols <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2", 
-											 "coral2", "palevioletred2")
-			color_select <- violin_cols[1:nlevels(as.factor(results$metadata[, results$variable]))]
-			
-			# Create plot
-			p <- ggplot(merge_df, aes(x = .data[[results$variable]], 
-																y = value, 
-																color = .data[[results$variable]])) +
-				geom_violin(alpha = 0.5) +
-				scale_colour_manual(values = color_select) +
-				scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
-				theme_minimal() +
-				geom_point(position = position_jitter(seed = 1, width = 0.2)) +
-				theme(legend.position = "none") +
-				facet_wrap(~ feature, 
-									 ncol = input$n_col, 
-									 nrow = input$n_row,
-									 scales = if(input$free_scales) "free" else "fixed")
-			
-			return(p)
-		})
-		
-		output$violin_plot <- renderPlot({
-			req(violin_plot())
-			violin_plot()
-		})
-		
-		output$download_plot <- downloadHandler(
-			filename = function() {
-				paste0("violin_plot_", Sys.Date(), ".pdf")
-			},
-			content = function(file) {
-				req(violin_plot())
-				ggsave(file, violin_plot(), 
-							 width = 12, 
-							 height = input$plot_height / 100)
-			}
-		)
-	})
+  moduleServer(id, function(input, output, session) {
+
+    # Current page reactive
+    current_page <- reactiveVal(1)
+
+    # Update protein choices when results change
+    observe({
+      req(limma_results())
+      protein_choices <- limma_results()$sig_features
+      updateSelectInput(session, "selected_proteins",
+                        choices = protein_choices)
+    })
+
+    # Get proteins to display based on selection mode
+    proteins_to_display <- reactive({
+      req(limma_results())
+
+      if(input$protein_selection == "manual") {
+        req(input$selected_proteins)
+        return(input$selected_proteins)
+      } else {
+        # All significant proteins with pagination
+        all_proteins <- limma_results()$sig_features
+        start_idx <- (current_page() - 1) * input$plots_per_page + 1
+        end_idx <- min(start_idx + input$plots_per_page - 1, length(all_proteins))
+
+        if(start_idx <= length(all_proteins)) {
+          return(all_proteins[start_idx:end_idx])
+        } else {
+          return(character(0))
+        }
+      }
+    })
+
+    # Calculate total pages
+    total_pages <- reactive({
+      req(limma_results())
+      if(input$protein_selection == "all") {
+        ceiling(length(limma_results()$sig_features) / input$plots_per_page)
+      } else {
+        1
+      }
+    })
+
+    # Page navigation
+    observeEvent(input$prev_page, {
+      if(current_page() > 1) {
+        current_page(current_page() - 1)
+      }
+    })
+
+    observeEvent(input$next_page, {
+      if(current_page() < total_pages()) {
+        current_page(current_page() + 1)
+      }
+    })
+
+    # Reset to page 1 when plots per page changes
+    observeEvent(input$plots_per_page, {
+      current_page(1)
+    })
+
+    # Page info display
+    output$page_info <- renderText({
+      paste(current_page(), "of", total_pages())
+    })
+
+    # Dynamic plot height based on number of proteins
+    plot_height <- reactive({
+      n_proteins <- length(proteins_to_display())
+      if(n_proteins == 0) return(400)
+
+      n_rows <- ceiling(n_proteins / input$n_col)
+      base_height <- 200
+      height_per_row <- 150
+      max(400, base_height + (n_rows * height_per_row))
+    })
+
+    # Dynamic UI for plot height
+    output$violin_plot_ui <- renderUI({
+      ns <- session$ns
+      plotOutput(ns("violin_plot"), height = paste0(plot_height(), "px"))
+    })
+
+    violin_plot <- reactive({
+      req(limma_results())
+      req(length(proteins_to_display()) > 0)
+
+      results <- limma_results()
+      selected_features <- proteins_to_display()
+
+      # Prepare data
+      meta_df <- results$metadata
+      meta_df$Sample <- rownames(meta_df)
+
+      merge_df <- meta_df %>%
+        left_join(
+          results$expression %>%
+            as.data.frame() %>%
+            rownames_to_column('feature') %>%
+            gather(key = Sample, value = value, -1)) %>%
+        left_join(
+          results$cv %>%
+            as.data.frame() %>%
+            rownames_to_column('feature') %>%
+            gather(key = Sample, value = cv, -1)) %>%
+        left_join(
+          results$flag %>%
+            as.data.frame() %>%
+            rownames_to_column('feature') %>%
+            gather(key = Sample, value = flag, -1)) %>%
+        filter(feature %in% selected_features)
+
+      # Define colors
+      violin_cols <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2",
+                       "coral2", "palevioletred2")
+      color_select <- violin_cols[1:nlevels(as.factor(results$metadata[, results$variable]))]
+
+      # Create plot
+      p <- ggplot(merge_df, aes(x = .data[[results$variable]], y = value)) +
+        geom_violin(aes(fill = .data[[results$variable]]), alpha = 0.25) +
+        scale_fill_manual(values = color_select) +
+        scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+        theme_minimal() +
+        geom_point(aes(col = flag), position = position_jitter(seed = 1, width = 0.2), size = 2) +
+        theme(legend.position = "top") +
+        facet_wrap(~ feature,
+                   ncol = input$n_col,
+                   scales = if(input$free_scales) "free" else "fixed")
+
+      return(p)
+    })
+
+    output$violin_plot <- renderPlot({
+      req(violin_plot())
+      violin_plot()
+    })
+
+    # output$download_plot <- downloadHandler(
+    #   filename = function() {
+    #     paste0("violin_plot_", Sys.Date(), ".pdf")
+    #   },
+    #   content = function(file) {
+    #     req(violin_plot())
+    #     ggsave(file, violin_plot(),
+    #            width = 12,
+    #            height = plot_height() / 100)
+    #   }
+    # )
+
+    output$download_plot <- downloadHandler(
+      filename = function() {
+        paste0("violin_plot_", Sys.Date(), ".pdf")
+      },
+      content = function(file) {
+        req(limma_results())
+
+        if(input$protein_selection == "manual") {
+          # For manual selection, just download current selection
+          req(violin_plot())
+          ggsave(file, violin_plot(),
+                 width = 12,
+                 height = plot_height() / 100)
+        } else {
+          # For "all" mode, create plots for all proteins across all pages
+          results <- limma_results()
+          all_features <- results$sig_features
+
+          if(length(all_features) == 0) return()
+
+          # Prepare data for all features
+          meta_df <- results$metadata
+          meta_df$Sample <- rownames(meta_df)
+
+          merge_df <- meta_df %>%
+            left_join(
+              results$expression %>%
+                as.data.frame() %>%
+                rownames_to_column('feature') %>%
+                gather(key = Sample, value = value, -1)) %>%
+            left_join(
+              results$cv %>%
+                as.data.frame() %>%
+                rownames_to_column('feature') %>%
+                gather(key = Sample, value = cv, -1)) %>%
+            left_join(
+              results$flag %>%
+                as.data.frame() %>%
+                rownames_to_column('feature') %>%
+                gather(key = Sample, value = flag, -1)) %>%
+            filter(feature %in% all_features)
+
+          # Define colors
+          violin_cols <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2",
+                           "coral2", "palevioletred2")
+          color_select <- violin_cols[1:nlevels(as.factor(results$metadata[, results$variable]))]
+
+          # Create plot with ALL features
+          p_all <- ggplot(merge_df, aes(x = .data[[results$variable]], y = value)) +
+            geom_violin(aes(fill = .data[[results$variable]]), alpha = 0.25) +
+            scale_fill_manual(values = color_select) +
+            scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+            theme_minimal() +
+            geom_point(aes(col = flag), position = position_jitter(seed = 1, width = 0.2), size = 2) +
+            theme(legend.position = "top") +
+            facet_wrap(~ feature,
+                       ncol = input$n_col,
+                       scales = if(input$free_scales) "free" else "fixed")
+
+          # Calculate height for all proteins
+          n_proteins <- length(all_features)
+          n_rows <- ceiling(n_proteins / input$n_col)
+          base_height <- 200
+          height_per_row <- 150
+          total_height <- max(400, base_height + (n_rows * height_per_row))
+
+          ggsave(file, p_all,
+                 width = 12,
+                 height = total_height / 100,
+                 limitsize = FALSE)
+        }
+      }
+    )
+  })
 }
 
 
@@ -748,7 +949,7 @@ limmaResultsUI <- function(id) {
 		fluidRow(
 			column(12,
 						 h4("Top Results"),
-						 numericInput(ns("n_top"), "Show top N features:", 
+						 numericInput(ns("n_top"), "Show top N features:",
 						 						 value = 50, min = 10, max = 500, step = 10),
 						 DT::dataTableOutput(ns("top_results_table"))
 			)
@@ -780,53 +981,53 @@ limmaResultsUI <- function(id) {
 #' @export
 limmaResultsServer <- function(id, limma_results) {
 	moduleServer(id, function(input, output, session) {
-		
+
 		# Summary text
 		output$summary_text <- renderPrint({
 			req(limma_results())
-			
+
 			results <- limma_results()
-			
+
 			cat("Limma Analysis Results\n")
 			cat("======================\n\n")
 			cat("Variable:", results$variable, "\n")
 			cat("Total features analyzed:", nrow(results$topTable), "\n")
-			cat("Significant features (p <", results$p_threshold, 
-					"& |FC| >", results$fc_threshold, "):", 
+			cat("Significant features (p <", results$p_threshold,
+					"& |FC| >", results$fc_threshold, "):",
 					length(results$sig_features), "\n\n")
-			
+
 			cat("Group Information:\n")
 			for(i in seq_along(results$contrast_info$groups)){
-				cat("  ", results$contrast_info$groups[i], ": ", 
+				cat("  ", results$contrast_info$groups[i], ": ",
 						results$contrast_info$n_per_group[i], "samples\n")
 			}
-			
+
 			if(!is.null(results$contrast_info$contrast_matrix)){
 				cat("\nContrast Matrix:\n")
 				print(results$contrast_info$contrast_matrix)
 			}
 		})
-		
+
 		# Design matrix
 		output$design_matrix <- renderPrint({
 			req(limma_results())
 			print(limma_results()$design)
 		})
-		
+
 		# Top results table
 		output$top_results_table <- DT::renderDataTable({
 			req(limma_results())
-			
+
 			TT <- limma_results()$topTable
 			TT_display <- head(TT, input$n_top)
-			
+
 			# Format for display
 			TT_display$logFC <- round(TT_display$logFC, 3)
 			TT_display$AveExpr <- round(TT_display$AveExpr, 3)
 			TT_display$t <- round(TT_display$t, 3)
 			TT_display$P.Value <- formatC(TT_display$P.Value, format = "e", digits = 2)
 			TT_display$adj.P.Val <- formatC(TT_display$adj.P.Val, format = "e", digits = 2)
-			
+
 			DT::datatable(
 				TT_display,
 				options = list(
@@ -836,7 +1037,7 @@ limmaResultsServer <- function(id, limma_results) {
 				rownames = TRUE
 			)
 		})
-		
+
 		# Download handler
 		output$download_results <- downloadHandler(
 			filename = function() {

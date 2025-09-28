@@ -383,6 +383,8 @@ ExpSet_create_rawdata <- function(datCollate, metadata, params) {
 #' \dontrun{
 #' expset <- ExpSet_create_mean(datCollate, metadata, params)
 #' }
+#'
+#'
 ExpSet_create_mean <- function(datCollate, metadata, params, PSA_list = NULL) {
   Data <- datCollate$data$Data
 
@@ -392,13 +394,14 @@ ExpSet_create_mean <- function(datCollate, metadata, params, PSA_list = NULL) {
   # Create matrices
   MeanNetI <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "mean")
   log2MeanNetI <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "log2_mean")
-  CV <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv")
+  CV <- round(ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv"),3)
 
-  # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
-  num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
-  Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
-  CV_flagged <- CV
-  CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
+  # source <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "source")
+  # #Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
+  # num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
+  # Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
+  # flag <- source
+  # flag[is.na(num_test)] <- Flagged[is.na(num_test)]
 
   # Create ExpressionSet with MeanNetI as initial exprs
   expset <- Biobase::ExpressionSet(
@@ -411,14 +414,24 @@ ExpSet_create_mean <- function(datCollate, metadata, params, PSA_list = NULL) {
   Biobase::assayData(expset) <- Biobase::assayDataNew(
     mean_MeanNetI = MeanNetI,
     mean_log2MeanNetI = log2MeanNetI,
-    mean_cv = CV,
-    mean_cv_flagged = CV_flagged
+    cv = CV,
+    flag = flag_function(Data)
   )
 
   expset@experimentData@other$params <- params
   return(expset)
 }
 
+
+flag_function = function(Data){
+  source <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "source")
+  #Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
+  num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
+  Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
+  flag <- source
+  flag[is.na(num_test)] <- Flagged[is.na(num_test)]
+  flag
+}
 
 #' Create Imputed ExpressionSet
 #'
@@ -454,11 +467,11 @@ ExpSet_create_imputed <- function(datCollate, metadata, params, PSA_list = NULL)
 
   CV <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv")
 
-  # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
-  num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
-  Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
-  CV_flagged <- CV
-  CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
+  # # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
+  # num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
+  # Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
+  # CV_flagged <- CV
+  # CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
 
   # Create ExpressionSet with ImputedlogMeanNetI_all as initial exprs
   expset <- Biobase::ExpressionSet(
@@ -470,8 +483,8 @@ ExpSet_create_imputed <- function(datCollate, metadata, params, PSA_list = NULL)
   # Add all assay data
   Biobase::assayData(expset) <- Biobase::assayDataNew(
     imputed_ImputedlogMeanNetI = ImputedlogMeanNetI_all,
-    imputed_cv = CV[rownames(ImputedlogMeanNetI_all), colnames(ImputedlogMeanNetI_all)],
-    imputed_cv_flagged = CV_flagged[rownames(ImputedlogMeanNetI_all), colnames(ImputedlogMeanNetI_all)]
+    cv = CV[rownames(ImputedlogMeanNetI_all), colnames(ImputedlogMeanNetI_all)],
+    flag = flag_function(Data)[rownames(ImputedlogMeanNetI_all), colnames(ImputedlogMeanNetI_all)]
   )
 
   expset@experimentData@other$PreProcessingParams <- params
@@ -503,38 +516,40 @@ ExpSet_create_imputed <- function(datCollate, metadata, params, PSA_list = NULL)
 #' \dontrun{
 #' expset <- ExpSet_create_neti(datCollate, metadata, failed_samples)
 #' }
-ExpSet_create_neti <- function(datCollate, metadata, params, failed_samples, PSA_list = NULL, round_digits = 3) {
-  Data <- datCollate$data$Data
-
-  # Create feature data
-  features <- ExpSet_create_feature_data(Data, datCollate$data$feature_df, PSA_list)
-
-  # Create imputed matrix (excluding failed samples)
-  ImputedlogMeanNetI <- Data %>%
-    dplyr::filter(!is.na(log2_mean_impute), !Sample %in% failed_samples) %>%
-    ExpSet_create_matrix(feature_col = "Protein", value_col = "log2_mean_impute")
-
-  # Round values
-  ImputedlogMeanNetI <- round(ImputedlogMeanNetI, round_digits)
-
-  # Create ExpressionSet with ImputedlogMeanNetI as initial exprs
-  expset <- Biobase::ExpressionSet(
-    assayData = ImputedlogMeanNetI,
-    phenoData = metadata[colnames(ImputedlogMeanNetI), ],
-    featureData = features[rownames(ImputedlogMeanNetI), ]
-  )
-
-  # Add all assay data
-  Biobase::assayData(expset) <- Biobase::assayDataNew(
-    NetI_ImputedlogMeanNetI = ImputedlogMeanNetI
-  )
-
-  expset@experimentData@other$PreProcessingParams <- params
-  expset@experimentData@other$AnalysisParams <- list()
-
-  return(expset)
-}
-
+#'
+#'
+# ExpSet_create_neti <- function(datCollate, metadata, params, failed_samples, PSA_list = NULL, round_digits = 3) {
+#   Data <- datCollate$data$Data
+#
+#   # Create feature data
+#   features <- ExpSet_create_feature_data(Data, datCollate$data$feature_df, PSA_list)
+#
+#   # Create imputed matrix (excluding failed samples)
+#   ImputedlogMeanNetI <- Data %>%
+#     dplyr::filter(!is.na(log2_mean_impute), !Sample %in% failed_samples) %>%
+#     ExpSet_create_matrix(feature_col = "Protein", value_col = "log2_mean_impute")
+#
+#   # Round values
+#   ImputedlogMeanNetI <- round(ImputedlogMeanNetI, round_digits)
+#
+#   # Create ExpressionSet with ImputedlogMeanNetI as initial exprs
+#   expset <- Biobase::ExpressionSet(
+#     assayData = ImputedlogMeanNetI,
+#     phenoData = metadata[colnames(ImputedlogMeanNetI), ],
+#     featureData = features[rownames(ImputedlogMeanNetI), ]
+#   )
+#
+#   # Add all assay data
+#   Biobase::assayData(expset) <- Biobase::assayDataNew(
+#     NetI_ImputedlogMeanNetI = ImputedlogMeanNetI
+#   )
+#
+#   expset@experimentData@other$PreProcessingParams <- params
+#   expset@experimentData@other$AnalysisParams <- list()
+#
+#   return(expset)
+# }
+#
 ExpSet_create_neti_o <- function(datCollate, metadata, params, failed_samples, PSA_list = NULL, round_digits = 3) {
   Data <- datCollate$data$Data
 
@@ -566,6 +581,49 @@ ExpSet_create_neti_o <- function(datCollate, metadata, params, failed_samples, P
 
   return(expset)
 }
+
+ExpSet_create_neti <- function(datCollate, metadata, params, failed_samples, PSA_list = NULL, round_digits = 3) {
+  Data <- datCollate$data$Data
+
+  # Create feature data
+  features <- ExpSet_create_feature_data(Data, datCollate$data$feature_df, PSA_list)
+
+  # Create matrices
+  ImputedlogMeanNetI <- Data %>%
+    dplyr::filter(!is.na(log2_mean_impute), !Sample %in% failed_samples) %>%
+    ExpSet_create_matrix(feature_col = "Protein", value_col = "log2_mean_impute")
+  ImputedlogMeanNetI <- round(ImputedlogMeanNetI, round_digits)
+
+  CV <- round(ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv"),3)
+
+  # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
+  # num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
+  # Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
+  # CV_flagged <- CV
+  # CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
+
+  # Create ExpressionSet with ImputedlogMeanNetI_all as initial exprs
+  expset <- Biobase::ExpressionSet(
+    assayData = ImputedlogMeanNetI,
+    phenoData = metadata[colnames(ImputedlogMeanNetI), ],
+    featureData = features[rownames(ImputedlogMeanNetI), ]
+  )
+
+  # Add all assay data
+  Biobase::assayData(expset) <- Biobase::assayDataNew(
+    exprs = ImputedlogMeanNetI,
+    NetI_ImputedlogMeanNetI = ImputedlogMeanNetI,
+    cv = CV[rownames(ImputedlogMeanNetI), colnames(ImputedlogMeanNetI)],
+    flag = flag_function(Data)[rownames(ImputedlogMeanNetI), colnames(ImputedlogMeanNetI)]
+  )
+
+  expset@experimentData@other$PreProcessingParams <- params
+  expset@experimentData@other$AnalysisParams <- list()
+
+  return(expset)
+}
+
+
 
 
 #' Create Normalized ExpressionSet
@@ -610,13 +668,13 @@ ExpSet_create_norm <- function(datCollate, metadata, params, PSA_list = NULL) {
   MeanNetI_Normalized_RC <- t(scale(t(MeanNetI_Normalized), scale = FALSE, center = TRUE))
 
   # Create CV and CV_flagged matrices
-  CV <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv")
+  CV <- round(ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv"),3)
 
-  # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
-  num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
-  Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
-  CV_flagged <- CV
-  CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
+  # # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
+  # num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
+  # Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
+  # CV_flagged <- CV
+  # CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
 
   # Create ExpressionSet with MeanNetI_Normalized as initial exprs
   expset <- Biobase::ExpressionSet(
@@ -630,8 +688,8 @@ ExpSet_create_norm <- function(datCollate, metadata, params, PSA_list = NULL) {
     norm_ImputedlogMeanNetI = ImputedlogMeanNetI[rownames(MeanNetI_Normalized), colnames(MeanNetI_Normalized)],
     norm_MeanNetI_Normalized = MeanNetI_Normalized,
     norm_MeanNetI_Normalized_RC = MeanNetI_Normalized_RC,
-    norm_cv = CV[rownames(MeanNetI_Normalized), colnames(MeanNetI_Normalized)],
-    norm_cv_flagged = CV_flagged[rownames(MeanNetI_Normalized), colnames(MeanNetI_Normalized)]
+    cv = CV[rownames(MeanNetI_Normalized), colnames(MeanNetI_Normalized)],
+    flag = flag_function(Data)[rownames(MeanNetI_Normalized), colnames(MeanNetI_Normalized)]
   )
 
   return(expset)
@@ -680,13 +738,13 @@ ExpSet_create_clinical <- function(datCollate, metadata, other, PSA_list = NULL)
   MeanNetI_Normalized_clinical_RC <- t(scale(t(MeanNetI_Normalized_clinical), scale = FALSE, center = TRUE))
 
   # Create CV and CV_flagged matrices
-  CV <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv")
+  CV <- round(ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "cv"),3)
 
   # Create CV_flagged: use flag values where num_test is NA, otherwise use cv values
-  num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
-  Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
-  CV_flagged <- CV
-  CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
+  # num_test <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "num_test")
+  # Flagged <- ExpSet_create_matrix(Data, feature_col = "Protein", value_col = "flag")
+  # CV_flagged <- CV
+  # CV_flagged[is.na(num_test)] <- Flagged[is.na(num_test)]
 
   # Create ExpressionSet with MeanNetI_Normalized_clinical as initial exprs
   expset <- Biobase::ExpressionSet(
@@ -700,8 +758,8 @@ ExpSet_create_clinical <- function(datCollate, metadata, other, PSA_list = NULL)
     clinical_ImputedlogMeanNetI = ImputedlogMeanNetI[rownames(MeanNetI_Normalized_clinical), colnames(MeanNetI_Normalized_clinical)],
     clinical_MeanNetI_Normalized = MeanNetI_Normalized_clinical,
     clinical_MeanNetI_Normalized_RC = MeanNetI_Normalized_clinical_RC,
-    clinical_cv = CV[rownames(MeanNetI_Normalized_clinical), colnames(MeanNetI_Normalized_clinical)],
-    clinical_cv_flagged = CV_flagged[rownames(MeanNetI_Normalized_clinical), colnames(MeanNetI_Normalized_clinical)]
+    cv = CV[rownames(MeanNetI_Normalized_clinical), colnames(MeanNetI_Normalized_clinical)],
+    flag = flag_function(Data)[rownames(MeanNetI_Normalized_clinical), colnames(MeanNetI_Normalized_clinical)]
   )
 
   Biobase::experimentData(expset)@other <- other
@@ -762,9 +820,9 @@ ExpSet_create_list <- function(dat, datCollate, QC = NULL, project_info = NULL, 
     Mean_ExpSet = ExpSet_create_mean(datCollate, metadata, params, PSA_list),
     Imputed_ExpSet = ExpSet_create_imputed(datCollate, metadata, params, PSA_list),
     NetI_ExpSet = ExpSet_create_neti(datCollate, metadata, params, failed_samples, PSA_list),
-    NetI_ExpSet_o = ExpSet_create_neti_o(datCollate, metadata, params, failed_samples, PSA_list),
-    norm_ExpSet = ExpSet_create_norm(datCollate, metadata, params, PSA_list),
-    clinical_ExpSet = ExpSet_create_clinical(datCollate, metadata, other, PSA_list)
+    NetI_ExpSet_o = ExpSet_create_neti_o(datCollate, metadata, params, failed_samples, PSA_list)#,
+    #norm_ExpSet = ExpSet_create_norm(datCollate, metadata, params, PSA_list),
+    #clinical_ExpSet = ExpSet_create_clinical(datCollate, metadata, other, PSA_list)
   )
 
   return(ExpSet_list)

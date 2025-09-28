@@ -81,56 +81,56 @@
 #'   covariate2 = "gender"
 #' )
 #' }
-limma_analysis <- function(eSet, 
-													 variable, 
+limma_analysis <- function(eSet,
+													 variable,
 													 feature_select = NULL,
 													 covariate1 = NULL,
 													 covariate2 = NULL,
 													 user_contrast = NULL,
-													 EB_trend = TRUE, 
-													 EB_robust = TRUE, 
-													 FC_cut = 1.1, 
+													 EB_trend = TRUE,
+													 EB_robust = TRUE,
+													 FC_cut = 1.1,
 													 p_val = 0.05) {
-	
+
 	# Validate inputs
 	if(is.null(feature_select)) {
 		stop("please specify filtered feature list as feature_select")
 	}
-	
+
 	# Extract metadata and expression data
 	metadata <- pData(eSet)
 	input <- exprs(eSet)
-	
+
 	# Make syntactically valid names for non-numeric variables
 	if(!is.numeric(metadata[,variable]) & !is.integer(metadata[,variable])){
-		metadata[,variable][!is.na(metadata[,variable])] <- 
+		metadata[,variable][!is.na(metadata[,variable])] <-
 			make.names(metadata[,variable][!is.na(metadata[,variable])])
 	}
 	if(!is.null(covariate1) & !is.numeric(metadata[,covariate1]) & !is.integer(metadata[,covariate1])){
-		metadata[,covariate1][!is.na(metadata[,covariate1])] <- 
+		metadata[,covariate1][!is.na(metadata[,covariate1])] <-
 			make.names(metadata[,covariate1][!is.na(metadata[,covariate1])])
 	}
 	if(!is.null(covariate2) & !is.numeric(metadata[,covariate2]) & !is.integer(metadata[,covariate2])){
-		metadata[,covariate2][!is.na(metadata[,covariate2])] <- 
+		metadata[,covariate2][!is.na(metadata[,covariate2])] <-
 			make.names(metadata[,covariate2][!is.na(metadata[,covariate2])])
 	}
-	
+
 	# Handle NA values in covariates
 	covariate_cols <- c(variable, covariate1, covariate2)
 	covariate_cols <- covariate_cols[!sapply(covariate_cols, is.null)]
-	
+
 	if(length(covariate_cols) > 1){
 		na_rows <- which(rowSums(is.na(metadata[, covariate_cols])) > 0)
 	} else {
 		na_rows <- which(is.na(metadata[, covariate_cols]))
 	}
-	
+
 	if(length(na_rows) > 0) {
 		warning(paste("Removed", length(na_rows), "rows with NA values in variables/covariates"))
 		metadata <- metadata[-na_rows, ]
 		input <- input[, row.names(metadata)]
 	}
-	
+
 	# Build design matrix
 	if(!is.null(user_contrast)){
 		# With contrast: use ~0+ formula (no intercept)
@@ -147,12 +147,12 @@ limma_analysis <- function(eSet,
 			design <- model.matrix(~0 + metadata[,variable], data = metadata)
 			colnames(design) <- sub("metadata\\[, variable\\]", "", colnames(design))
 		}
-		
+
 		fit <- lmFit(eSet, design)
 		fit2 <- contrasts.fit(fit, user_contrast)
 		fit2 <- eBayes(fit2, trend = EB_trend, robust = EB_robust)
 		TT <- topTable(fit2, number = Inf)
-		
+
 	} else {
 		# Without contrast: standard formula with intercept
 		if(!is.null(covariate1) & !is.null(covariate2)){
@@ -162,34 +162,34 @@ limma_analysis <- function(eSet,
 		} else {
 			design <- model.matrix(~metadata[,variable], data = metadata)
 		}
-		
+
 		fit <- lmFit(eSet, design)
 		fit2 <- eBayes(fit, trend = EB_trend, robust = EB_robust)
 		TT <- topTable(fit2, coef = 2, number = Inf)
 	}
-	
+
 	# Filter and sort results
 	TT <- TT[feature_select, ]
-	TT <- TT %>% 
-		rownames_to_column(var = "protein") %>% 
+	TT <- TT %>%
+		rownames_to_column(var = "protein") %>%
 		arrange(P.Value) %>%
 		column_to_rownames(var = "protein")
-	
+
 	# Remove NA p-values (coefficients could not be estimated)
 	if(any(is.na(TT$P.Value))){
 		TT <- TT[!is.na(TT$P.Value), ]
 	}
-	
+
 	# Identify significant features
 	sig_features <- rownames(TT[TT$P.Value < p_val & abs(TT$logFC) > log2(FC_cut), ])
-	
+
 	# Extract contrast information
 	contrast_info <- list(
 		groups = NULL,
 		n_per_group = NULL,
 		contrast_matrix = user_contrast
 	)
-	
+
 	if(!is.null(user_contrast)){
 		contrast_info$groups <- rownames(user_contrast)[which(user_contrast != 0)]
 		contrast_info$n_per_group <- table(metadata[,variable])[contrast_info$groups]
@@ -197,16 +197,17 @@ limma_analysis <- function(eSet,
 		contrast_info$groups <- levels(as.factor(metadata[,variable]))
 		contrast_info$n_per_group <- table(metadata[,variable])
 	}
-	
+
 	# Prepare significant feature data
 	sig_data <- NULL
 	sig_data_centered <- NULL
-	
+
 	if(length(sig_features) > 0){
 		sig_data <- input[sig_features, rownames(metadata), drop = FALSE]
 		sig_data_centered <- t(scale(t(sig_data), scale = FALSE, center = TRUE))
 	}
-	
+
+	#flag_name = grep('flag',names(eSet@assayData),value = T)
 	# Return comprehensive results
 	return(list(
 		design = design,
@@ -215,6 +216,8 @@ limma_analysis <- function(eSet,
 		fit = fit2,
 		metadata = metadata,
 		expression = input,
+		cv = eSet@assayData$cv,
+		flag = eSet@assayData$flag,
 		variable = variable,
 		contrast_info = contrast_info,
 		p_threshold = p_val,
@@ -257,37 +260,37 @@ limma_analysis <- function(eSet,
 #' results <- limma_analysis(eSet, "Sample_Group", features)
 #' plot_data <- prepare_limma_plot_data(results, add_anno = c("age", "gender"))
 #' }
-prepare_limma_plot_data <- function(limma_results, 
-																		add_anno = NULL, 
+prepare_limma_plot_data <- function(limma_results,
+																		add_anno = NULL,
 																		row_center = FALSE) {
-	
+
 	if(length(limma_results$sig_features) < 2){
 		stop("Not enough significant features for plotting (minimum 2 required)")
 	}
-	
+
 	# Select data to plot
 	if(row_center){
 		data_sig <- limma_results$sig_data_centered
 	} else {
 		data_sig <- limma_results$sig_data
 	}
-	
+
 	# Prepare metadata
 	variable <- limma_results$variable
 	metadata <- limma_results$metadata
-	
+
 	if(is.null(add_anno)){
 		meta_plot <- metadata[, variable, drop = FALSE]
 	} else {
 		cols_anno <- unique(c(variable, add_anno))
 		meta_plot <- data.frame(metadata[, cols_anno, drop = FALSE])
 	}
-	
+
 	# Order samples by group and cluster within groups
 	if(!is.numeric(meta_plot[,variable])){
 		# Get group order from contrast if available
 		contrast_info <- limma_results$contrast_info
-		
+
 		if(!is.null(contrast_info$contrast_matrix)){
 			get_groups <- contrast_info$contrast_matrix[contrast_info$contrast_matrix != 0, ]
 			get_groups <- sort(get_groups, decreasing = TRUE)
@@ -296,38 +299,48 @@ prepare_limma_plot_data <- function(limma_results,
 			get_groups <- levels(as.factor(meta_plot[,variable]))
 			meta_plot[,variable] <- factor(meta_plot[,variable], levels = get_groups)
 		}
-		
+
 		# Cluster within each group
 		data_sig <- data_sig[, rownames(meta_plot)]
-		
+
 		for(j in 1:length(levels(meta_plot[,variable]))){
 			ns <- data_sig[, which(meta_plot[,variable] == levels(meta_plot[,variable])[j]), drop = FALSE]
-			
+
+			# if(ncol(ns) > 1){
+			# 	ns_clust <- hclust(vegdist(t(ns), method = "correlation"))
+			# 	order <- ns_clust$labels[ns_clust$order]
+			# } else {
+			# 	order <- colnames(ns)
+			# }
+
 			if(ncol(ns) > 1){
-				ns_clust <- hclust(vegdist(t(ns), method = "correlation"))
-				order <- ns_clust$labels[ns_clust$order]
+			  # Use correlation distance like in your existing PSA_type function
+			  sample_cors <- cor(ns)
+			  diss <- dist(sample_cors)
+			  ns_clust <- hclust(diss)
+			  order <- ns_clust$labels[ns_clust$order]
 			} else {
-				order <- colnames(ns)
+			  order <- colnames(ns)
 			}
-			
+
 			if(j == 1){
 				toplot <- ns[, order, drop = FALSE]
 			} else {
 				toplot <- cbind(toplot, ns[, order, drop = FALSE])
 			}
 		}
-		
+
 		meta_plot <- meta_plot[colnames(toplot), , drop = FALSE]
-		
+
 	} else {
 		# If variable is numeric, sort by value
 		meta_plot <- meta_plot %>% arrange(meta_plot[,variable])
 		toplot <- data_sig[, rownames(meta_plot), drop = FALSE]
 	}
-	
+
 	# Calculate gap position for heatmap
 	gap_tab <- table(meta_plot[,variable])
-	
+
 	if(!is.null(contrast_info$contrast_matrix)){
 		get_groups <- contrast_info$contrast_matrix[contrast_info$contrast_matrix != 0, ]
 		if(0.5 %in% get_groups | -0.5 %in% get_groups){
@@ -339,10 +352,10 @@ prepare_limma_plot_data <- function(limma_results,
 	} else {
 		gap_finder <- gap_tab[1]
 	}
-	
+
 	# Generate annotation colors
 	anno_col <- generate_annotation_colors(meta_plot)
-	
+
 	return(list(
 		plot_data = toplot,
 		plot_metadata = meta_plot,
@@ -367,14 +380,14 @@ prepare_limma_plot_data <- function(limma_results,
 #' @importFrom grDevices colorRampPalette
 #' @keywords internal
 generate_annotation_colors <- function(metadata) {
-	
+
 	# Define color palettes
-	distinct_colors <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2", 
+	distinct_colors <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2",
 											 "coral2", "palevioletred2", "#E69F00", "#56B4E9",
 											 "#CC79A7", "#D55E00")
-	
+
 	anno_col <- list()
-	
+
 	for(col in colnames(metadata)){
 		if(is.numeric(metadata[,col]) | is.integer(metadata[,col])){
 			# Continuous variable: use gradient
@@ -388,7 +401,7 @@ generate_annotation_colors <- function(metadata) {
 			anno_col[[col]] <- colors
 		}
 	}
-	
+
 	return(anno_col)
 }
 

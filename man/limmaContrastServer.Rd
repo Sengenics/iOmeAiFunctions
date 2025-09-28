@@ -26,8 +26,8 @@ File: limma_ShinyModule.R
 \examples{
 \dontrun{
 server <- function(input, output, session) {
-  results <- limmaContrastServer("limma1", 
-                                  reactive(my_eset), 
+  results <- limmaContrastServer("limma1",
+                                  reactive(my_eset),
                                   reactive(selected_features))
 }
 }

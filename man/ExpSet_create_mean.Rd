@@ -28,4 +28,6 @@ Version 1.0 from ExpSet_functions.R
 \dontrun{
 expset <- ExpSet_create_mean(datCollate, metadata, params)
 }
+
+
 }
