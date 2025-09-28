@@ -102,17 +102,29 @@ limma_analysis <- function(eSet,
 	input <- exprs(eSet)
 
 	# Make syntactically valid names for non-numeric variables
+	# if(!is.numeric(metadata[,variable]) & !is.integer(metadata[,variable])){
+	# 	metadata[,variable][!is.na(metadata[,variable])] <-
+	# 		make.names(metadata[,variable][!is.na(metadata[,variable])])
+	# }
 	if(!is.numeric(metadata[,variable]) & !is.integer(metadata[,variable])){
-		metadata[,variable][!is.na(metadata[,variable])] <-
-			make.names(metadata[,variable][!is.na(metadata[,variable])])
+	  metadata[,variable] <- droplevels(as.factor(metadata[,variable]))
+	  levels(metadata[,variable]) <- make.names(levels(metadata[,variable]))
 	}
+	# if(!is.null(covariate1) & !is.numeric(metadata[,covariate1]) & !is.integer(metadata[,covariate1])){
+	# 	metadata[,covariate1][!is.na(metadata[,covariate1])] <-
+	# 		make.names(metadata[,covariate1][!is.na(metadata[,covariate1])])
+	# }
 	if(!is.null(covariate1) & !is.numeric(metadata[,covariate1]) & !is.integer(metadata[,covariate1])){
-		metadata[,covariate1][!is.na(metadata[,covariate1])] <-
-			make.names(metadata[,covariate1][!is.na(metadata[,covariate1])])
+	  metadata[,covariate1] <- droplevels(as.factor(metadata[,covariate1]))
+	  levels(metadata[,covariate1]) <- make.names(levels(metadata[,covariate1]))
 	}
+	# if(!is.null(covariate2) & !is.numeric(metadata[,covariate2]) & !is.integer(metadata[,covariate2])){
+	# 	metadata[,covariate2][!is.na(metadata[,covariate2])] <-
+	# 		make.names(metadata[,covariate2][!is.na(metadata[,covariate2])])
+	# }
 	if(!is.null(covariate2) & !is.numeric(metadata[,covariate2]) & !is.integer(metadata[,covariate2])){
-		metadata[,covariate2][!is.na(metadata[,covariate2])] <-
-			make.names(metadata[,covariate2][!is.na(metadata[,covariate2])])
+	  metadata[,covariate2] <- droplevels(as.factor(metadata[,covariate2]))
+	  levels(metadata[,covariate2]) <- make.names(levels(metadata[,covariate2]))
 	}
 
 	# Handle NA values in covariates

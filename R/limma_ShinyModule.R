@@ -20,96 +20,92 @@
 #' )
 #' }
 limmaContrastUI <- function(id) {
-	ns <- NS(id)
+  ns <- NS(id)
 
-	tagList(
-		fluidRow(
-			column(6,
-						 selectInput(ns("variable"),
-						 						"Select Comparison Variable:",
-						 						choices = NULL)
-			),
-			column(6,
-						 checkboxInput(ns("use_contrast"),
-						 							"Specify Custom Contrast",
-						 							value = FALSE)
-			)
-		),
+  tagList(
+    fluidRow(
+      column(12,
+             selectInput(ns("variable"),
+                         "Select Comparison Variable:",
+                         choices = NULL)
+      )
+    ),
 
-		# Custom contrast builder
-		conditionalPanel(
-			condition = paste0("input['", ns("use_contrast"), "'] == true"),
-			fluidRow(
-				column(12,
-							 h4("Build Contrast"),
-							 helpText("Select groups and specify their coefficients (e.g., 1 for positive, -1 for negative, 0.5 for averaged)")
-				)
-			),
-			fluidRow(
-				column(12,
-							 uiOutput(ns("contrast_builder"))
-				)
-			),
-			fluidRow(
-				column(12,
-							 verbatimTextOutput(ns("contrast_formula"))
-				)
-			)
-		),
+    # Case/Control selection
+    fluidRow(
+      column(6,
+             selectInput(ns("control_group"),
+                         "Control Group:",
+                         choices = NULL)
+      ),
+      column(6,
+             selectInput(ns("case_group"),
+                         "Case Group:",
+                         choices = NULL)
+      )
+    ),
 
-		# Covariate selection
-		fluidRow(
-			column(6,
-						 selectInput(ns("covariate1"),
-						 						"Covariate 1 (optional):",
-						 						choices = c("None" = ""))
-			),
-			column(6,
-						 selectInput(ns("covariate2"),
-						 						"Covariate 2 (optional):",
-						 						choices = c("None" = ""))
-			)
-		),
+    # Comparison display
+    fluidRow(
+      column(12,
+             h4("Comparison Setup"),
+             verbatimTextOutput(ns("contrast_formula"))
+      )
+    ),
 
-		# Analysis parameters
-		fluidRow(
-			column(6,
-						 numericInput(ns("p_val"), "P-value threshold:",
-						 						 value = 0.05, min = 0, max = 1, step = 0.01)
-			),
-			column(6,
-						 numericInput(ns("fc_cut"), "Fold change cutoff:",
-						 						 value = 1.1, min = 1, step = 0.1)
-			)
-		),
+    # Covariate selection
+    fluidRow(
+      column(6,
+             selectInput(ns("covariate1"),
+                         "Covariate 1 (optional):",
+                         choices = c("None" = ""))
+      ),
+      column(6,
+             selectInput(ns("covariate2"),
+                         "Covariate 2 (optional):",
+                         choices = c("None" = ""))
+      )
+    ),
 
-		fluidRow(
-			column(6,
-						 checkboxInput(ns("eb_trend"), "eBayes trend", value = TRUE)
-			),
-			column(6,
-						 checkboxInput(ns("eb_robust"), "eBayes robust", value = TRUE)
-			)
-		),
+    # Analysis parameters
+    fluidRow(
+      column(6,
+             numericInput(ns("p_val"), "P-value threshold:",
+                          value = 0.05, min = 0, max = 1, step = 0.01)
+      ),
+      column(6,
+             numericInput(ns("fc_cut"), "Fold change cutoff:",
+                          value = 1.1, min = 1, step = 0.1)
+      )
+    ),
 
-		# Sample distribution summary
-		fluidRow(
-			column(12,
-						 h4("Sample Distribution"),
-						 tableOutput(ns("group_summary"))
-			)
-		),
+    fluidRow(
+      column(6,
+             checkboxInput(ns("eb_trend"), "eBayes trend", value = TRUE)
+      ),
+      column(6,
+             checkboxInput(ns("eb_robust"), "eBayes robust", value = TRUE)
+      )
+    ),
 
-		# Run button
-		fluidRow(
-			column(12,
-						 actionButton(ns("run_limma"),
-						 						 "Run Limma Analysis",
-						 						 class = "btn-primary",
-						 						 width = "100%")
-			)
-		)
-	)
+    # Sample distribution summary
+    fluidRow(
+      column(12,
+             h4("Sample Distribution"),
+             tableOutput(ns("group_summary"))
+      )
+    ),
+
+    # Run button
+    fluidRow(
+      column(12,
+             actionButton(ns("run_limma"),
+                          "Run Limma Analysis",
+                          class = "btn-primary",
+                          width = "100%")
+      )
+    )
+  )
 }
 
 
@@ -140,200 +136,163 @@ limmaContrastUI <- function(id) {
 #' }
 #' }
 limmaContrastServer <- function(id, eSet, feature_select) {
-	moduleServer(id, function(input, output, session) {
+  moduleServer(id, function(input, output, session) {
 
-		# Extract metadata from ExpressionSet
-		metadata <- reactive({
-			req(eSet())
-			pData(eSet())
-		})
+    # Extract metadata from ExpressionSet
+    metadata <- reactive({
+      req(eSet())
+      pData(eSet())
+    })
 
-		# Update variable choices
-		# observe({
-		# 	req(metadata())
-		# 	choices <- colnames(metadata())
-		# 	updateSelectInput(session, "variable", choices = choices)
-		#
-		# 	# Update covariate choices
-		# 	covariate_choices <- c("None" = "", choices)
-		# 	updateSelectInput(session, "covariate1", choices = covariate_choices)
-		# 	updateSelectInput(session, "covariate2", choices = covariate_choices)
-		# })
+    # Update variable choices and case/control selection
+    observe({
+      req(metadata())
+      choices <- colnames(metadata())
 
-		observe({
-		  req(metadata())
-		  choices <- colnames(metadata())
+      # Set "Labels" as default if it exists, otherwise use first choice
+      default_variable <- if("Labels" %in% choices) "Labels" else choices[1]
+      updateSelectInput(session, "variable", choices = choices, selected = default_variable)
 
-		  # Set "Labels" as default if it exists, otherwise use first choice
-		  default_variable <- if("Labels" %in% choices) "Labels" else choices[1]
-		  updateSelectInput(session, "variable", choices = choices, selected = default_variable)
+      # Update covariate choices
+      covariate_choices <- c("None" = "", choices)
 
-		  # Update covariate choices
-		  covariate_choices <- c("None" = "", choices)
+      # Set "PSA_class" as default for covariate1 if it exists
+      default_covariate1 <- if("PSA_class" %in% choices) "PSA_class" else ""
+      updateSelectInput(session, "covariate1", choices = covariate_choices, selected = default_covariate1)
 
-		  # Set "PSA_class" as default for covariate1 if it exists
-		  default_covariate1 <- if("PSA_class" %in% choices) "PSA_class" else ""
-		  updateSelectInput(session, "covariate1", choices = covariate_choices, selected = default_covariate1)
+      updateSelectInput(session, "covariate2", choices = covariate_choices)
+    })
 
-		  updateSelectInput(session, "covariate2", choices = covariate_choices)
-		})
+    # Update case/control choices when variable changes
+    observe({
+      req(input$variable, metadata())
 
-		# Get levels of selected variable
-		variable_levels <- reactive({
-			req(input$variable, metadata())
-			var_data <- metadata()[[input$variable]]
+      var_data <- metadata()[[input$variable]]
+      levels_available <- unique(as.character(var_data[!is.na(var_data)]))
 
-			# Make syntactically valid names
-			if(!is.numeric(var_data) & !is.integer(var_data)){
-				var_data[!is.na(var_data)] <- make.names(var_data[!is.na(var_data)])
-			}
+      # Auto-detect control group (contains "control" or "healthy")
+      control_candidates <- levels_available[grepl("control|healthy", levels_available, ignore.case = TRUE)]
+      default_control <- if(length(control_candidates) > 0) control_candidates[1] else levels_available[1]
 
-			if(is.factor(var_data) | is.character(var_data)){
-				unique(as.character(var_data[!is.na(var_data)]))
-			} else {
-				NULL
-			}
-		})
+      # Case group is everything else
+      case_candidates <- setdiff(levels_available, default_control)
+      default_case <- if(length(case_candidates) > 0) case_candidates[1] else levels_available[2]
 
-		# Dynamic contrast builder UI
-		output$contrast_builder <- renderUI({
-			req(input$use_contrast)
-			req(variable_levels())
+      updateSelectInput(session, "control_group",
+                        choices = levels_available,
+                        selected = default_control)
 
-			ns <- session$ns
-			levels <- variable_levels()
+      updateSelectInput(session, "case_group",
+                        choices = levels_available,
+                        selected = default_case)
+    })
 
-			lapply(levels, function(level) {
-				fluidRow(
-					column(6,
-								 tags$label(level)
-					),
-					column(6,
-								 numericInput(ns(paste0("coef_", level)),
-								 						 NULL,
-								 						 value = 0,
-								 						 step = 0.5)
-					)
-				)
-			})
-		})
+    # Display current comparison
+    output$contrast_formula <- renderText({
+      req(input$control_group, input$case_group)
 
-		# Build contrast matrix
-		contrast_matrix <- reactive({
-			req(input$use_contrast)
-			req(variable_levels())
+      if(input$control_group == input$case_group) {
+        "Error: Case and Control groups cannot be the same"
+      } else {
+        paste("Comparison:", input$case_group, "vs", input$control_group, "(reference)")
+      }
+    })
 
-			levels <- variable_levels()
-			coefficients <- sapply(levels, function(level) {
-				coef <- input[[paste0("coef_", level)]]
-				if(is.null(coef)) return(0)
-				coef
-			})
+    # Group summary table
+    output$group_summary <- renderTable({
+      req(input$variable, metadata(), input$control_group, input$case_group)
 
-			# Only create contrast if at least one coefficient is non-zero
-			if(any(coefficients != 0)){
-				# Build contrast string
-				contrast_terms <- paste0(coefficients, "*", levels)
-				contrast_terms <- contrast_terms[coefficients != 0]
-				contrast_string <- paste(contrast_terms, collapse = " ")
+      var_data <- metadata()[[input$variable]]
+      summary_df <- as.data.frame(table(var_data))
+      colnames(summary_df) <- c(input$variable, "N")
 
-				# Create contrast matrix
-				tryCatch({
-					makeContrasts(contrasts = contrast_string, levels = levels)
-				}, error = function(e) {
-					NULL
-				})
-			} else {
-				NULL
-			}
-		})
+      # Add group assignment column
+      summary_df$Assignment <- ifelse(summary_df[[input$variable]] == input$control_group, "Control",
+                                      ifelse(summary_df[[input$variable]] == input$case_group, "Case", "Excluded"))
 
-		# Display contrast formula
-		output$contrast_formula <- renderText({
-			req(input$use_contrast)
-			req(variable_levels())
+      summary_df
+    }, rownames = FALSE)
 
-			levels <- variable_levels()
-			coefficients <- sapply(levels, function(level) {
-				coef <- input[[paste0("coef_", level)]]
-				if(is.null(coef)) return(0)
-				coef
-			})
+    # Run limma analysis when button clicked
+    # Run limma analysis when button clicked
+    limma_results <- eventReactive(input$run_limma, {
+      req(eSet(), feature_select(), input$control_group, input$case_group)
 
-			if(any(coefficients != 0)){
-				terms <- mapply(function(coef, level) {
-					if(coef == 0) return(NULL)
-					if(coef == 1) return(level)
-					if(coef == -1) return(paste0("-", level))
-					paste0(coef, "*", level)
-				}, coefficients, levels)
+      # Validation
+      if(input$control_group == input$case_group) {
+        showNotification("Case and Control groups cannot be the same", type = "error")
+        return(NULL)
+      }
 
-				terms <- terms[!sapply(terms, is.null)]
-				paste("Contrast:", paste(terms, collapse = " "))
-			} else {
-				"Specify coefficients to build contrast"
-			}
-		})
+      withProgress(message = 'Running limma analysis...', {
+        tryCatch({
+          # Step 1: Get your original data
+          eset_temp <- eSet()
+          metadata_temp <- pData(eset_temp)
 
-		# Group summary table
-		output$group_summary <- renderTable({
-			req(input$variable, metadata())
+          # Step 2: Filter to only the samples you want (autoimmune + healthy)
+          keep_samples <- metadata_temp[[input$variable]] %in% c(input$case_group, input$control_group)
+          eset_filtered <- eset_temp[, keep_samples]
 
-			var_data <- metadata()[[input$variable]]
-			summary_df <- as.data.frame(table(var_data))
-			colnames(summary_df) <- c(input$variable, "N")
+          # Step 3: Clean up the factor levels (THIS IS THE KEY FIX)
+          # Remove any "ghost" factor levels that don't exist anymore
+          pData(eset_filtered)[[input$variable]] <- factor(
+            pData(eset_filtered)[[input$variable]],
+            levels = c(input$control_group, input$case_group)
+          )
 
-			summary_df
-		}, rownames = FALSE)
+          # Step 4: Clean up covariate factors too (PSA_class)
+          if(!is.null(input$covariate1) && input$covariate1 != "") {
+            pData(eset_filtered)[[input$covariate1]] <- droplevels(pData(eset_filtered)[[input$covariate1]])
+          }
 
-		# Run limma analysis when button clicked
-		limma_results <- eventReactive(input$run_limma, {
-			req(eSet(), feature_select())
+          if(!is.null(input$covariate2) && input$covariate2 != "") {
+            pData(eset_filtered)[[input$covariate2]] <- droplevels(pData(eset_filtered)[[input$covariate2]])
+          }
 
-			withProgress(message = 'Running limma analysis...', {
-				tryCatch({
-					results = limma_analysis(
-						eSet = eSet(),
-						variable = input$variable,
-						feature_select = feature_select(),
-						covariate1 = if(input$covariate1 == "") NULL else input$covariate1,
-						covariate2 = if(input$covariate2 == "") NULL else input$covariate2,
-						user_contrast = if(input$use_contrast) contrast_matrix() else NULL,
-						EB_trend = input$eb_trend,
-						EB_robust = input$eb_robust,
-						FC_cut = input$fc_cut,
-						p_val = input$p_val
-					)
+          # Step 5: Now run limma on the clean data
+          results <- limma_analysis(
+            eSet = eset_filtered,
+            variable = input$variable,
+            feature_select = feature_select(),
+            covariate1 = if(input$covariate1 == "") NULL else input$covariate1,
+            covariate2 = if(input$covariate2 == "") NULL else input$covariate2,
+            user_contrast = NULL,
+            EB_trend = input$eb_trend,
+            EB_robust = input$eb_robust,
+            FC_cut = input$fc_cut,
+            p_val = input$p_val
+          )
 
-				  # Calculate up and downregulated features
-				  if(!is.null(results) && length(results$sig_features) > 0) {
-				    sig_table <- results$topTable[results$sig_features, ]
-				    n_upregulated <- sum(sig_table$logFC > 0)
-				    n_downregulated <- sum(sig_table$logFC < 0)
-				    total_sig <- length(results$sig_features)
+          # Step 6: Show results
+          if(!is.null(results) && length(results$sig_features) > 0) {
+            sig_table <- results$topTable[results$sig_features, ]
+            n_upregulated <- sum(sig_table$logFC > 0)
+            n_downregulated <- sum(sig_table$logFC < 0)
+            total_sig <- length(results$sig_features)
 
-				    # Show success notification with counts
-				    showNotification(
-				      paste0("Limma analysis completed successfully! ",
-				             "Found ", total_sig, " significant features: ",
-				             n_upregulated, " upregulated, ",
-				             n_downregulated, " downregulated"),
-				      type = "message",
-				      duration = 10
-				    )
-				  }
+            showNotification(
+              paste0("Analysis completed! Found ", total_sig, " significant features: ",
+                     n_upregulated, " higher in ", input$case_group, ", ",
+                     n_downregulated, " higher in ", input$control_group),
+              type = "message",
+              duration = 10
+            )
+          } else {
+            showNotification("Analysis completed - no significant features found", type = "warning")
+          }
 
-					return(results)
+          return(results)
 
-				}, error = function(e) {
-					showNotification(paste("Error:", e$message), type = "error")
-					NULL
-				})
-			})
-		})
+        }, error = function(e) {
+          showNotification(paste("Error:", e$message), type = "error")
+          NULL
+        })
+      })
+    })
 
-		return(limma_results)
-	})
+    return(limma_results)
+  })
 }
 
 
@@ -620,16 +579,16 @@ limmaViolinUI <- function(id) {
     fluidRow(
       column(4,
              radioButtons(ns("protein_selection"), "Protein Selection:",
-                          choices = c("All significant" = "all",
-                                      "Manual selection" = "manual"),
-                          selected = "all")
+                          choices = c("Significant all" = "sig_all",
+                                      "Significant up" = "sig_up",
+                                      "Significant down" = "sig_down",
+                                      "Manual significant" = "manual_sig",
+                                      "Manual all" = "manual_all"),
+                          selected = "sig_all")
       ),
       column(8,
              conditionalPanel(
-               condition = paste0("input['", ns("protein_selection"), "'] == 'manual'"),
-               # selectInput(ns("selected_proteins"), "Select Proteins:",
-               #             choices = NULL, multiple = TRUE,
-               #             options = list(placeholder = "Choose proteins..."))
+               condition = paste0("input['", ns("protein_selection"), "'] == 'manual_sig' || input['", ns("protein_selection"), "'] == 'manual_all'"),
                selectizeInput(ns("selected_proteins"), "Select Proteins:",
                               choices = NULL, multiple = TRUE,
                               options = list(placeholder = "Choose proteins..."))
@@ -654,9 +613,9 @@ limmaViolinUI <- function(id) {
       )
     ),
 
-    # Pagination controls
+    # Pagination controls for automatic selections
     conditionalPanel(
-      condition = paste0("input['", ns("protein_selection"), "'] == 'all'"),
+      condition = paste0("input['", ns("protein_selection"), "'] == 'sig_all' || input['", ns("protein_selection"), "'] == 'sig_up' || input['", ns("protein_selection"), "'] == 'sig_down'"),
       fluidRow(
         column(12, style = "text-align: center;",
                actionButton(ns("prev_page"), "◀ Previous", class = "btn-sm"),
@@ -669,7 +628,6 @@ limmaViolinUI <- function(id) {
     uiOutput(ns("violin_plot_ui"))
   )
 }
-
 
 #' Limma Violin Plot Server Module
 #'
@@ -695,24 +653,47 @@ limmaViolinServer <- function(id, limma_results) {
     # Current page reactive
     current_page <- reactiveVal(1)
 
-    # Update protein choices when results change
+    # Update choices when results change
     observe({
       req(limma_results())
-      protein_choices <- limma_results()$sig_features
-      updateSelectInput(session, "selected_proteins",
-                        choices = protein_choices)
+      results <- limma_results()
+
+      # Update protein choices based on selection mode
+      if(input$protein_selection == "manual_sig") {
+        updateSelectizeInput(session, "selected_proteins",
+                             choices = results$sig_features)
+      } else if(input$protein_selection == "manual_all") {
+        updateSelectizeInput(session, "selected_proteins",
+                             choices = rownames(results$topTable))
+      }
     })
 
     # Get proteins to display based on selection mode
     proteins_to_display <- reactive({
       req(limma_results())
+      results <- limma_results()
 
-      if(input$protein_selection == "manual") {
+      if(input$protein_selection == "manual_sig") {
+        req(input$selected_proteins)
+        return(input$selected_proteins)
+      } else if(input$protein_selection == "manual_all") {
         req(input$selected_proteins)
         return(input$selected_proteins)
       } else {
-        # All significant proteins with pagination
-        all_proteins <- limma_results()$sig_features
+        # Get the appropriate protein list based on selection
+        if(input$protein_selection == "sig_all") {
+          all_proteins <- results$sig_features
+        } else if(input$protein_selection == "sig_up") {
+          # Get significant proteins with positive logFC
+          sig_table <- results$topTable[results$sig_features, ]
+          all_proteins <- rownames(sig_table[sig_table$logFC > 0, ])
+        } else if(input$protein_selection == "sig_down") {
+          # Get significant proteins with negative logFC
+          sig_table <- results$topTable[results$sig_features, ]
+          all_proteins <- rownames(sig_table[sig_table$logFC < 0, ])
+        }
+
+        # Apply pagination
         start_idx <- (current_page() - 1) * input$plots_per_page + 1
         end_idx <- min(start_idx + input$plots_per_page - 1, length(all_proteins))
 
@@ -727,10 +708,21 @@ limmaViolinServer <- function(id, limma_results) {
     # Calculate total pages
     total_pages <- reactive({
       req(limma_results())
-      if(input$protein_selection == "all") {
-        ceiling(length(limma_results()$sig_features) / input$plots_per_page)
+      results <- limma_results()
+
+      if(input$protein_selection %in% c("sig_all", "sig_up", "sig_down")) {
+        if(input$protein_selection == "sig_all") {
+          total_proteins <- length(results$sig_features)
+        } else if(input$protein_selection == "sig_up") {
+          sig_table <- results$topTable[results$sig_features, ]
+          total_proteins <- sum(sig_table$logFC > 0)
+        } else if(input$protein_selection == "sig_down") {
+          sig_table <- results$topTable[results$sig_features, ]
+          total_proteins <- sum(sig_table$logFC < 0)
+        }
+        return(ceiling(total_proteins / input$plots_per_page))
       } else {
-        1
+        return(1)
       }
     })
 
@@ -747,8 +739,8 @@ limmaViolinServer <- function(id, limma_results) {
       }
     })
 
-    # Reset to page 1 when plots per page changes
-    observeEvent(input$plots_per_page, {
+    # Reset to page 1 when plots per page or protein selection changes
+    observeEvent(c(input$plots_per_page, input$protein_selection), {
       current_page(1)
     })
 
@@ -828,39 +820,39 @@ limmaViolinServer <- function(id, limma_results) {
       violin_plot()
     })
 
-    # output$download_plot <- downloadHandler(
-    #   filename = function() {
-    #     paste0("violin_plot_", Sys.Date(), ".pdf")
-    #   },
-    #   content = function(file) {
-    #     req(violin_plot())
-    #     ggsave(file, violin_plot(),
-    #            width = 12,
-    #            height = plot_height() / 100)
-    #   }
-    # )
-
+    # Updated download handler for new selection modes
     output$download_plot <- downloadHandler(
       filename = function() {
-        paste0("violin_plot_", Sys.Date(), ".pdf")
+        paste0("violin_plot_", input$protein_selection, "_", Sys.Date(), ".pdf")
       },
       content = function(file) {
         req(limma_results())
 
-        if(input$protein_selection == "manual") {
-          # For manual selection, just download current selection
+        if(input$protein_selection %in% c("manual_sig", "manual_all")) {
+          # For manual selections, download current selection
           req(violin_plot())
           ggsave(file, violin_plot(),
                  width = 12,
-                 height = plot_height() / 100)
+                 height = plot_height() / 100,
+                 limitsize = FALSE)
         } else {
-          # For "all" mode, create plots for all proteins across all pages
+          # For automatic selections, download all proteins in that category
           results <- limma_results()
-          all_features <- results$sig_features
+
+          # Get all features for the selected category
+          if(input$protein_selection == "sig_all") {
+            all_features <- results$sig_features
+          } else if(input$protein_selection == "sig_up") {
+            sig_table <- results$topTable[results$sig_features, ]
+            all_features <- rownames(sig_table[sig_table$logFC > 0, ])
+          } else if(input$protein_selection == "sig_down") {
+            sig_table <- results$topTable[results$sig_features, ]
+            all_features <- rownames(sig_table[sig_table$logFC < 0, ])
+          }
 
           if(length(all_features) == 0) return()
 
-          # Prepare data for all features
+          # Prepare data for all features in the category
           meta_df <- results$metadata
           meta_df$Sample <- rownames(meta_df)
 
@@ -887,7 +879,7 @@ limmaViolinServer <- function(id, limma_results) {
                            "coral2", "palevioletred2")
           color_select <- violin_cols[1:nlevels(as.factor(results$metadata[, results$variable]))]
 
-          # Create plot with ALL features
+          # Create plot with ALL features in the selected category
           p_all <- ggplot(merge_df, aes(x = .data[[results$variable]], y = value)) +
             geom_violin(aes(fill = .data[[results$variable]]), alpha = 0.25) +
             scale_fill_manual(values = color_select) +
@@ -902,20 +894,21 @@ limmaViolinServer <- function(id, limma_results) {
           # Calculate height for all proteins
           n_proteins <- length(all_features)
           n_rows <- ceiling(n_proteins / input$n_col)
-          base_height <- 200
-          height_per_row <- 150
-          total_height <- max(400, base_height + (n_rows * height_per_row))
+          base_height <- 3
+          height_per_row <- 2
+          total_height <- base_height + (n_rows * height_per_row)
+          final_height <- min(total_height, 48)
 
           ggsave(file, p_all,
                  width = 12,
-                 height = total_height / 100,
+                 height = final_height,
                  limitsize = FALSE)
         }
       }
     )
+
   })
 }
-
 
 #' Limma Results Summary UI Module
 #'
