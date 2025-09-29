@@ -596,6 +596,15 @@ limmaViolinUI <- function(id) {
       )
     ),
 
+    # NEW ROW for color selection
+    fluidRow(
+      column(12,
+             selectInput(ns("color_variable"), "Color points by:",
+                         choices = NULL,
+                         selected = NULL)
+      )
+    ),
+
     fluidRow(
       column(3,
              numericInput(ns("plots_per_page"), "Plots per page:",
@@ -613,7 +622,7 @@ limmaViolinUI <- function(id) {
       )
     ),
 
-    # Pagination controls for automatic selections
+    # ... rest of the UI remains the same
     conditionalPanel(
       condition = paste0("input['", ns("protein_selection"), "'] == 'sig_all' || input['", ns("protein_selection"), "'] == 'sig_up' || input['", ns("protein_selection"), "'] == 'sig_down'"),
       fluidRow(
@@ -653,12 +662,29 @@ limmaViolinServer <- function(id, limma_results) {
     # Current page reactive
     current_page <- reactiveVal(1)
 
-    # Update choices when results change
+    # Update color variable choices when results change
     observe({
       req(limma_results())
       results <- limma_results()
 
-      # Update protein choices based on selection mode
+      # Get all column names from metadata
+      metadata_cols <- colnames(results$metadata)
+
+      # Create choices: always include "flag" option, plus all metadata columns
+      color_choices <- c("flag", metadata_cols)
+      color_choices <- unique(color_choices)  # Remove duplicates if flag is in metadata
+
+      # Always default to "flag"
+      updateSelectInput(session, "color_variable",
+                        choices = color_choices,
+                        selected = "flag")
+    })
+
+    # Update protein choices when results change
+    observe({
+      req(limma_results())
+      results <- limma_results()
+
       if(input$protein_selection == "manual_sig") {
         updateSelectizeInput(session, "selected_proteins",
                              choices = results$sig_features)
@@ -680,20 +706,16 @@ limmaViolinServer <- function(id, limma_results) {
         req(input$selected_proteins)
         return(input$selected_proteins)
       } else {
-        # Get the appropriate protein list based on selection
         if(input$protein_selection == "sig_all") {
           all_proteins <- results$sig_features
         } else if(input$protein_selection == "sig_up") {
-          # Get significant proteins with positive logFC
           sig_table <- results$topTable[results$sig_features, ]
           all_proteins <- rownames(sig_table[sig_table$logFC > 0, ])
         } else if(input$protein_selection == "sig_down") {
-          # Get significant proteins with negative logFC
           sig_table <- results$topTable[results$sig_features, ]
           all_proteins <- rownames(sig_table[sig_table$logFC < 0, ])
         }
 
-        # Apply pagination
         start_idx <- (current_page() - 1) * input$plots_per_page + 1
         end_idx <- min(start_idx + input$plots_per_page - 1, length(all_proteins))
 
@@ -769,6 +791,7 @@ limmaViolinServer <- function(id, limma_results) {
     violin_plot <- reactive({
       req(limma_results())
       req(length(proteins_to_display()) > 0)
+      req(input$color_variable)
 
       results <- limma_results()
       selected_features <- proteins_to_display()
@@ -800,13 +823,20 @@ limmaViolinServer <- function(id, limma_results) {
                        "coral2", "palevioletred2")
       color_select <- violin_cols[1:nlevels(as.factor(results$metadata[, results$variable]))]
 
+      # Check if the selected color variable exists in the dataframe
+      if(!(input$color_variable %in% colnames(merge_df))) {
+        showNotification(paste("Column", input$color_variable, "not found in data"), type = "warning")
+        return(NULL)
+      }
+
       # Create plot
       p <- ggplot(merge_df, aes(x = .data[[results$variable]], y = value)) +
         geom_violin(aes(fill = .data[[results$variable]]), alpha = 0.25) +
         scale_fill_manual(values = color_select) +
         scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
         theme_minimal() +
-        geom_point(aes(col = flag), position = position_jitter(seed = 1, width = 0.2), size = 2) +
+        geom_point(aes(col = .data[[input$color_variable]]),
+                   position = position_jitter(seed = 1, width = 0.2), size = 2) +
         theme(legend.position = "top") +
         facet_wrap(~ feature,
                    ncol = input$n_col,
@@ -820,26 +850,24 @@ limmaViolinServer <- function(id, limma_results) {
       violin_plot()
     })
 
-    # Updated download handler for new selection modes
+    # Download handler
     output$download_plot <- downloadHandler(
       filename = function() {
         paste0("violin_plot_", input$protein_selection, "_", Sys.Date(), ".pdf")
       },
       content = function(file) {
         req(limma_results())
+        req(input$color_variable)
 
         if(input$protein_selection %in% c("manual_sig", "manual_all")) {
-          # For manual selections, download current selection
           req(violin_plot())
           ggsave(file, violin_plot(),
                  width = 12,
                  height = plot_height() / 100,
                  limitsize = FALSE)
         } else {
-          # For automatic selections, download all proteins in that category
           results <- limma_results()
 
-          # Get all features for the selected category
           if(input$protein_selection == "sig_all") {
             all_features <- results$sig_features
           } else if(input$protein_selection == "sig_up") {
@@ -852,7 +880,6 @@ limmaViolinServer <- function(id, limma_results) {
 
           if(length(all_features) == 0) return()
 
-          # Prepare data for all features in the category
           meta_df <- results$metadata
           meta_df$Sample <- rownames(meta_df)
 
@@ -874,24 +901,22 @@ limmaViolinServer <- function(id, limma_results) {
                 gather(key = Sample, value = flag, -1)) %>%
             filter(feature %in% all_features)
 
-          # Define colors
           violin_cols <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2",
                            "coral2", "palevioletred2")
           color_select <- violin_cols[1:nlevels(as.factor(results$metadata[, results$variable]))]
 
-          # Create plot with ALL features in the selected category
           p_all <- ggplot(merge_df, aes(x = .data[[results$variable]], y = value)) +
             geom_violin(aes(fill = .data[[results$variable]]), alpha = 0.25) +
             scale_fill_manual(values = color_select) +
             scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
             theme_minimal() +
-            geom_point(aes(col = flag), position = position_jitter(seed = 1, width = 0.2), size = 2) +
+            geom_point(aes(col = .data[[input$color_variable]]),
+                       position = position_jitter(seed = 1, width = 0.2), size = 2) +
             theme(legend.position = "top") +
             facet_wrap(~ feature,
                        ncol = input$n_col,
                        scales = if(input$free_scales) "free" else "fixed")
 
-          # Calculate height for all proteins
           n_proteins <- length(all_features)
           n_rows <- ceiling(n_proteins / input$n_col)
           base_height <- 3
