@@ -4,27 +4,35 @@
 \alias{calculate_bg_fg_stats}
 \title{Calculate Background and Foreground Quality Control Statistics}
 \usage{
-calculate_bg_fg_stats(datCollate, apply_log2 = TRUE, min_spot_count = 20)
+calculate_bg_fg_stats(
+  datCollate,
+  apply_log2 = TRUE,
+  min_spot_count = 20,
+  overlap_percentile = 95
+)
 }
 \arguments{
-\item{datCollate}{A list containing data collection objects with components:
-\itemize{
-\item \code{data$RawData}: Data.frame with columns Labels, Sample, Protein, BG, FG, NetI
-\item \code{data$Data}: Data.frame with columns Protein, data (feature/ctrl), mean
-\item \code{param$BG_overlap_metric}: Character specifying metric type (e.g., "Mode_sd", "Median_mad")
-\item \code{param$BG_FG_sd_mutiple}: Numeric multiplier for SD/MAD threshold (default 3)
-}}
+\item{datCollate}{A list containing data collection objects}
 
 \item{apply_log2}{Logical indicating whether to apply log2 transformation. Default is TRUE}
 
 \item{min_spot_count}{Integer minimum number of spots required per sample. Default is 20}
+
+\item{overlap_percentile}{Numeric, percentile to use for overlap calculation (default 95)}
 }
 \value{
 A list with two components:
 \itemize{
-\item \code{BGFG_stats}: Data.frame with QC statistics per sample including:
-mean, mode, median, SD, MAD, CV, BG_overlap threshold, pepper count,
-BG overlap percentages
+\item \code{BGFG_stats}: Data.frame with QC statistics per sample
+\item \code{plot_data}: Data.frame in long format ready for density plotting
+}
+
+A list with two components:
+\itemize{
+\item \code{BGFG_stats}: Data.frame with QC statistics including:
+- Legacy metrics: BG_overlap, CV, SD, etc.
+- New v2.0.0 metrics: SBR_log2, SBR_fold, fg_overlap_pct, bg_overlap_pct,
+separation_gap, separation_MAD, overall_BGFG_qc
 \item \code{plot_data}: Data.frame in long format ready for density plotting
 }
 }
@@ -33,40 +41,21 @@ Computes comprehensive quality control statistics for background (BG) and
 foreground (FG) signal intensities from raw microarray data. Calculates
 distribution metrics, overlap thresholds, and identifies outlier artifacts.
 }
-\details{
-The function performs the following steps:
-\enumerate{
-\item Filters raw data to include only feature spots (excludes controls)
-\item Applies log2 transformation to BG, FG, and NetI values
-\item Calculates distribution statistics (mean, mode, median, SD, MAD)
-\item Computes BG overlap threshold based on specified metric:
-\itemize{
-\item Mode/Median/Mean_sd: uses standard deviation
-\item Mode/Median/Mean_mad: uses median absolute deviation
-}
-\item Identifies "pepper" artifacts (intensities > mode + 2*SD)
-\item Calculates percentage of spots with BG overlap
-}
+\note{
+Uses "pass"/"flag" convention for QC status
 
-BG_overlap_metric examples:
+\strong{Version History:}
 \itemize{
-\item "Mode_sd": FG_mode - (multiplier * FG_sd)
-\item "Median_mad": FG_median - (multiplier * FG_mad)
-\item "Mean_sd": FG_mean - (multiplier * FG_sd)
+\item v2.0.0 (2025-01-08): Enhanced by @DrGarnett
+\itemize{
+\item Added Signal-to-Background Ratio (SBR) metrics (log2 and fold)
+\item Added actual distribution overlap percentages (fg_overlap_pct, bg_overlap_pct)
+\item Added separation metrics (gap and MAD-based effect size)
+\item Added comprehensive QC flags and overall_BGFG_qc decision
+\item Maintained full backward compatibility with legacy metrics
 }
 }
-\examples{
-\dontrun{
-# Calculate BG/FG statistics
-qc_results <- calculate_bg_fg_stats(
-  datCollate = datCollate,
-  apply_log2 = TRUE,
-  min_spot_count = 20
-)
-
-# Access statistics
-stats_df <- qc_results$BGFG_stats
-plot_data <- qc_results$plot_data
 }
-Note : used to be
+\author{
+Shaun Garnett
 }

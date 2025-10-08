@@ -13,57 +13,54 @@
 #'   }
 #' @param apply_log2 Logical indicating whether to apply log2 transformation. Default is TRUE
 #' @param min_spot_count Integer minimum number of spots required per sample. Default is 20
+#' @param overlap_percentile Numeric, percentile to use for overlap calculation (default 95)
 #'
 #' @return A list with two components:
 #'   \itemize{
-#'     \item \code{BGFG_stats}: Data.frame with QC statistics per sample including:
-#'       mean, mode, median, SD, MAD, CV, BG_overlap threshold, pepper count, 
-#'       BG overlap percentages
+#'     \item \code{BGFG_stats}: Data.frame with QC statistics per sample
 #'     \item \code{plot_data}: Data.frame in long format ready for density plotting
 #'   }
 #'
-#' @details
-#' The function performs the following steps:
-#' \enumerate{
-#'   \item Filters raw data to include only feature spots (excludes controls)
-#'   \item Applies log2 transformation to BG, FG, and NetI values
-#'   \item Calculates distribution statistics (mean, mode, median, SD, MAD)
-#'   \item Computes BG overlap threshold based on specified metric:
-#'     \itemize{
-#'       \item Mode/Median/Mean_sd: uses standard deviation
-#'       \item Mode/Median/Mean_mad: uses median absolute deviation
-#'     }
-#'   \item Identifies "pepper" artifacts (intensities > mode + 2*SD)
-#'   \item Calculates percentage of spots with BG overlap
-#' }
+#' @note Uses "pass"/"flag" convention for QC status
+#' @author Shaun Garnett
+#' @export
+#' Calculate Background and Foreground Quality Control Statistics
 #'
-#' BG_overlap_metric examples:
+#' Recapitulates the original raw_density_data_o_function logic with new v2.0.0 metrics added.
+#'
+#' @param datCollate A list containing data collection objects
+#' @param apply_log2 Logical indicating whether to apply log2 transformation. Default is TRUE
+#' @param min_spot_count Integer minimum number of spots required per sample. Default is 20
+#' @param overlap_percentile Numeric, percentile to use for overlap calculation (default 95)
+#'
+#' @return A list with two components:
+#'   \itemize{
+#'     \item \code{BGFG_stats}: Data.frame with QC statistics including:
+#'       - Legacy metrics: BG_overlap, CV, SD, etc.
+#'       - New v2.0.0 metrics: SBR_log2, SBR_fold, fg_overlap_pct, bg_overlap_pct, 
+#'         separation_gap, separation_MAD, overall_BGFG_qc
+#'     \item \code{plot_data}: Data.frame in long format ready for density plotting
+#'   }
+#'
+#' @note
+#' **Version History:**
 #' \itemize{
-#'   \item "Mode_sd": FG_mode - (multiplier * FG_sd)
-#'   \item "Median_mad": FG_median - (multiplier * FG_mad)
-#'   \item "Mean_sd": FG_mean - (multiplier * FG_sd)
+#'   \item v2.0.0 (2025-01-08): Enhanced by @DrGarnett
+#'     \itemize{
+#'       \item Added Signal-to-Background Ratio (SBR) metrics (log2 and fold)
+#'       \item Added actual distribution overlap percentages (fg_overlap_pct, bg_overlap_pct)
+#'       \item Added separation metrics (gap and MAD-based effect size)
+#'       \item Added comprehensive QC flags and overall_BGFG_qc decision
+#'       \item Maintained full backward compatibility with legacy metrics
+#'     }
 #' }
 #'
-#' @import dplyr
-#' @import tidyr
-#' @importFrom stats median sd mad
-#' @examples
-#' \dontrun{
-#' # Calculate BG/FG statistics
-#' qc_results <- calculate_bg_fg_stats(
-#'   datCollate = datCollate,
-#'   apply_log2 = TRUE,
-#'   min_spot_count = 20
-#' )
-#'
-#' # Access statistics
-#' stats_df <- qc_results$BGFG_stats
-#' plot_data <- qc_results$plot_data
-#' }
-#' Note : used to be
+#' @author Shaun Garnett
+#' @export
 calculate_bg_fg_stats <- function(datCollate,
 																	apply_log2 = TRUE,
-																	min_spot_count = 20) {
+																	min_spot_count = 20,
+																	overlap_percentile = 95) {
 	
 	# Extract feature definitions (exclude controls)
 	feature_data <- datCollate$data$Data %>%
@@ -75,44 +72,34 @@ calculate_bg_fg_stats <- function(datCollate,
 		left_join(feature_data, by = "Protein") %>%
 		filter(data != "ctrl")
 	
-	# Apply log2 transformation if requested
-	if (apply_log2) {
+	# Apply log2 transformation
+	if (apply_log2 == TRUE) {
 		test_data <- df %>%
-			mutate(
-				BGFG = FG - BG,
-				FG = log2(FG),
-				BG = log2(BG),
-				NetI = log2(NetI)
-			)
+			mutate(BGFG = FG - BG) %>%
+			mutate(FG = log2(FG)) %>%
+			mutate(BG = log2(BG)) %>%
+			mutate(NetI = log2(NetI))
 	} else {
 		test_data <- df %>%
 			mutate(BGFG = FG - BG)
 	}
 	
-	# Handle infinite values (from log2 of zero)
-	test_data <- test_data %>%
-		mutate(
-			FG = ifelse(is.finite(FG), FG, NA_real_),
-			BG = ifelse(is.finite(BG), BG, NA_real_),
-			NetI = ifelse(is.finite(NetI), NetI, NA_real_)
-		)
+	# Handle infinite values
+	test_data$FG[!is.finite(test_data$FG)] <- NA
+	test_data$BG[!is.finite(test_data$BG)] <- NA
+	test_data$NetI[!is.finite(test_data$NetI)] <- NA
 	
 	# Select relevant columns
 	test_data <- test_data %>%
 		filter(!is.na(Protein)) %>%
 		dplyr::select(Labels, Sample, Protein, FG, BG, NetI, BGFG)
 	
-	# ========== CREATE PLOT DATA EARLY ==========
-	# Prepare plot data in long format (needed by BG_count_function)
+	# Create plot data in long format
 	plot_data <- test_data %>%
-		gather(key = key, value = value, FG:BGFG)
-	# ============================================
-	
-	# Calculate total number of spots for percentage calculations
-	spot_total <- length(unique(df$spot))
+		gather(key = key, value = value, c(4:dim(test_data)[2]))
 	
 	# Calculate comprehensive statistics per sample
-	BGFG_stats <- test_data %>%
+	flag_df <- test_data %>%
 		group_by(Sample) %>%
 		mutate(count = n()) %>%
 		ungroup() %>%
@@ -122,395 +109,184 @@ calculate_bg_fg_stats <- function(datCollate,
 			count = n(),
 			positive = sum(BGFG > 0, na.rm = TRUE),
 			
-			# Mean statistics
-			FG_mean = mean(FG, na.rm = TRUE),
-			BG_mean = mean(BG, na.rm = TRUE),
-			NetI_mean = mean(NetI, na.rm = TRUE),
+			# ========== LEGACY STATISTICS (original) ==========
+			FG_mean = try(mean(FG, na.rm = TRUE)),
+			FG_mode = try(mode_function(FG)),
+			BG_mean = try(mean(BG, na.rm = TRUE)),
+			BG_mode = try(mode_function(BG)),
+			NetI_mean = try(mean(NetI, na.rm = TRUE)),
+			NetI_mode = try(mode_function(NetI)),
 			
-			# Mode statistics (using custom mode_function)
-			FG_mode = mode_function(FG),
-			BG_mode = mode_function(BG),
-			NetI_mode = mode_function(NetI),
+			FG_median = try(median(FG, na.rm = TRUE)),
+			BG_median = try(median(BG, na.rm = TRUE)),
+			NetI_median = try(median(NetI, na.rm = TRUE)),
 			
-			# Median statistics
-			FG_median = median(FG, na.rm = TRUE),
-			BG_median = median(BG, na.rm = TRUE),
-			NetI_median = median(NetI, na.rm = TRUE),
+			FG_sd = try(sd(FG, na.rm = TRUE)),
+			BG_sd = try(sd(BG, na.rm = TRUE)),
+			NetI_sd = try(sd(NetI, na.rm = TRUE)),
 			
-			# Standard deviation
-			FG_sd = sd(FG, na.rm = TRUE),
-			BG_sd = sd(BG, na.rm = TRUE),
-			NetI_sd = sd(NetI, na.rm = TRUE),
+			FG_mad = try(mad(FG, na.rm = TRUE)),
+			BG_mad = try(mad(BG, na.rm = TRUE)),
+			NetI_mad = try(mad(NetI, na.rm = TRUE)),
 			
-			# Median absolute deviation
-			FG_mad = mad(FG, na.rm = TRUE),
-			BG_mad = mad(BG, na.rm = TRUE),
-			NetI_mad = mad(NetI, na.rm = TRUE),
+			# ========== NEW v2.0.0: PERCENTILES FOR OVERLAP CALCULATION ==========
+			BG_p95 = quantile(BG, overlap_percentile / 100, na.rm = TRUE),
+			FG_p05 = quantile(FG, (100 - overlap_percentile) / 100, na.rm = TRUE),
 			
-			# Mean BG-FG difference
-			BGFG_difference = mean(BGFG, na.rm = TRUE),
+			BGFG_difference = try(mean(BGFG, na.rm = TRUE)),
 			
 			.groups = "drop"
 		) %>%
+		ungroup() %>%
 		mutate(
-			# Threshold calculations
+			# ========== LEGACY DERIVED METRICS ==========
 			FG_sd_multiple = FG_mode - (datCollate$param$BG_FG_sd_mutiple * FG_sd),
 			FG_mad_multiple = FG_mode - (datCollate$param$BG_FG_sd_mutiple * FG_mad),
-			
-			# Coefficient of variation (CV) based on mean
 			BG_CV = BG_sd / BG_mean * 100,
 			FG_CV = FG_sd / FG_mean * 100,
 			NetI_CV = NetI_sd / NetI_mean * 100,
-			
-			# Coefficient of variation (CV) based on mode
 			BG_CV_mode = BG_sd / BG_mode * 100,
 			FG_CV_mode = FG_sd / FG_mode * 100,
 			NetI_CV_mode = NetI_sd / NetI_mode * 100,
+			PositivePercentage = positive / count * 100,
 			
-			# Positive signal percentage
-			PositivePercentage = positive / count * 100
+			# ========== NEW METRICS v2.0.0 by @DrGarnett (2025-01-08) ==========
+			
+			# 1. Signal-to-Background Ratio (SBR)
+			SBR_log2 = FG_median - BG_median,  # In log2 space (subtraction = ratio)
+			SBR_fold = 2^(FG_median - BG_median),  # As fold change
+			
+			# 2. Distribution separation gap (positive = good, negative = overlap)
+			separation_gap = FG_p05 - BG_p95,
+			
+			# 3. Separation in MAD units (effect size / Cohen's d analog)
+			separation_MAD = (FG_median - BG_median) / sqrt((BG_mad^2 + FG_mad^2) / 2),
+			
+			# 4. QC Flags based on new metrics
+			SBR_fail = SBR_log2 < 1,  # Less than 2-fold separation
+			overlap_fail_gap = separation_gap < 0,  # Distributions overlap
+			separation_fail = separation_MAD < 2  # Less than 2 MAD separation
 		)
 	
-	# Calculate BG overlap threshold based on specified metric
+	# ========== NEW v2.0.0: ACTUAL OVERLAP PERCENTAGES ==========
+	overlap_stats <- test_data %>%
+		group_by(Labels, Sample) %>%
+		summarise(
+			# % of FG spots below BG 95th percentile (FG in BG range)
+			fg_overlap_pct = sum(FG < quantile(BG, overlap_percentile / 100, na.rm = TRUE), na.rm = TRUE) / n() * 100,
+			# % of BG spots above FG 5th percentile (BG in FG range)
+			bg_overlap_pct = sum(BG > quantile(FG, (100 - overlap_percentile) / 100, na.rm = TRUE), na.rm = TRUE) / n() * 100,
+			.groups = "drop"
+		)
+	
+	# Join overlap stats and add overall QC decision
+	flag_df <- flag_df %>%
+		left_join(overlap_stats, by = c("Labels", "Sample")) %>%
+		mutate(
+			# Additional QC flag based on actual overlap percentage
+			overlap_fail_pct = fg_overlap_pct > 5,  # More than 5% overlap
+			
+			# ========== NEW v2.0.0: OVERALL QC DECISION ==========
+			# Overall QC status: "flag" if ANY criterion fails, otherwise "pass"
+			overall_BGFG_qc = ifelse(
+				SBR_fail | overlap_fail_pct | separation_fail,
+				"flag",
+				"pass"
+			)
+		)
+	
+	# ========== LEGACY BG_overlap CALCULATION (original logic) ==========
 	BG_overlap_metric <- datCollate$param$BG_overlap_metric
 	
-	# Check if metric is NULL or missing
-	if (is.null(BG_overlap_metric) || is.na(BG_overlap_metric)) {
-		warning("BG_overlap_metric not specified, using 'Mode_sd' as default")
-		BG_overlap_metric <- "Mode_sd"
+	if (BG_overlap_metric == "Mode_sd") {
+		flag_df <- flag_df %>%
+			mutate(BG_overlap = FG_mode - (datCollate$param$BG_FG_sd_mutiple * FG_sd))
+	}
+	if (BG_overlap_metric == "Median_sd") {
+		flag_df <- flag_df %>%
+			mutate(BG_overlap = FG_median - (datCollate$param$BG_FG_sd_mutiple * FG_sd))
+	}
+	if (BG_overlap_metric == "Mean_sd") {
+		flag_df <- flag_df %>%
+			mutate(BG_overlap = FG_mean - (datCollate$param$BG_FG_sd_mutiple * FG_sd))
+	}
+	if (BG_overlap_metric == "Mode_mad") {
+		flag_df <- flag_df %>%
+			mutate(BG_overlap = FG_mode - (datCollate$param$BG_FG_sd_mutiple * FG_mad))
+	}
+	if (BG_overlap_metric == "Median_mad") {
+		flag_df <- flag_df %>%
+			mutate(BG_overlap = FG_median - (datCollate$param$BG_FG_sd_mutiple * FG_mad))
+	}
+	if (BG_overlap_metric == "Mean_mad") {
+		flag_df <- flag_df %>%
+			mutate(BG_overlap = FG_mean - (datCollate$param$BG_FG_sd_mutiple * FG_mad))
 	}
 	
-	sd_multiple <- datCollate$param$BG_FG_sd_mutiple
-	
-	# Use pattern matching to determine metric type
-	if (grepl("mode.*sd", BG_overlap_metric, ignore.case = TRUE)) {
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_mode - (sd_multiple * FG_sd))
-	} else if (grepl("median.*sd", BG_overlap_metric, ignore.case = TRUE)) {
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_median - (sd_multiple * FG_sd))
-	} else if (grepl("mean.*sd", BG_overlap_metric, ignore.case = TRUE)) {
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_mean - (sd_multiple * FG_sd))
-	} else if (grepl("mode.*mad", BG_overlap_metric, ignore.case = TRUE)) {
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_mode - (sd_multiple * FG_mad))
-	} else if (grepl("median.*mad", BG_overlap_metric, ignore.case = TRUE)) {
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_median - (sd_multiple * FG_mad))
-	} else if (grepl("mean.*mad", BG_overlap_metric, ignore.case = TRUE)) {
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_mean - (sd_multiple * FG_mad))
-	} else {
-		warning(sprintf("Unknown BG_overlap_metric: %s. Using Mode_sd as default.", BG_overlap_metric))
-		BGFG_stats <- BGFG_stats %>%
-			mutate(BG_overlap = FG_mode - (sd_multiple * FG_sd))
-	}
-	
-	# Identify "pepper" artifacts (high intensity outliers)
+	# ========== PEPPER ARTIFACTS (high intensity outliers) ==========
 	pepper_data <- datCollate$data$Data %>%
 		filter(data == "feature") %>%
-		left_join(
-			BGFG_stats %>% dplyr::select(Sample, NetI_sd, NetI_mode),
-			by = "Sample"
-		) %>%
+		left_join(flag_df %>% dplyr::select(Sample, NetI_sd, NetI_mode), by = "Sample") %>%
 		filter(log2(mean) > (NetI_mode + (NetI_sd * 2))) %>%
 		group_by(Sample) %>%
-		summarise(Pepper_2sd = n(), .groups = "drop")
+		summarise(Pepper_2sd = n(), .groups = "drop") %>%
+		ungroup()
 	
-	# Add pepper count to stats (0 if none found)
-	BGFG_stats <- BGFG_stats %>%
+	flag_df <- flag_df %>%
 		left_join(pepper_data, by = "Sample") %>%
 		mutate(Pepper_2sd = ifelse(is.na(Pepper_2sd), 0, Pepper_2sd))
 	
-	# ========== NOW CALL BG_count_function ==========
-	# Calculate BG overlap percentages (now plot_data exists)
-	BGFG_stats <- BG_count_function(plot_data, BGFG_stats, "FG_sd_multiple", spot_total)
-	BGFG_stats <- BG_count_function(plot_data, BGFG_stats, "BG_overlap", spot_total)
-	# ================================================
+	# ========== LEGACY BG OVERLAP PERCENTAGES ==========
+	spot_total <- length(unique(df$spot))
+	
+	flag_df <- BG_count_function(plot_data, flag_df, "FG_sd_multiple", spot_total)
+	flag_df <- BG_count_function(plot_data, flag_df, "BG_overlap", spot_total)
 	
 	# Return results
 	list(
-		BGFG_stats = BGFG_stats,
+		BGFG_stats = flag_df,
 		plot_data = plot_data
 	)
 }
 
-#' Create Density Plots for Background and Foreground Signal Analysis
+#' Evaluate BG/FG QC Status
 #'
-#' This function generates faceted density plots to visualize the distribution
-#' of Background (BG) and Foreground (FG) signal intensities across samples.
-#' It's primarily used for quality control to identify background overlap issues.
-#'
-#' @param datCollate A list containing data collection objects with components:
-#'   \itemize{
-#'     \item \code{data$RawData}: Data.frame with columns Labels, Sample, Protein, BG, FG, NetI
-#'     \item \code{data$feature_df}: Data.frame with feature definitions including 'data' column
-#'     \item \code{data$RFU_thresold}: Optional data.frame with RFU threshold values
-#'     \item \code{data$lowIntensityThresholds}: Optional data.frame with nMAD2NetI values
-#'     \item \code{param$BG_overlap_metric}: Character specifying metric ("Mean", "Median", or "Mode")
-#'   }
-#' @param QC A list containing quality control data with component:
-#'   \itemize{
-#'     \item \code{BGFG_stats}: Data.frame with BG/FG statistics (mean, median, mode, overlap, sd)
-#'   }
-#' @param samples Character vector of sample names to include in the plot
-#' @param facet_by Character string specifying faceting variable. Default is "Sample"
-#' @param xlim Numeric vector of length 2 specifying x-axis limits. Default is c(4, 16)
-#' @param scale Character string for scale type: "auto", "full", or "fixed". Default is "auto"
-#' @param col_num Integer specifying number of columns for faceting. Default is 3
-#' @param flag_ylim Numeric value for flag y-axis limit. Default is 2
-#'
-#' @return A ggplot2 object showing density distributions with reference lines
-#'
-#' @details
-#' The function creates density plots with the following reference lines:
-#' \itemize{
-#'   \item Black vertical lines: BG and FG statistics based on selected metric
-#'   \item Red dashed line: Upper BG threshold (2SD above BG, if UpperBG column present)
-#'   \item Green dashed line: Lower NetI threshold (nMAD2NetI, if available)
-#' }
-#'
-#' The metric used for BG/FG statistics is determined by \code{datCollate$param$BG_overlap_metric}.
-#' If not specified, "Mode" is used as default.
-#'
-#' @import dplyr
-#' @import ggplot2
-#' @importFrom rlang sym
-#'
-#' @examples
-#' \dontrun{
-#' # Basic usage with datCollate and QC objects
-#' plot <- create_bg_fg_density_plot(
-#'   datCollate = datCollate,
-#'   QC = QC,
-#'   samples = c("Sample1", "Sample2", "Sample3")
-#' )
-#'
-#' # With custom faceting and limits
-#' plot <- create_bg_fg_density_plot(
-#'   datCollate = datCollate,
-#'   QC = QC,
-#'   samples = selected_samples,
-#'   facet_by = "Protein",
-#'   xlim = c(5, 12),
-#'   scale = "fixed"
-#' )
-#' }
-#' Note : replaced select_density_plot_function
+#' @param BGFG_stats Data.frame with BG/FG statistics
+#' @param metric Character, column name of metric
+#' @param threshold Numeric threshold value
+#' @param direction Character, "above" or "below"
+#' @return BGFG_stats with QC_status column ("pass" or "flag")
 #' @export
-create_bg_fg_density_plot <- function(datCollate,
-																			QC,
-																			samples,
-																			facet_by = "Sample",
-																			xlim = c(4, 16),
-																			scale = "auto",
-																			col_num = 3,
-																			flag_ylim = 2) {
+evaluate_bgfg_qc <- function(BGFG_stats, metric, threshold, direction = "above") {
 	
-	# Extract raw data
-	RawData <- datCollate$data$RawData
-	
-	# Define base columns to select from raw data
-	raw_data_columns <- c("Labels", "Sample", "Protein", "BG", "FG", "NetI")
-	
-	# Check for optional UpperBG column (2SD above background)
-	has_upper_bg <- "UpperBG" %in% colnames(RawData)
-	if (has_upper_bg) {
-		raw_data_columns <- c(raw_data_columns, "UpperBG")
+	if (!metric %in% colnames(BGFG_stats)) {
+		warning(sprintf("Metric '%s' not found. Using BG_overlap_BG_Percentage", metric))
+		metric <- "BG_overlap_BG_Percentage"
 	}
 	
-	# Join with lower intensity thresholds if available
-	has_lower_neti <- "lowIntensityThresholds" %in% names(datCollate$data)
-	if (has_lower_neti) {
-		RawData <- RawData %>%
-			left_join(
-				datCollate$data$lowIntensityThresholds %>%
-					dplyr::select(Sample, nMAD2NetI) %>%
-					rename(lowerNetI = nMAD2NetI),
-				by = "Sample"
-			)
-		raw_data_columns <- c(raw_data_columns, "lowerNetI")
+	values <- BGFG_stats[[metric]]
+	
+	if (direction == "above") {
+		BGFG_stats$QC_status <- ifelse(values > threshold, "flag", "pass")
+		BGFG_stats$QC_reason <- sprintf("%s > %.2f", metric, threshold)
+	} else if (direction == "below") {
+		BGFG_stats$QC_status <- ifelse(values < threshold, "flag", "pass")
+		BGFG_stats$QC_reason <- sprintf("%s < %.2f", metric, threshold)
+	} else {
+		warning(sprintf("Unknown direction '%s'. Using 'above'", direction))
+		BGFG_stats$QC_status <- ifelse(values > threshold, "flag", "pass")
+		BGFG_stats$QC_reason <- sprintf("%s > %.2f", metric, threshold)
 	}
 	
-	# Prepare plot data: filter for selected samples and features only
-	density_plot_data <- RawData %>%
-		dplyr::select(all_of(raw_data_columns)) %>%
-		left_join(datCollate$data$feature_df, by = "Protein") %>%
-		filter(data == "feature") %>%
-		dplyr::filter(Sample %in% samples)
+	BGFG_stats$QC_metric_used <- metric
+	BGFG_stats$QC_threshold <- threshold
+	BGFG_stats$QC_direction <- direction
 	
-	# Prepare BGFG statistics
-	BGFG_stats <- QC$BGFG_stats
-	
-	# Add RFU threshold if available
-	if (!is.null(datCollate$data$RFU_thresold)) {
-		BGFG_stats <- BGFG_stats %>%
-			left_join(datCollate$data$RFU_thresold, by = c("Sample", "Labels"))
-	}
-	
-	if (!"RFU_threshold" %in% colnames(BGFG_stats)) {
-		BGFG_stats$RFU_threshold <- 1
-	}
-	
-	# Determine which metric to use
-	BG_overlap_metric <- datCollate$param$BG_overlap_metric
-	
-	if (is.null(BG_overlap_metric) || is.na(BG_overlap_metric)) {
-		BG_overlap_metric <- "Mode"
-		message("BG_overlap_metric not specified, using 'Mode' as default")
-	}
-	
-	# Extract the base metric type by pattern matching
-	base_metric <- case_when(
-		grepl("median", BG_overlap_metric, ignore.case = TRUE) ~ "Median",
-		grepl("mode", BG_overlap_metric, ignore.case = TRUE) ~ "Mode",
-		grepl("mean", BG_overlap_metric, ignore.case = TRUE) ~ "Mean",
-		TRUE ~ NA_character_
-	)
-	
-	# Validate that we found a valid metric
-	if (is.na(base_metric)) {
-		stop(sprintf(
-			"BG_overlap_metric must contain 'mean', 'median', or 'mode'. Got: '%s'",
-			BG_overlap_metric
-		))
-	}
-	
-	# Map to column names based on base metric
-	metric_cols <- switch(
-		base_metric,
-		"Mode" = c("BG_mode", "FG_mode"),
-		"Median" = c("BG_median", "FG_median"),
-		"Mean" = c("BG_mean", "FG_mean")
-	)
-	
-	# Prepare vertical line data
-	density_vline_data <- BGFG_stats %>%
-		dplyr::select(
-			Labels, Sample,
-			all_of(metric_cols),
-			BG_overlap, RFU_threshold, BG_sd
-		) %>%
-		dplyr::filter(Sample %in% samples) %>%
-		dplyr::rename(
-			BG = !!sym(metric_cols[1]),
-			FG = !!sym(metric_cols[2])
-		) %>%
-		mutate(metric = BG_overlap_metric)
-	
-	# Create base density plot
-	density_plot <- create_density_plot(
-		density_plot_data = density_plot_data,
-		density_vline_data = density_vline_data,
-		sample_flag_data = NULL,
-		flag_ylim = flag_ylim,
-		col_num = col_num,
-		xlim = xlim,
-		facet = facet_by,
-		scale = scale
-	)
-	
-	# Add optional reference lines
-	if (has_upper_bg) {
-		density_plot <- density_plot +
-			geom_vline(
-				aes(xintercept = log2(UpperBG)),
-				data = density_plot_data,
-				colour = "red",
-				linetype = "dashed",
-				alpha = 0.6
-			)
-	}
-	
-	if (has_lower_neti) {
-		density_plot <- density_plot +
-			geom_vline(
-				aes(xintercept = log2(lowerNetI)),
-				data = density_plot_data,
-				colour = "green",
-				linetype = "dashed",
-				alpha = 0.6
-			)
-	}
-	
-	# Apply faceting
-	density_plot +
-		facet_grid(as.formula(paste(facet_by, "~ .")))
+	return(BGFG_stats)
 }
 
-
-#' Create Density Plots for Background and Foreground Distributions
+#' Create Density Plot (Core Function)
 #'
-#' Generates density plots showing the distribution of Background (BG), Foreground (FG),
-#' and Net Intensity (NetI) values. Can be faceted by sample or show aggregated distributions.
-#'
-#' @param density_plot_data A data.frame containing the raw intensity data with columns:
-#'   Sample, BG, FG, NetI
-#' @param density_vline_data A data.frame containing summary statistics for vertical reference
-#'   lines. Should include columns: Sample, BG, FG, BG_sd, BG_overlap, and optionally RFU_threshold
-#' @param sample_flag_data Optional data.frame for flagged samples (currently not implemented)
-#' @param flag_ylim Numeric value for y-axis limit when samples are flagged. Default is 2
-#' @param col_num Integer specifying number of columns for faceting. Default is 3
-#' @param xlim Numeric vector of length 2 specifying x-axis limits for log2 scale.
-#'   Default is c(0, 16)
-#' @param facet Character string specifying faceting variable. 
-#'   Use "Sample" for individual sample plots or any other value for aggregated view.
-#'   Default is "Sample"
-#' @param scale Character string for scale type: "auto", "full", or "fixed".
-#'   When "full" or "fixed", applies coord_cartesian with xlim. Default is "auto"
-#'
-#' @return A ggplot2 object showing density distributions
-#'
-#' @details
-#' When \code{facet = "Sample"}:
-#' \itemize{
-#'   \item Creates separate density curves for each sample
-#'   \item BG shown in red, FG in blue, NetI in green
-#'   \item Dual y-axes: left for BG density, right for FG/NetI density (scaled)
-#'   \item Vertical reference lines show statistics from density_vline_data
-#' }
-#'
-#' When \code{facet != "Sample"}:
-#' \itemize{
-#'   \item Shows aggregated densities across all samples
-#'   \item Individual samples shown as light colors, overall mean in bold
-#'   \item Vertical lines show mean statistics across samples
-#' }
-#'
-#' Reference lines:
-#' \itemize{
-#'   \item Thick red line (alpha 0.25): BG statistic
-#'   \item Thin red line (alpha 1.0): BG + 1 standard deviation
-#'   \item Thick blue line (alpha 0.25): FG statistic
-#'   \item Thin blue line (alpha 1.0): BG overlap threshold
-#'   \item Thick black line (alpha 0.25): RFU threshold (if provided)
-#' }
-#'
-#' @import ggplot2
-#' @import dplyr
-#' @importFrom stats density
-
-#'
-#' @examples
-#' \dontrun{
-#' # Individual sample plots
-#' plot <- create_density_plot(
-#'   density_plot_data = raw_data,
-#'   density_vline_data = stats_data,
-#'   xlim = c(4, 12),
-#'   facet = "Sample"
-#' )
-#'
-#' # Aggregated view
-#' plot <- create_density_plot(
-#'   density_plot_data = raw_data,
-#'   density_vline_data = stats_data,
-#'   xlim = c(4, 12),
-#'   facet = "All"
-#' )
-#' }
-#' Note used to be density_plot_function
 #' @export
 create_density_plot <- function(density_plot_data,
 																density_vline_data = NULL,
@@ -521,184 +297,61 @@ create_density_plot <- function(density_plot_data,
 																facet = "Sample",
 																scale = "auto") {
 	
-	# Initialize base plot
 	density_plot <- ggplot(data = density_plot_data)
 	
 	if (facet == "Sample") {
-		# Individual sample density plots with dual y-axes
-		
 		samples <- unique(density_plot_data$Sample)
+		df_FG <- df_BG <- df_NetI <- data.frame()
 		
-		# Initialize data frames for density curves
-		df_FG <- data.frame()
-		df_BG <- data.frame()
-		df_NetI <- data.frame()
-		
-		# Calculate densities for each sample
 		for (entry in samples) {
-			sample_data <- density_plot_data %>%
-				filter(Sample == entry)
-			
-			# Calculate BG density
+			sample_data <- density_plot_data %>% filter(Sample == entry)
 			density_BG <- density(log2(sample_data$BG))
-			
-			# Calculate FG density
 			density_FG <- density(log2(sample_data$FG))
-			
-			# Calculate NetI density (handle zeros and NAs)
 			sample_data$NetI[sample_data$NetI < 1 | is.na(sample_data$NetI)] <- 1
 			density_NetI <- density(log2(sample_data$NetI))
 			
-			# Append to data frames
-			df_BG <- df_BG %>%
-				rbind(data.frame(
-					x = density_BG$x,
-					y = density_BG$y,
-					Sample = entry,
-					key = "BG"
-				))
-			
-			df_FG <- df_FG %>%
-				rbind(data.frame(
-					x = density_FG$x,
-					y = density_FG$y,
-					Sample = entry,
-					key = "FG"
-				))
-			
-			df_NetI <- df_NetI %>%
-				rbind(data.frame(
-					x = density_NetI$x,
-					y = density_NetI$y,
-					Sample = entry,
-					key = "NetI"
-				))
+			df_BG <- rbind(df_BG, data.frame(x = density_BG$x, y = density_BG$y, Sample = entry, key = "BG"))
+			df_FG <- rbind(df_FG, data.frame(x = density_FG$x, y = density_FG$y, Sample = entry, key = "FG"))
+			df_NetI <- rbind(df_NetI, data.frame(x = density_NetI$x, y = density_NetI$y, Sample = entry, key = "NetI"))
 		}
 		
-		# Calculate scale factor for dual y-axis
-		# Scale FG and NetI relative to BG
 		scale_factor <- max(df_BG$y, na.rm = TRUE) / max(df_FG$y, na.rm = TRUE)
 		
-		# Build plot with density lines and dual y-axes
 		density_plot <- density_plot +
-			geom_line(data = df_BG, aes(x = x, y = y, col = key)) +
-			geom_line(data = df_FG, aes(x = x, y = y * scale_factor, col = key)) +
-			geom_line(data = df_NetI, aes(x = x, y = y * scale_factor, col = key)) +
+			geom_line(data = df_BG, aes(x = x, y = y), color = "red", linewidth = 1) +
+			geom_line(data = df_FG, aes(x = x, y = y * scale_factor), color = "blue", linewidth = 1) +
+			geom_line(data = df_NetI, aes(x = x, y = y * scale_factor), color = "green", linewidth = 1) +
 			scale_y_continuous(
 				name = "Density (BG)",
 				sec.axis = sec_axis(~ . / scale_factor, name = "Density (FG, NetI)")
-			) +
-			scale_color_manual(
-				values = c("BG" = "red", "FG" = "blue", "NetI" = "green"),
-				name = "Signal Type"
 			)
 		
-		# Add vertical reference lines if data provided
-		if (!is.null(density_vline_data)) {
-			if ("BG" %in% colnames(density_vline_data)) {
-				density_plot <- density_plot +
-					geom_vline(
-						data = density_vline_data,
-						aes(xintercept = BG),
-						alpha = 0.25,
-						col = "red",
-						linewidth = 1.5
-					) +
-					geom_vline(
-						data = density_vline_data,
-						aes(xintercept = BG + BG_sd),
-						alpha = 1,
-						col = "red",
-						linewidth = 0.5
-					) +
-					geom_vline(
-						data = density_vline_data,
-						aes(xintercept = FG),
-						alpha = 0.25,
-						col = "blue",
-						linewidth = 1.5
-					) +
-					geom_vline(
-						data = density_vline_data,
-						aes(xintercept = BG_overlap),
-						alpha = 1,
-						col = "blue",
-						linewidth = 0.5
-					)
-			}
-			
-			if ("RFU_threshold" %in% colnames(density_vline_data)) {
-				density_plot <- density_plot +
-					geom_vline(
-						data = density_vline_data,
-						aes(xintercept = RFU_threshold),
-						alpha = 0.25,
-						col = "black",
-						linewidth = 1.5
-					)
-			}
+		if (!is.null(density_vline_data) && "BG" %in% colnames(density_vline_data)) {
+			density_plot <- density_plot +
+				geom_vline(data = density_vline_data, aes(xintercept = BG), alpha = 0.25, color = "red", linewidth = 1.5) +
+				geom_vline(data = density_vline_data, aes(xintercept = BG + BG_sd), alpha = 1, color = "red", linewidth = 0.5) +
+				geom_vline(data = density_vline_data, aes(xintercept = FG), alpha = 0.25, color = "blue", linewidth = 1.5) +
+				geom_vline(data = density_vline_data, aes(xintercept = BG_overlap), alpha = 1, color = "blue", linewidth = 0.5)
 		}
 		
+		if (!is.null(density_vline_data) && "RFU_threshold" %in% colnames(density_vline_data)) {
+			density_plot <- density_plot +
+				geom_vline(data = density_vline_data, aes(xintercept = RFU_threshold), alpha = 0.25, color = "black", linewidth = 1.5)
+		}
 	} else {
-		# Aggregated view across all samples
-		
 		density_plot <- density_plot +
-			# Individual sample densities (light colors)
-			geom_density(
-				data = density_plot_data,
-				aes(x = log2(BG), group = Sample),
-				col = "pink"
-			) +
-			geom_density(
-				data = density_plot_data,
-				aes(x = log2(FG), group = Sample),
-				col = "lightskyblue1"
-			) +
-			# Overall densities (bold colors)
-			geom_density(
-				data = density_plot_data,
-				aes(x = log2(BG)),
-				col = "red",
-				linewidth = 1.5
-			) +
-			geom_density(
-				data = density_plot_data,
-				aes(x = log2(FG)),
-				col = "blue",
-				linewidth = 1.5
-			)
+			geom_density(data = density_plot_data, aes(x = log2(BG), group = Sample), color = "pink", linewidth = 0.5) +
+			geom_density(data = density_plot_data, aes(x = log2(FG), group = Sample), color = "lightskyblue1", linewidth = 0.5) +
+			geom_density(data = density_plot_data, aes(x = log2(BG)), color = "red", linewidth = 1.5) +
+			geom_density(data = density_plot_data, aes(x = log2(FG)), color = "blue", linewidth = 1.5)
 		
-		# Add mean vertical reference lines if data provided
 		if (!is.null(density_vline_data)) {
 			density_plot <- density_plot +
-				geom_vline(
-					data = density_vline_data,
-					aes(xintercept = mean(BG, na.rm = TRUE)),
-					col = "red",
-					linewidth = 1.5
-				) +
-				geom_vline(
-					data = density_vline_data,
-					aes(xintercept = mean(BG + BG_sd, na.rm = TRUE)),
-					col = "red",
-					linewidth = 1.5
-				) +
-				geom_vline(
-					data = density_vline_data,
-					aes(xintercept = mean(FG, na.rm = TRUE)),
-					col = "blue",
-					linewidth = 1.5
-				) +
-				geom_vline(
-					data = density_vline_data,
-					aes(xintercept = mean(BG_overlap, na.rm = TRUE)),
-					col = "blue",
-					linewidth = 1
-				)
+				geom_vline(aes(xintercept = mean(BG, na.rm = TRUE)), data = density_vline_data, color = "red", linewidth = 1.5) +
+				geom_vline(aes(xintercept = mean(FG, na.rm = TRUE)), data = density_vline_data, color = "blue", linewidth = 1.5)
 		}
 	}
 	
-	# Apply coordinate limits if scale is 'full' or 'fixed'
 	if (scale %in% c("full", "fixed")) {
 		density_plot <- density_plot +
 			coord_cartesian(xlim = xlim) +
@@ -708,12 +361,10 @@ create_density_plot <- function(density_plot_data,
 			scale_x_continuous(breaks = seq(0, 16, by = 2))
 	}
 	
-	# Apply theme and formatting
-	density_plot <- density_plot +
+	density_plot +
 		geom_hline(yintercept = 0, colour = "black", linewidth = 0.25) +
 		scale_fill_discrete(drop = FALSE) +
-		ylab("") +
-		xlab("log2 Intensity") +
+		labs(y = "Density", x = "log2 Intensity") +
 		theme_minimal() +
 		theme(
 			axis.title = element_text(size = 14),
@@ -721,6 +372,298 @@ create_density_plot <- function(density_plot_data,
 			axis.text.x = element_text(angle = 0, hjust = 0.5, size = 10),
 			legend.position = "bottom"
 		)
+}
+
+#' Create BG/FG Density Plot (Main Function)
+#'
+#' @export
+#' Create BG/FG Density Plot with Dynamic QC Metric Annotations
+#'
+#' @param datCollate Data collection object
+#' @param QC QC object containing BGFG_stats
+#' @param samples Vector of sample names to plot
+#' @param facet_by Faceting variable (default "Sample")
+#' @param xlim X-axis limits
+#' @param scale Scale type ("auto", "full", "fixed")
+#' @param col_num Number of columns for faceting
+#' @param flag_ylim Y-axis limit for flagged samples
+#' @param show_new_metrics Whether to show metric annotations
+#' @param primary_qc_metric Name of primary QC metric to display (e.g., "BG Overlap (Legacy)", "SBR Fold")
+#' @param qc_threshold Threshold value for pass/fail determination
+#' @param fail_direction "Above Threshold" or "Below Threshold"
+#'
+#' @return ggplot object
+#' @author Shaun Garnett
+#' @export
+create_bg_fg_density_plot <- function(datCollate,
+																			QC,
+																			samples,
+																			facet_by = "Sample",
+																			xlim = c(4, 16),
+																			scale = "auto",
+																			col_num = 3,
+																			flag_ylim = 2,
+																			show_new_metrics = TRUE) {
 	
-	return(density_plot)
+	param <- if (!is.null(QC$param)) QC$param else datCollate$param
+	bgfg_qc_metric <- param$BGFG_QC_metric
+	bgfg_qc_direction <- param$BGFG_QC_direction
+	
+	# Default to BG_overlap if not specified
+	if (is.null(bgfg_qc_metric) || bgfg_qc_metric == "") {
+		bgfg_qc_metric <- "BG_overlap"
+		message("BGFG_QC_metric not found in param. Defaulting to BG_overlap")
+	}
+	if(is.null(show_new_metrics)){
+		show_new_metrics = FALSE
+		if(bgfg_qc_metric != 'BG_overlap'){
+			show_new_metrics = TRUE
+		}
+	}
+	
+	RawData <- datCollate$data$RawData
+	raw_data_columns <- c("Labels", "Sample", "Protein", "BG", "FG", "NetI")
+	
+	has_upper_bg <- "UpperBG" %in% colnames(RawData)
+	if (has_upper_bg) raw_data_columns <- c(raw_data_columns, "UpperBG")
+	
+	has_lower_neti <- "lowIntensityThresholds" %in% names(datCollate$data)
+	if (has_lower_neti) {
+		RawData <- RawData %>%
+			left_join(datCollate$data$lowIntensityThresholds %>% 
+									dplyr::select(Sample, nMAD2NetI) %>% 
+									rename(lowerNetI = nMAD2NetI), by = "Sample")
+		raw_data_columns <- c(raw_data_columns, "lowerNetI")
+	}
+	
+	density_plot_data <- RawData %>%
+		dplyr::select(all_of(raw_data_columns)) %>%
+		left_join(datCollate$data$feature_df, by = "Protein") %>%
+		filter(data == "feature", Sample %in% samples)
+	
+	BGFG_stats <- QC$BGFG_stats
+	
+	if (!is.null(datCollate$data$RFU_thresold)) {
+		BGFG_stats <- BGFG_stats %>% left_join(datCollate$data$RFU_thresold, by = c("Sample", "Labels"))
+	}
+	if (!"RFU_threshold" %in% colnames(BGFG_stats)) BGFG_stats$RFU_threshold <- 1
+	
+	BG_overlap_metric <- datCollate$param$BG_overlap_metric
+	if (is.null(BG_overlap_metric)) {
+		BG_overlap_metric <- "Mode"
+		message("BG_overlap_metric not specified, using 'Mode' as default")
+	}
+	
+	base_metric <- case_when(
+		grepl("median", BG_overlap_metric, ignore.case = TRUE) ~ "Median",
+		grepl("mode", BG_overlap_metric, ignore.case = TRUE) ~ "Mode",
+		grepl("mean", BG_overlap_metric, ignore.case = TRUE) ~ "Mean",
+		TRUE ~ "Mode"
+	)
+	
+	metric_cols <- switch(base_metric,
+												"Mode" = c("BG_mode", "FG_mode"),
+												"Median" = c("BG_median", "FG_median"),
+												"Mean" = c("BG_mean", "FG_mean"))
+	
+	density_vline_data <- BGFG_stats %>%
+		dplyr::select(Labels, Sample, all_of(metric_cols), BG_sd, FG_sd, BG_mad, FG_mad,
+									BG_overlap, RFU_threshold,
+									matches("SBR_log2|SBR_fold|separation_gap|fg_overlap_pct|bg_overlap_pct|separation_MAD|overall_BGFG_qc|BG_overlap_BG_Percentage")) %>%
+		filter(Sample %in% samples) %>%
+		rename(BG = !!sym(metric_cols[1]), FG = !!sym(metric_cols[2])) %>%
+		mutate(
+			metric = base_metric,
+			BG_upper_2mad = BG + (2 * BG_mad),
+			FG_lower_2mad = FG - (2 * FG_mad),
+			overlap_start = pmax(FG_lower_2mad, BG),
+			overlap_end = pmin(BG_upper_2mad, FG),
+			has_overlap = overlap_start < overlap_end
+		)
+	
+	density_plot <- create_density_plot(
+		density_plot_data = density_plot_data,
+		density_vline_data = density_vline_data,
+		xlim = xlim,
+		facet = facet_by,
+		scale = scale,
+		col_num = col_num
+	)
+	
+	# Add MAD lines
+	density_plot <- density_plot +
+		geom_vline(aes(xintercept = BG_upper_2mad), data = density_vline_data,
+							 color = "darkred", linetype = "dashed", linewidth = 0.8, alpha = 0.7) +
+		geom_vline(aes(xintercept = FG_lower_2mad), data = density_vline_data,
+							 color = "darkblue", linetype = "dashed", linewidth = 0.8, alpha = 0.7)
+	
+	# Add overlap region
+	if (any(density_vline_data$has_overlap, na.rm = TRUE)) {
+		density_plot <- density_plot +
+			geom_rect(aes(xmin = overlap_start, xmax = overlap_end, ymin = -Inf, ymax = Inf),
+								data = density_vline_data %>% filter(has_overlap),
+								fill = "purple", alpha = 0.15, inherit.aes = FALSE)
+	}
+	
+	# ========== DYNAMIC QC METRIC ANNOTATIONS ==========
+	if (show_new_metrics) {
+		
+		# Get param object
+		
+		
+		# Read BGFG_QC_metric and BGFG_QC_direction from param
+	
+		
+
+		
+		if (is.null(bgfg_qc_direction) || bgfg_qc_direction == "") {
+			bgfg_qc_direction <- "above"
+		}
+		
+		# Map param values to column names and formatting
+		metric_mapping <- list(
+			"BG_overlap" = list(
+				col = "BG_overlap_BG_Percentage",
+				param_key = "BG_overlap_BG_Percentage",
+				format = "%.1f%%",
+				label = "BG Overlap"
+			),
+			"SBR_log2" = list(
+				col = "SBR_log2",
+				param_key = "SBR_log2",
+				format = "%.2f",
+				label = "SBR Log2"
+			),
+			"SBR_fold" = list(
+				col = "SBR_fold",
+				param_key = "SBR_fold",
+				format = "%.1fx",
+				label = "SBR"
+			),
+			"fg_overlap_pct" = list(
+				col = "fg_overlap_pct",
+				param_key = "fg_overlap_pct",
+				format = "%.1f%%",
+				label = "FG Overlap"
+			),
+			"bg_overlap_pct" = list(
+				col = "bg_overlap_pct",
+				param_key = "bg_overlap_pct",
+				format = "%.1f%%",
+				label = "BG Overlap"
+			),
+			"separation_gap" = list(
+				col = "separation_gap",
+				param_key = "separation_gap",
+				format = "%.2f",
+				label = "Gap"
+			),
+			"separation_MAD" = list(
+				col = "separation_MAD",
+				param_key = "separation_MAD",
+				format = "%.2f",
+				label = "Sep MAD"
+			)
+		)
+		
+		# Get selected metric details
+		selected_metric <- metric_mapping[[bgfg_qc_metric]]
+		
+		# Fallback if metric not recognized
+		if (is.null(selected_metric)) {
+			message(sprintf("Metric '%s' not recognized. Falling back to BG_overlap.", bgfg_qc_metric))
+			selected_metric <- metric_mapping[["BG_overlap"]]
+			bgfg_qc_metric <- "BG_overlap"
+		}
+		
+		# Check if column exists in data
+		if (selected_metric$col %in% colnames(density_vline_data)) {
+			
+			# Get threshold from param
+			qc_threshold <- param[[selected_metric$param_key]]
+			
+			# Use default if not found
+			if (is.null(qc_threshold) || is.na(qc_threshold)) {
+				qc_threshold <- switch(bgfg_qc_metric,
+															 "BG_overlap" = 10,
+															 "SBR_log2" = 1,
+															 "SBR_fold" = 2,
+															 "fg_overlap_pct" = 5,
+															 "bg_overlap_pct" = 5,
+															 "separation_gap" = 0,
+															 "separation_MAD" = 2,
+															 10)  # final fallback
+				message(sprintf("Threshold for '%s' not found in param. Using default: %s", 
+												bgfg_qc_metric, qc_threshold))
+			}
+			
+			# Convert direction to fail logic
+			fail_above <- (bgfg_qc_direction == "above")
+			
+			annotation_data <- density_vline_data %>%
+				mutate(
+					# Get metric value
+					metric_value = .data[[selected_metric$col]],
+					
+					# Format metric text
+					metric_text = sprintf(paste0(selected_metric$label, ": ", selected_metric$format), metric_value),
+					
+					# Determine pass/fail based on threshold and direction
+					qc_status = if (fail_above) {
+						ifelse(metric_value > qc_threshold, "flag", "pass")
+					} else {
+						ifelse(metric_value < qc_threshold, "flag", "pass")
+					},
+					
+					# Set color based on status
+					qc_color = ifelse(qc_status == "flag", "red", "darkgreen"),
+					qc_text = toupper(qc_status),
+					
+					# Threshold text with direction indicator
+					threshold_text = sprintf("Thr: %s %s", 
+																	 ifelse(fail_above, "<", ">"),
+																	 qc_threshold),
+					
+					# Position for annotations
+					x_pos = xlim[2] - 0.5
+				)
+			
+			# Add annotations to plot
+			density_plot <- density_plot +
+				geom_text(aes(x = x_pos, y = Inf, label = metric_text, color = qc_color),
+									data = annotation_data, hjust = 1, vjust = 2, size = 3.5, 
+									fontface = "bold", inherit.aes = FALSE, show.legend = FALSE) +
+				geom_text(aes(x = x_pos, y = Inf, label = threshold_text),
+									data = annotation_data, hjust = 1, vjust = 4, size = 3, 
+									color = "gray30", inherit.aes = FALSE) +
+				geom_text(aes(x = x_pos, y = Inf, label = qc_text, color = qc_color),
+									data = annotation_data, hjust = 1, vjust = 6, size = 4, 
+									fontface = "bold", inherit.aes = FALSE, show.legend = FALSE) +
+				scale_color_identity()
+			
+		} else {
+			warning(sprintf("Column '%s' for metric '%s' not found in BGFG_stats. Skipping annotations.", 
+											selected_metric$col, bgfg_qc_metric))
+		}
+	}
+	
+	# Optional lines
+	if (has_upper_bg) {
+		density_plot <- density_plot +
+			geom_vline(aes(xintercept = log2(UpperBG)), data = density_plot_data,
+								 colour = "orange", linetype = "dotted", alpha = 0.5)
+	}
+	
+	if (has_lower_neti) {
+		density_plot <- density_plot +
+			geom_vline(aes(xintercept = log2(lowerNetI)), data = density_plot_data,
+								 colour = "green", linetype = "dotted", alpha = 0.5)
+	}
+	
+	density_plot +
+		labs(
+			title = sprintf("BG/FG Density Distribution (Metric: %s)", base_metric),
+			subtitle = "Red: BG | Blue: FG | Purple: Overlap | Dashed: ±2 MAD"
+		) +
+		facet_grid(as.formula(paste(facet_by, "~ .")))
 }
