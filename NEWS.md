@@ -1,5 +1,196 @@
 # iOmeAiFunctions (Development)
 
+## Version 2.1.0 (2025-10-15)
+
+### Major Changes
+
+#### New pFC Analysis Module
+* **Modular pFC (penetrance Fold Change) Analysis**: Complete refactor for flexibility and Shiny integration
+  - **Breaking change**: Original `pFC.func()` replaced with modular architecture
+  - Designed for small sample size autoantibody detection
+  - Fisher's exact testing for penetrance frequency comparisons
+  - Per-feature, per-sample fold change calculations relative to control baseline
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+### New Functions
+
+#### pFC Core Functions
+* **pFC_process()**: Core pFC analysis using ExpressionSet objects
+  - Accepts ExpressionSet input for seamless integration with i-Ome AI workflows
+  - Returns comprehensive list of data tables (normalized data, FC data, statistics, Fisher's results)
+  - Calculates penetrance frequencies and fold changes for two-group comparisons
+  - Supports parallel processing via `cores` parameter
+  - Optional PSA (Prostate Specific Antigen) flagging via linear modeling
+  - Automatically handles baseline calculations using median of control group
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+* **pFC_plot()**: Generate visualizations from pFC results
+  - Creates paginated violin plots for significant hits
+  - Generates three heatmap variants: manual sort, manual sort row-centered, clustered row-centered
+  - Supports additional metadata annotations
+  - Returns plot objects for display in Shiny apps
+  - Customizable plot dimensions and faceting
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+* **pFC_save()**: Save pFC results to disk
+  - Exports all data tables as CSV files
+  - Saves plots as PDF files
+  - Organized output directory structure
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+* **pFC_analysis()**: Pipeline wrapper for backward compatibility
+  - Drop-in replacement for original `pFC.func()`
+  - Maintains exact functionality for existing pipelines
+  - Automatically builds ExpressionSet from matrix + metadata inputs
+  - Calls modular functions internally (process → plot → save)
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+#### pFC Shiny Module
+* **pFC_UI()**: Shiny module UI component
+  - Interactive parameter controls for all pFC settings
+  - Auto-updating group selectors based on selected variable
+  - Supports default variable specification via reactive input
+  - Framework-agnostic (works with vanilla Shiny or shinydashboard)
+  - Optional `use_box` parameter for shinydashboard integration
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+* **pFC_Server()**: Shiny module server component
+  - Accepts reactive ExpressionSet and default variable inputs
+  - Real-time parameter validation (prevents identical pos/neg groups)
+  - Displays results in organized tabs: Summary, Violin Plots, Heatmaps, Data Tables, Download
+  - Interactive plot pagination for multiple violin plot pages
+  - Download handlers for CSV, PDF, and complete ZIP archives
+  - Returns reactive results for use elsewhere in Shiny apps
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+#### Supporting Functions
+* **fitPA_StandAlone()**: Parallel Fisher's exact testing for penetrance analysis
+  - Renamed from `fitPA()` for clarity
+  - Performs Fisher's exact tests on binary penetrance matrices
+  - Supports parallel processing via cluster objects
+  - Returns odds ratios, confidence intervals, p-values, and adjusted p-values
+  - Author: @DrGarnett
+  - Date: 2025-10-15
+
+### Improvements
+
+#### ExpressionSet Integration
+* All pFC functions now use Biobase::ExpressionSet as primary data structure
+  - Expression data in `exprs(eset)` (log2-transformed)
+  - Metadata in `pData(eset)`
+  - Feature data in `fData(eset)`
+* Pipeline wrapper automatically converts matrix + metadata to ExpressionSet
+
+#### Code Quality
+* Comprehensive roxygen2 documentation for all pFC functions
+* Modular architecture separates processing, plotting, and saving concerns
+* Improved error handling with informative messages
+* Removed dependency on `limma_func()` for Shiny module (PSA flagging optional)
+* Uses `color_distinct()` function from iOmeAiFunctions for heatmap annotations
+
+### Bug Fixes
+
+* **Package Build**: Fixed critical NAMESPACE issue
+  - **Root cause**: `tools/install_dependencies.R` was writing `exportPattern("^[[:alpha:]]+")` to NAMESPACE
+  - This pattern-based export attempted to export all objects starting with letters
+  - Caused "undefined exports" error for internal objects: BG/FG, Annotations, Create, Density, Dynamic, Metric, Plot, QC
+  - **Solution**: Removed NAMESPACE writing from `install_dependencies.R` (lines 38-44)
+  - Now relies exclusively on roxygen2 `@export` tags via `devtools::document()`
+  - Date: 2025-10-15
+
+* **Namespace Conflicts**: Resolved import conflicts
+  - Fixed `Biobase::combine` vs `dplyr::combine` conflict
+  - Fixed `DT::dataTableOutput` vs `shiny::dataTableOutput` conflict  
+  - Updated to `DT::DTOutput()` and `DT::renderDT()` (deprecated function warnings resolved)
+  - Date: 2025-10-15
+
+### Documentation
+
+* Added comprehensive pFC analysis documentation package (`?iOmeAiFunctions-pFC`)
+* Included usage examples for pipeline, programmatic, and Shiny use cases
+* Documented detailed pFC methodology and calculation steps
+* Added migration guide from original `pFC.func()` to new modular functions
+
+### Migration Guide
+
+#### From pFC.func() to pFC_analysis()
+
+**For Existing Pipelines (No Changes Required):**
+```r
+# Old and New - IDENTICAL USAGE
+pFC.func(input = clinical_norm[keep, rownames(meta_clinical)],
+         metadata = meta_clinical,
+         var = "Labels",
+         groupPos = "case",
+         groupNeg = "control",
+         fold_change = 2,
+         descriptor = "case_vs_control_pFC",
+         p_val = 0.2,
+         PSA_flag = TRUE,
+         PSA_colname = "PSA_class")
+
+# Simply replace function name:
+pFC_analysis(input = clinical_norm[keep, rownames(meta_clinical)],
+             metadata = meta_clinical,
+             var = "Labels",
+             groupPos = "case",
+             groupNeg = "control",
+             fold_change = 2,
+             descriptor = "case_vs_control_pFC",
+             p_val = 0.2,
+             PSA_flag = TRUE,
+             PSA_colname = "PSA_class")
+```
+
+**For Programmatic Use (ExpressionSet):**
+```r
+# New modular approach with ExpressionSet
+eset <- Biobase::ExpressionSet(
+  assayData = your_expression_matrix,
+  phenoData = Biobase::AnnotatedDataFrame(your_metadata)
+)
+
+# Process only
+results <- pFC_process(eset, var = "disease", 
+                       groupPos = "case", groupNeg = "control")
+
+# Generate plots separately  
+plots <- pFC_plot(results)
+
+# Access specific results
+significant_hits <- results$pfc_significant
+all_statistics <- results$pfc_stats
+```
+
+**For Shiny Apps:**
+```r
+# UI
+ui <- fluidPage(
+  pFC_UI("pfc_module")
+)
+
+# Server
+server <- function(input, output, session) {
+  eset_data <- reactive({ your_expression_set })
+  
+  pfc_results <- pFC_Server(
+    "pfc_module",
+    eset_reactive = eset_data,
+    default_var_reactive = reactive(input$AP_SampleGroup_column)
+  )
+}
+```
+
+
+# iOmeAiFunctions (Development)
+
 ## Version 2.0.0 (2025-01-08)
 
 ### Major Changes
