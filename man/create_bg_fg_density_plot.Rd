@@ -2,7 +2,7 @@
 % Please edit documentation in R/density_plot_functions.R
 \name{create_bg_fg_density_plot}
 \alias{create_bg_fg_density_plot}
-\title{Create BG/FG Density Plot (Main Function)}
+\title{Create BG/FG Density Plot with Dynamic QC Metric Annotations}
 \usage{
 create_bg_fg_density_plot(
   datCollate,
@@ -45,7 +45,7 @@ create_bg_fg_density_plot(
 ggplot object
 }
 \description{
-Create BG/FG Density Plot (Main Function)
+Create BG/FG Density Plot with Dynamic QC Metric Annotations
 }
 \author{
 Shaun Garnett

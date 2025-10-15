@@ -23,7 +23,6 @@
 #'
 #' @note Uses "pass"/"flag" convention for QC status
 #' @author Shaun Garnett
-#' @export
 #' Calculate Background and Foreground Quality Control Statistics
 #'
 #' Recapitulates the original raw_density_data_o_function logic with new v2.0.0 metrics added.
@@ -374,9 +373,7 @@ create_density_plot <- function(density_plot_data,
 		)
 }
 
-#' Create BG/FG Density Plot (Main Function)
-#'
-#' @export
+
 #' Create BG/FG Density Plot with Dynamic QC Metric Annotations
 #'
 #' @param datCollate Data collection object
@@ -404,6 +401,7 @@ create_bg_fg_density_plot <- function(datCollate,
 																			col_num = 3,
 																			flag_ylim = 2,
 																			show_new_metrics = TRUE) {
+	print('create_bg_fg_density_plot')
 	
 	param <- if (!is.null(QC$param)) QC$param else datCollate$param
 	bgfg_qc_metric <- param$BGFG_QC_metric
@@ -442,10 +440,21 @@ create_bg_fg_density_plot <- function(datCollate,
 		filter(data == "feature", Sample %in% samples)
 	
 	BGFG_stats <- QC$BGFG_stats
+	#print(colnames(BGFG_stats))
+	
+	# if (!is.null(datCollate$data$RFU_thresold)) {
+	# 	BGFG_stats <- BGFG_stats %>% left_join(datCollate$data$RFU_thresold, by = c("Sample", "Labels"))
+	# }
 	
 	if (!is.null(datCollate$data$RFU_thresold)) {
-		BGFG_stats <- BGFG_stats %>% left_join(datCollate$data$RFU_thresold, by = c("Sample", "Labels"))
+		BGFG_stats <- BGFG_stats %>%
+			left_join(
+				datCollate$data$RFU_thresold %>% dplyr::select(Sample, Labels, RFU_threshold),
+				by = c("Sample", "Labels")
+			)
 	}
+	
+	#print(colnames(BGFG_stats))
 	if (!"RFU_threshold" %in% colnames(BGFG_stats)) BGFG_stats$RFU_threshold <- 1
 	
 	BG_overlap_metric <- datCollate$param$BG_overlap_metric
@@ -453,6 +462,8 @@ create_bg_fg_density_plot <- function(datCollate,
 		BG_overlap_metric <- "Mode"
 		message("BG_overlap_metric not specified, using 'Mode' as default")
 	}
+	
+
 	
 	base_metric <- case_when(
 		grepl("median", BG_overlap_metric, ignore.case = TRUE) ~ "Median",
@@ -465,6 +476,10 @@ create_bg_fg_density_plot <- function(datCollate,
 												"Mode" = c("BG_mode", "FG_mode"),
 												"Median" = c("BG_median", "FG_median"),
 												"Mean" = c("BG_mean", "FG_mean"))
+	
+	print(base_metric)
+	print(metric_cols)
+	print(colnames(BGFG_stats))
 	
 	density_vline_data <- BGFG_stats %>%
 		dplyr::select(Labels, Sample, all_of(metric_cols), BG_sd, FG_sd, BG_mad, FG_mad,
@@ -505,7 +520,7 @@ create_bg_fg_density_plot <- function(datCollate,
 								fill = "purple", alpha = 0.15, inherit.aes = FALSE)
 	}
 	
-	# ========== DYNAMIC QC METRIC ANNOTATIONS ==========
+
 	if (show_new_metrics) {
 		
 		# Get param object

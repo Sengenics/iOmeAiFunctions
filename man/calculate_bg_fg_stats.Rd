@@ -58,4 +58,9 @@ Uses "pass"/"flag" convention for QC status
 }
 \author{
 Shaun Garnett
+Calculate Background and Foreground Quality Control Statistics
+
+Recapitulates the original raw_density_data_o_function logic with new v2.0.0 metrics added.
+
+Shaun Garnett
 }
