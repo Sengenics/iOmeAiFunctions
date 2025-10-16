@@ -1,5 +1,55 @@
 # iOmeAiFunctions (Development)
 
+## Version 0.2.0 - Denoiser Module Release (2025-10-16)
+
+### Major New Features
+
+**Denoiser Module for AAb Calling**
+- Complete PCA-based denoising workflow for autoantibody calling
+- Interactive Shiny module with real-time parameter adjustment
+- Flexible PN sample detection (Sample_type='TR', Labels, Sample_Group)
+- Comprehensive visualization suite (heatmaps, t-SNE, borders, cutpoint analysis)
+- Automated template generation for pipeline integration
+
+**New Functions (30+)**
+- Core: `denoise_remove_PCs()`, `denoise_apply_cutpoint()`, `denoise_pipeline()`
+- Plotting: `plot_denoise_heatmap()`, `plot_denoise_borders()`, `plot_denoise_tsne()`
+- Utilities: `detect_PN_identifier()`, `validate_denoise_inputs()`, `diagnose_ExpSet_list()`
+- Save/Export: `save_denoise_results()`, `generate_aab_caller_template()`
+
+**Shiny Modules**
+- `mod_denoiser_ui()`/`mod_denoiser_server()`: Complete denoiser interface
+- `mod_eset_selector_ui()`/`mod_eset_selector_server()`: ExpressionSet selection
+- Demo app: `inst/examples/app_denoiser_complete.R`
+
+**Debug & Development Tools**
+- Integrated browser() mode with context-aware prompts
+- Pre-flight validation checks
+- Comprehensive diagnostics: `diagnose_ExpSet_list()`, `quick_inspect_eset()`
+- Live PN sample detection and validation
+
+### Improvements
+
+- Enhanced PN sample detection with priority system (TR > Labels > Sample_Group)
+- Robust input validation with helpful error messages
+- Fixed namespace conflicts (Biobase, shinydashboard, graphics)
+- Added comprehensive documentation and examples
+
+### Bug Fixes
+
+- Fixed `validObject` namespace issue
+- Improved ExpressionSet assayData handling
+- Better error messages for missing/invalid data
+
+**Contributors:** DrGarnett  
+**Date:** 2025-10-16 20:26:07 UTC
+
+---
+
+
+
+# iOmeAiFunctions (Development)
+
 ## Version 2.1.0 (2025-10-15)
 
 ### Major Changes

@@ -134,6 +134,81 @@ ExpSet_add_fData_function <- function(ExpSet, meta_add, add_cols, feature_column
 }
 
 
+#' Select ExpressionSet and Set exprs()
+#'
+#' Helper function to extract ExpressionSet from list and set exprs() to selected assay
+#'
+#' @param ExpSet_list List; list of ExpressionSets
+#' @param name Character; name of assay to use (e.g., "clinical_loess_normalised")
+#'
+#' @return ExpressionSet with exprs() set to selected assay
+#' @export
+ExpSet_select_function_2 <- function(ExpSet_list, name) {
+	
+	if (is.null(ExpSet_list)) {
+		return(NULL)
+	}
+	
+	# Get the ExpressionSet name (e.g., "clinical_ExpSet")
+	ExpSet_name <- get_ExpSet_name(name, ExpSet_list)
+	
+	# Extract the ExpressionSet
+	ExpSet <- ExpSet_list[[ExpSet_name]]
+	
+	# Store the assay name in metadata
+	ExpSet@experimentData@other$name <- name
+	
+	# Set exprs() to the selected assay (unless it's already "exprs")
+	if (name != "exprs") {
+		Biobase::exprs(ExpSet) <- ExpSet@assayData[[name]]
+	}
+	
+	return(ExpSet)
+}
+
+
+#' Get ExpressionSet Name from Assay Name
+#'
+#' Helper function to determine which ExpressionSet contains the requested assay
+#'
+#' @param name Character; assay name (e.g., "clinical_loess_normalised")
+#' @param ExpSet_list List; list of ExpressionSets
+#'
+#' @return Character; name of ExpressionSet containing the assay
+#' @keywords internal
+get_ExpSet_name <- function(name, ExpSet_list) {
+	
+	# Parse the name to get the prefix (e.g., "clinical" from "clinical_loess_normalised")
+	# Assumes format: {dataset}_{normalization_method}
+	
+	parts <- strsplit(name, "_")[[1]]
+	
+	# Common prefixes
+	possible_prefixes <- c("clinical", "sample", "imputed")
+	
+	for (prefix in possible_prefixes) {
+		eset_name <- paste0(prefix, "_ExpSet")
+		if (eset_name %in% names(ExpSet_list)) {
+			# Check if this ExpSet contains the requested assay
+			if (name %in% names(ExpSet_list[[eset_name]]@assayData)) {
+				return(eset_name)
+			}
+		}
+	}
+	
+	# If not found with common prefixes, search all ExpressionSets
+	for (eset_name in names(ExpSet_list)) {
+		if (name %in% names(ExpSet_list[[eset_name]]@assayData)) {
+			return(eset_name)
+		}
+	}
+	
+	# Default to first ExpressionSet if nothing found
+	warning(paste("Assay", name, "not found. Using first ExpressionSet."))
+	return(names(ExpSet_list)[1])
+}
+
+
 #' Create Matrix from Long Format Data
 #'
 #' @description
