@@ -49,7 +49,7 @@ if (!interactive()) {
 	library(iOmeAiFunctions)
 }
 
-# UI
+# UI ####
 ui <- dashboardPage(
 	skin = "blue",
 	
@@ -58,11 +58,13 @@ ui <- dashboardPage(
 		titleWidth = 300
 	),
 	
+	## sidebar ####
 	dashboardSidebar(
 		width = 300,
 		sidebarMenu(
 			id = "sidebar",
 			menuItem("Data Selection", tabName = "data_select", icon = icon("database")),
+			menuItem("PC Visualizer", tabName = "pc_viz", icon = icon("eye")),
 			menuItem("Denoiser", tabName = "denoise", icon = icon("filter")),
 			menuItem("Help", tabName = "help", icon = icon("question-circle"))
 		)
@@ -86,8 +88,9 @@ ui <- dashboardPage(
       "))
 		),
 		
+		## tabs ####
 		tabItems(
-			# Data selection tab
+			### Data selection tab ####
 			tabItem(
 				tabName = "data_select",
 				
@@ -204,7 +207,9 @@ ui <- dashboardPage(
 					)
 				),
 				
-				# Debug & Diagnostics Box
+	
+				
+			
 				fluidRow(
 					shinydashboard::box(
 						title = "Debug & Diagnostics",
@@ -289,10 +294,16 @@ ui <- dashboardPage(
 				)
 			),
 			
-			# Denoiser tab
+			### Denoiser tab ####
 			tabItem(
 				tabName = "denoise",
 				mod_denoiser_ui("denoiser")
+			),
+			
+			### PC Vis ####
+			tabItem(
+				tabName = "pc_viz",
+				mod_pc_visualizer_ui("pc_viz")
 			),
 			
 			# Help tab
@@ -470,6 +481,7 @@ server <- function(input, output, session) {
 			# Read the RDS file
 			message("Loading ExpSet from: ", input$expset_file$name)
 			expset_data <- readRDS(input$expset_file$datapath)
+			print(names(expset_data))
 			
 			# Validate the uploaded data
 			is_valid <- FALSE
@@ -499,11 +511,19 @@ server <- function(input, output, session) {
 			
 			if (is_valid) {
 				# Additional validation: check that ExpressionSets have required components
-				validation_results <- sapply(expset_data, function(eset) {
-					has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
+				(validation_results <- sapply(expset_data, function(eset) {
+					#has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
 					has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
-					has_exprs && has_pdata
-				})
+					#has_exprs && 
+					has_pdata
+				}))
+
+				(validation_results_exprs <- sapply(expset_data, function(eset) {
+					has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
+					#has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
+					has_exprs 
+				#has_pdata
+			}))
 				
 				if (all(validation_results)) {
 					# Store the loaded ExpSet
@@ -988,6 +1008,13 @@ server <- function(input, output, session) {
 			)
 		}
 	})
+	
+	## Visualisation Module #####
+	# PC Visualizer module
+	pc_viz_results <- mod_pc_visualizer_server(
+		"pc_viz",
+		eset_raw = eset_raw
+	)
 }
 
 # Run app

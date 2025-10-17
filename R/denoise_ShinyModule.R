@@ -52,6 +52,11 @@ mod_denoiser_ui <- function(id) {
 						"Scale data for PCA",
 						value = TRUE
 					),
+					checkboxInput(
+						ns("center_pca"),
+						"Center data for PCA",
+						value = TRUE
+					),
 					
 					hr(),
 					
@@ -526,7 +531,8 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 					eset = eset_raw(),
 					assay_name = input$assay_name,
 					n_PCs = input$n_PCs,
-					scale = input$scale_pca
+					scale = input$scale_pca,
+					center = input$center_pca
 				)
 				
 				# Step 3: Find cutpoints for each PC level

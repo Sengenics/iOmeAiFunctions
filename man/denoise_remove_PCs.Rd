@@ -4,7 +4,13 @@
 \alias{denoise_remove_PCs}
 \title{Remove Principal Components from Expression Data (Denoising Step 1)}
 \usage{
-denoise_remove_PCs(eset, assay_name = NULL, n_PCs = 1, scale = TRUE)
+denoise_remove_PCs(
+  eset,
+  assay_name = NULL,
+  n_PCs = 1,
+  scale = TRUE,
+  center = TRUE
+)
 }
 \arguments{
 \item{eset}{ExpressionSet object with expression data}
