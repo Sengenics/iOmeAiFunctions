@@ -456,7 +456,7 @@ ui <- dashboardPage(
 	)
 )
 
-# Server
+# Server ####
 server <- function(input, output, session) {
 	
 	options(shiny.maxRequestSize = 100*1024^2)
@@ -1010,10 +1010,20 @@ server <- function(input, output, session) {
 	})
 	
 	## Visualisation Module #####
-	# PC Visualizer module
+	# In the server function, modify the denoiser call to capture results:
+	
+	# Call denoiser module and capture results
+	# denoiser_results <- mod_denoiser_server( 
+	# 	"denoiser",
+	# 	eset_raw = eset_raw,
+	# 	eset_norm = eset_norm
+	# )
+	
+	# PC Visualizer module - pass denoiser results
 	pc_viz_results <- mod_pc_visualizer_server(
 		"pc_viz",
-		eset_raw = eset_raw
+		eset_raw = eset_raw,
+		denoiser_results = denoiser_results  # <-- Pass the denoiser results here
 	)
 }
 

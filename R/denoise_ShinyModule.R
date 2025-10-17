@@ -600,6 +600,15 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 					type = "message",
 					duration = 5
 				)
+				
+				return(reactive({
+					list(
+						denoise_results = rv$denoise_results,    # This now includes pca_result!
+						cutpoint_results = rv$cutpoint_results,
+						optimal_cutpoint = rv$optimal_cutpoint,
+						aab_called_data = rv$aab_called_data
+					)
+				}))
 			})
 		})
 		
