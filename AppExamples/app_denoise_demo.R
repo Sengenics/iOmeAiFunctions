@@ -80,6 +80,9 @@ ui <- dashboardPage(
         .debug-box {
           border: 2px solid #f39c12;
         }
+        .upload-box {
+          border: 2px solid #00a65a;
+        }
       "))
 		),
 		
@@ -88,6 +91,61 @@ ui <- dashboardPage(
 			tabItem(
 				tabName = "data_select",
 				
+				# NEW: File Upload Box
+				fluidRow(
+					shinydashboard::box(
+						title = "Import New ExpSet Data",
+						width = 12,
+						status = "success",
+						solidHeader = TRUE,
+						class = "upload-box",
+						collapsible = TRUE,
+						collapsed = FALSE,
+						
+						p(icon("upload"), strong("Upload a new ExpSet.rds file"), "to import custom expression data"),
+						
+						fluidRow(
+							column(
+								width = 4,
+								fileInput(
+									"expset_file",
+									"Choose ExpSet.rds File",
+									accept = c(".rds", ".RDS"),
+									placeholder = "No file selected",
+									buttonLabel = "Browse...",
+									width = "100%"
+								)
+							),
+							column(
+								width = 3,
+								br(),
+								actionButton(
+									"load_expset",
+									"Load ExpSet File",
+									icon = icon("file-upload"),
+									class = "btn-success btn-lg",
+									style = "margin-top: 5px;"
+								)
+							),
+							column(
+								width = 5,
+								br(),
+								uiOutput("expset_status_ui")
+							)
+						),
+						
+						hr(),
+						
+						p(icon("info-circle"), strong("File Requirements:")),
+						tags$ul(
+							tags$li("File must be in .rds or .RDS format"),
+							tags$li("File should contain an ExpressionSet object or a named list of ExpressionSets"),
+							tags$li("ExpressionSets must have expression data accessible via Biobase::exprs()"),
+							tags$li("Sample metadata should be available via Biobase::pData()")
+						)
+					)
+				),
+				
 				fluidRow(
 					shinydashboard::box(
 						title = "ExpressionSet Data Selection",
@@ -95,7 +153,7 @@ ui <- dashboardPage(
 						status = "primary",
 						solidHeader = TRUE,
 						
-						p("Select the expression data to use for denoising. The app will auto-load from data/ExpSet_list.rds"),
+						p("Select the expression data to use for denoising. The app will auto-load from data/ExpSet_list.rds or use your uploaded file."),
 						
 						fluidRow(
 							column(
@@ -250,7 +308,16 @@ ui <- dashboardPage(
 						
 						h3("Quick Start Guide"),
 						
-						h4("1. Data Selection"),
+						h4("1. Import Data (Optional)"),
+						p("You can either:"),
+						tags$ul(
+							tags$li(strong("Use Default Data:"), "The app will auto-load from data/ExpSet_list.rds"),
+							tags$li(strong("Upload New Data:"), "Click 'Browse...' to select your own ExpSet.rds file, then click 'Load ExpSet File'")
+						),
+						
+						hr(),
+						
+						h4("2. Data Selection"),
 						p("Select your expression data from the dropdowns. You need:"),
 						tags$ul(
 							tags$li(strong("Raw/NetI Data:"), "The input data for PC removal and denoising"),
@@ -259,7 +326,7 @@ ui <- dashboardPage(
 						
 						hr(),
 						
-						h4("2. Configure Parameters"),
+						h4("3. Configure Parameters"),
 						p("In the Denoiser tab, set:"),
 						tags$ul(
 							tags$li(strong("Number of PCs:"), "How many principal components to remove (typically 1-7)"),
@@ -270,7 +337,7 @@ ui <- dashboardPage(
 						
 						hr(),
 						
-						h4("3. Run Denoising"),
+						h4("4. Run Denoising"),
 						p("Click", strong("Run Denoising"), "to start the analysis. This will:"),
 						tags$ol(
 							tags$li("Remove principal components from the data"),
@@ -282,7 +349,7 @@ ui <- dashboardPage(
 						
 						hr(),
 						
-						h4("4. Explore Results"),
+						h4("5. Explore Results"),
 						p("Use the tabs to:"),
 						tags$ul(
 							tags$li(strong("PCA & Denoising:"), "View variance explained and denoised data"),
@@ -294,7 +361,7 @@ ui <- dashboardPage(
 						
 						hr(),
 						
-						h4("5. Export Results"),
+						h4("6. Export Results"),
 						p("Download results as a ZIP file or generate an AAb_caller_template.R script for pipeline use.")
 					)
 				),
@@ -381,9 +448,159 @@ ui <- dashboardPage(
 # Server
 server <- function(input, output, session) {
 	
+	options(shiny.maxRequestSize = 100*1024^2)
+	
+	# ===================================================================
+	# NEW: FILE UPLOAD AND IMPORT FUNCTIONALITY
+	# ===================================================================
+	
+	# Reactive value to store uploaded ExpSet data
+	uploaded_expset <- reactiveVal(NULL)
+	upload_status <- reactiveVal("No file uploaded")
+	upload_success <- reactiveVal(FALSE)
+	
+	# Load ExpSet when button is clicked
+	observeEvent(input$load_expset, {
+		req(input$expset_file)
+		
+		upload_status("Loading...")
+		upload_success(FALSE)
+		
+		tryCatch({
+			# Read the RDS file
+			message("Loading ExpSet from: ", input$expset_file$name)
+			expset_data <- readRDS(input$expset_file$datapath)
+			
+			# Validate the uploaded data
+			is_valid <- FALSE
+			error_msg <- ""
+			
+			# Check if it's an ExpressionSet object
+			if (inherits(expset_data, "ExpressionSet")) {
+				message("✓ Single ExpressionSet detected")
+				# Wrap in a list with a default name
+				expset_data <- list(uploaded_data = expset_data)
+				is_valid <- TRUE
+			} 
+			# Check if it's a list of ExpressionSets
+			else if (is.list(expset_data)) {
+				# Verify all elements are ExpressionSets
+				all_eset <- all(sapply(expset_data, function(x) inherits(x, "ExpressionSet")))
+				
+				if (all_eset && length(expset_data) > 0) {
+					message("✓ List of ", length(expset_data), " ExpressionSets detected")
+					is_valid <- TRUE
+				} else {
+					error_msg <- "List does not contain valid ExpressionSet objects"
+				}
+			} else {
+				error_msg <- paste("Invalid data type:", class(expset_data)[1])
+			}
+			
+			if (is_valid) {
+				# Additional validation: check that ExpressionSets have required components
+				validation_results <- sapply(expset_data, function(eset) {
+					has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
+					has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
+					has_exprs && has_pdata
+				})
+				
+				if (all(validation_results)) {
+					# Store the loaded ExpSet
+					uploaded_expset(expset_data)
+					upload_status(paste("✅ Successfully loaded:", input$expset_file$name))
+					upload_success(TRUE)
+					
+					showNotification(
+						HTML(paste0(
+							"<strong>✅ ExpSet loaded successfully!</strong><br>",
+							"File: ", input$expset_file$name, "<br>",
+							"Contains: ", length(expset_data), " ExpressionSet(s)"
+						)),
+						type = "message",
+						duration = 8
+					)
+					
+					message("✓ ExpSet validation passed")
+					message("✓ Available assays: ", paste(names(expset_data), collapse = ", "))
+				} else {
+					error_msg <- "ExpressionSets missing required components (exprs or pData)"
+					upload_status(paste("❌ Error:", error_msg))
+					showNotification(error_msg, type = "error", duration = 10)
+				}
+			} else {
+				upload_status(paste("❌ Error:", error_msg))
+				showNotification(
+					HTML(paste0(
+						"<strong>❌ Invalid ExpSet file</strong><br>",
+						error_msg, "<br>",
+						"Please upload a valid ExpressionSet or list of ExpressionSets"
+					)),
+					type = "error",
+					duration = 10
+				)
+			}
+			
+		}, error = function(e) {
+			error_message <- paste("Error loading file:", e$message)
+			upload_status(paste("❌", error_message))
+			upload_success(FALSE)
+			
+			showNotification(
+				HTML(paste0("<strong>❌ Error loading ExpSet:</strong><br>", e$message)),
+				type = "error",
+				duration = 10
+			)
+			
+			message("✗ Error loading ExpSet: ", e$message)
+		})
+	})
+	
+	# Render upload status with styling
+	output$expset_status_ui <- renderUI({
+		status <- upload_status()
+		success <- upload_success()
+		
+		if (success) {
+			div(
+				style = "padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;",
+				icon("check-circle"),
+				strong(status)
+			)
+		} else if (grepl("Error|❌", status)) {
+			div(
+				style = "padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;",
+				icon("exclamation-triangle"),
+				strong(status)
+			)
+		} else if (status == "Loading...") {
+			div(
+				style = "padding: 10px; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;",
+				icon("spinner", class = "fa-spin"),
+				strong(" Loading...")
+			)
+		} else {
+			div(
+				style = "padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; color: #6c757d;",
+				icon("info-circle"),
+				status
+			)
+		}
+	})
+	
+	# ===================================================================
+	# MODIFIED: Load ExpSet_list (default or uploaded)
+	# ===================================================================
+	
 	# Load ExpSet_list
 	ExpSet_list <- reactive({
-		# Try multiple locations
+		# Priority 1: Use uploaded data if available
+		if (!is.null(uploaded_expset())) {
+			message("✓ Using uploaded ExpSet data")
+			return(uploaded_expset())
+		}
+		
+		# Priority 2: Try to load from default locations
 		possible_paths <- c(
 			"data/ExpSet_list.rds",
 			"../data/ExpSet_list.rds",
@@ -400,9 +617,9 @@ server <- function(input, output, session) {
 		}
 		
 		showNotification(
-			"❌ ExpSet_list.rds not found. Please place it in data/ directory.",
-			type = "error",
-			duration = NULL
+			"ℹ️ No default ExpSet_list.rds found. Please upload an ExpSet.rds file above.",
+			type = "warning",
+			duration = 8
 		)
 		return(NULL)
 	})
@@ -438,17 +655,24 @@ server <- function(input, output, session) {
 	# Status value boxes
 	output$status_eset_list <- renderValueBox({
 		if (!is.null(ExpSet_list())) {
+			# Check if using uploaded data
+			source_label <- if (!is.null(uploaded_expset())) {
+				"Uploaded ExpSets"
+			} else {
+				"ExpressionSets Loaded"
+			}
+			
 			valueBox(
 				value = length(ExpSet_list()),
-				subtitle = "ExpressionSets Loaded",
+				subtitle = source_label,
 				icon = icon("database"),
 				color = "green"
 			)
 		} else {
 			valueBox(
-				value = "ERROR",
-				subtitle = "ExpSet_list not loaded",
-				icon = icon("exclamation-triangle"),
+				value = "NONE",
+				subtitle = "Upload ExpSet file",
+				icon = icon("upload"),
 				color = "red"
 			)
 		}
@@ -533,7 +757,16 @@ server <- function(input, output, session) {
 		req(eset_raw())
 		
 		cat("═══════════════════════════════════════════════════════════\n")
-		cat("RAW/NETI DATA\n")
+		
+		# Show data source
+		if (!is.null(uploaded_expset())) {
+			cat("DATA SOURCE: Uploaded File\n")
+		} else {
+			cat("DATA SOURCE: Default ExpSet_list.rds\n")
+		}
+		cat("═══════════════════════════════════════════════════════════\n")
+		
+		cat("\nRAW/NETI DATA\n")
 		cat("═══════════════════════════════════════════════════════════\n")
 		cat("Selected Assay: ", eset_raw_selected$name(), "\n")
 		cat("Dimensions: ", nrow(eset_raw()), " features × ", ncol(eset_raw()), " samples\n")
@@ -583,9 +816,10 @@ server <- function(input, output, session) {
 		message("╚═══════════════════════════════════════════════════════════╝")
 		message("\n📊 Session Info:")
 		message("   User: DrGarnett")
-		message("   Date: 2025-10-16 19:17:53 UTC")
+		message("   Date: ", Sys.time())
 		message("\n📍 Available objects:")
 		message("   ✓ ExpSet_list()         : Full list of ExpressionSets")
+		message("   ✓ uploaded_expset()     : Uploaded ExpSet data (if any)")
 		message("   ✓ eset_raw()            : Selected raw/NetI ExpressionSet")
 		message("   ✓ eset_norm()           : Selected normalized ExpressionSet")
 		message("   ✓ eset_raw_selected     : Selection module reactive")
@@ -594,6 +828,9 @@ server <- function(input, output, session) {
 		message("")
 		message("   # List all ExpressionSets")
 		message("   names(ExpSet_list())")
+		message("")
+		message("   # Check if using uploaded data")
+		message("   is.null(uploaded_expset())")
 		message("")
 		message("   # Full diagnostics")
 		message("   diagnose_ExpSet_list(ExpSet_list())")
@@ -636,7 +873,13 @@ server <- function(input, output, session) {
 			cat("RUNNING FULL DIAGNOSTICS...\n")
 			cat("═══════════════════════════════════════════════════════════\n")
 			cat("User: DrGarnett\n")
-			cat("Date: 2025-10-16 19:17:53 UTC\n")
+			cat("Date: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S UTC"), "\n")
+			
+			if (!is.null(uploaded_expset())) {
+				cat("Data Source: UPLOADED FILE\n")
+			} else {
+				cat("Data Source: DEFAULT ExpSet_list.rds\n")
+			}
 			cat("═══════════════════════════════════════════════════════════\n\n")
 			
 			if (!is.null(ExpSet_list())) {
@@ -752,7 +995,7 @@ message("\n═══════════════════════
 message("🚀 Starting Denoiser App")
 message("═══════════════════════════════════════════════════════════")
 message("User: DrGarnett")
-message("Date: 2025-10-16 19:17:53 UTC")
+message("Date: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S UTC"))
 message("═══════════════════════════════════════════════════════════\n")
 
 shinyApp(ui, server)
