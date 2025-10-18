@@ -991,6 +991,7 @@ server <- function(input, output, session) {
 	# Call denoiser module
 	denoiser_results <- mod_denoiser_server(
 		"denoiser",
+		ExpSet_list = ExpSet_list,
 		eset_raw = eset_raw,
 		eset_norm = eset_norm
 	)

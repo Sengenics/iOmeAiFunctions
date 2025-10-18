@@ -9,6 +9,7 @@ mod_denoiser_ui <- function(id) {
 	tagList(
 		fluidRow(
 			# Left panel - Controls
+			
 			column(
 				width = 3,
 				shinydashboard::box(
@@ -16,12 +17,23 @@ mod_denoiser_ui <- function(id) {
 					width = NULL,
 					status = "primary",
 					solidHeader = TRUE,
-					
+					actionButton(ns('denoise_mod_debug'),'Mod Debug'),
 					actionButton(
 						ns("run_denoise"),
 						"Run Denoising",
 						icon = icon("play"),
 						class = "btn-success btn-lg btn-block"
+					),
+					actionButton(
+						ns("denoise_update_ExpSet"),
+						"Update ExpSet list",
+						icon = icon("plus-circle"),
+						class = "btn-success btn-lg btn-block"
+					),
+					downloadButton(
+						ns("download_expset"),
+						"Download ExpressionSet",
+						class = "btn-primary btn-block"
 					),
 					
 					br(),
@@ -445,10 +457,14 @@ mod_denoiser_ui <- function(id) {
 #' @param eset_norm Reactive; ExpressionSet with normalized data (optional)
 #'
 #' @export
-mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
+mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 	moduleServer(id, function(input, output, session) {
 		
 		ns <- session$ns
+		
+		observeEvent(input$denoise_mod_debug,{
+			browser()
+		})
 		
 		# Reactive values
 		rv <- reactiveValues(
@@ -457,6 +473,86 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 			optimal_cutpoint = NULL,
 			aab_called_data = NULL,
 			all_results = NULL
+		)
+		
+		observeEvent(input$denoise_update_ExpSet,{ 
+			
+			(denoise_matrix = (rv$denoise_results$denoised_data[[length(rv$denoise_results$denoised_data)]]))
+			str(denoise_matrix)
+			colnames(denoise_matrix)
+			rownames(denoise_matrix)
+			#View(rv$cutpoint_results)
+			#View(rv$optimal_cutpoint)
+			(aab_called_data = rv$aab_called_data)
+			str(aab_called_data)
+			ExpSet_list = ExpSet_list()
+			sample_ExpSet = ExpSet_list$sample_ExpSet
+			
+			dim(sample_ExpSet)
+			dim(denoise_matrix)
+			dim(aab_called_data)
+			
+			hist(as.numeric(as.matrix(denoise_matrix)))
+			min(denoise_matrix)
+			denoise_matrix_median = denoise_matrix + abs(min(denoise_matrix))
+			hist(as.numeric(unlist(denoise_matrix_median)))
+			
+			denoise_l = denoise_matrix %>% 
+				rownames_to_column('Feature') %>% 
+				gather(key = Sample, value = denoise,-1)
+			
+			aab_l = aab_called_data %>% 
+				rownames_to_column('Feature') %>% 
+				gather(key = Sample, value = aab,-1)
+			
+			df_l = denoise_l %>% 
+				left_join(aab_l) %>% 
+				mutate(aab = ifelse(is.na(aab),0,aab))
+			
+			aab_m = df_l %>% 
+				dplyr::select(Feature,Sample,aab) %>% 
+				spread(key = Sample, value = aab) %>% 
+				column_to_rownames('Feature') %>% 
+				as.matrix()
+			
+			#View(df_l)
+			
+			sample_ExpSet = ExpSet_add_matrix_function(sample_ExpSet,denoise_matrix,'denoised')
+			sample_ExpSet = ExpSet_add_matrix_function(sample_ExpSet,denoise_matrix_median,'denoised_median')
+			sample_ExpSet = ExpSet_add_matrix_function(sample_ExpSet,aab_m,'aab_called')
+			ExpSet_list$sample_ExpSet = sample_ExpSet
+			rv$ExpSet_list = ExpSet_list
+		})
+		
+		# Download handler for ExpressionSet
+		output$download_expset <- downloadHandler(
+			filename = function() {
+				paste0("ExpressionSet_with_reconstruction_", 
+							 format(Sys.time(), "%Y%m%d_%H%M%S"), 
+							 ".rds")
+			},
+			content = function(file) {
+				req(rv$ExpSet_list)
+				
+				withProgress(message = "Preparing download...", value = 0.5, {
+					tryCatch({
+						# Save the ExpressionSet
+						saveRDS(rv$ExpSet_list, file)
+						
+						showNotification(
+							"✓ ExpressionSet downloaded successfully",
+							type = "message",
+							duration = 3
+						)
+					}, error = function(e) {
+						showNotification(
+							paste("Error saving ExpressionSet:", e$message),
+							type = "error",
+							duration = 10
+						)
+					})
+				})
+			}
 		)
 		
 		# Update UI choices based on eset
@@ -739,6 +835,7 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 		
 		# Get AAb-called data for selected cutpoint
 		current_aab_data <- reactive({
+			#browser()
 			req(rv$denoise_results, input$cutpoint_slider)
 			
 			pc_level <- input$pc_view_slider
@@ -832,14 +929,22 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 		})
 		
 		# AAb borders plot
+		# AAb borders plot
 		output$aab_borders_plot <- renderPlot({
 			req(current_aab_data(), eset_raw())
 			
 			# Get background data
-			if (!is.null(eset_norm) && !is.null(eset_norm())) {
-				background_data <- get_expression_data(eset_norm(), input$norm_assay_name)
-			} else {
-				background_data <- get_expression_data(eset_raw(), input$assay_name)
+			# if (!is.null(eset_norm) && !is.null(eset_norm())) {
+			# 	background_data <- get_expression_data(eset_norm(), input$norm_assay_name)
+			# } else {
+			# 	background_data <- get_expression_data(eset_raw(), input$assay_name)
+			# }
+			
+			background_data = exprs(eset_norm())
+			
+			# Ensure background_data is a matrix before transposing
+			if (!is.matrix(background_data)) {
+				background_data <- as.matrix(background_data)
 			}
 			
 			# Row-center background data
@@ -854,6 +959,30 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 				title = "AAb Borders on Row-Centered Data"
 			)
 		})
+		# output$aab_borders_plot <- renderPlot({
+		# 	req(current_aab_data(), eset_raw())
+		# 	
+		# 	# Get background data
+		# 	if (!is.null(eset_norm) && !is.null(eset_norm())) {
+		# 		background_data <- get_expression_data(eset_norm(), input$norm_assay_name)
+		# 	} else {
+		# 		background_data <- get_expression_data(eset_raw(), input$assay_name)
+		# 	}
+		# 	
+		# 	# Row-center background data
+		# 	background_RC <- t(scale(t(background_data), scale = FALSE, center = TRUE))
+		# 	
+		# 	plot_denoise_borders(
+		# 		background_data = background_RC,
+		# 		aab_called_data = current_aab_data(),
+		# 		eset = eset_raw(),
+		# 		annotation_cols = input$annotation_cols,
+		# 		variable = if(length(input$annotation_cols) > 0) input$annotation_cols[1] else NULL,
+		# 		title = "AAb Borders on Row-Centered Data"
+		# 	)
+		# })
+		
+		
 		
 		# t-SNE plot
 		output$tsne_plot <- renderPlot({
@@ -969,7 +1098,8 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 				denoise_results = rv$denoise_results,
 				cutpoint_results = rv$cutpoint_results,
 				optimal_cutpoint = rv$optimal_cutpoint,
-				aab_called_data = rv$aab_called_data
+				aab_called_data = rv$aab_called_data,
+				updated_expset = rv$ExpSet_list
 			)
 		}))
 	})
