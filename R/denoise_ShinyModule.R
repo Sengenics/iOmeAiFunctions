@@ -17,6 +17,15 @@ mod_denoiser_ui <- function(id) {
 					status = "primary",
 					solidHeader = TRUE,
 					
+					actionButton(
+						ns("run_denoise"),
+						"Run Denoising",
+						icon = icon("play"),
+						class = "btn-success btn-lg btn-block"
+					),
+					
+					br(),
+					
 					# Data selection
 					h4("Data Selection"),
 					selectInput(
@@ -161,14 +170,7 @@ mod_denoiser_ui <- function(id) {
 					hr(),
 					
 					# Action buttons
-					actionButton(
-						ns("run_denoise"),
-						"Run Denoising",
-						icon = icon("play"),
-						class = "btn-success btn-lg btn-block"
-					),
-					
-					br(),
+		
 					
 					downloadButton(
 						ns("download_results"),
@@ -185,6 +187,8 @@ mod_denoiser_ui <- function(id) {
 					id = ns("main_tabs"),
 					type = "tabs",
 					
+					tabPanel('Components',
+									 mod_pc_visualizer_ui("pc_viz")),
 					# Tab 1: PCA & Denoising
 					tabPanel(
 						"PCA & Denoising",

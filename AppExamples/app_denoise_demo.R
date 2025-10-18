@@ -64,9 +64,10 @@ ui <- dashboardPage(
 		sidebarMenu(
 			id = "sidebar",
 			menuItem("Data Selection", tabName = "data_select", icon = icon("database")),
-			menuItem("PC Visualizer", tabName = "pc_viz", icon = icon("eye")),
 			menuItem("Denoiser", tabName = "denoise", icon = icon("filter")),
-			menuItem("Help", tabName = "help", icon = icon("question-circle"))
+			#menuItem("PC Visualizer", tabName = "pc_viz", icon = icon("eye")),
+			menuItem("Help", tabName = "help", icon = icon("question-circle")),
+			actionButton('debug','Debug')
 		)
 	),
 	
@@ -301,10 +302,10 @@ ui <- dashboardPage(
 			),
 			
 			### PC Vis ####
-			tabItem(
-				tabName = "pc_viz",
-				mod_pc_visualizer_ui("pc_viz")
-			),
+			# tabItem(
+			# 	tabName = "pc_viz",
+			# 	mod_pc_visualizer_ui("pc_viz")
+			# ),
 			
 			# Help tab
 			tabItem(
@@ -459,7 +460,13 @@ ui <- dashboardPage(
 # Server ####
 server <- function(input, output, session) {
 	
+	
+
 	options(shiny.maxRequestSize = 100*1024^2)
+	
+	observeEvent(input$debug,{
+		browser()
+	})
 	
 	# ===================================================================
 	# NEW: FILE UPLOAD AND IMPORT FUNCTIONALITY
