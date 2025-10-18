@@ -237,6 +237,14 @@ mod_denoiser_ui <- function(id) {
 									width = NULL,
 									plotOutput(ns("denoised_heatmap"), height = "600px")
 								)
+							),
+							column(
+								width = 12,
+								shinydashboard::box(
+									title = "Denoised Data Density",
+									width = NULL,
+									plotOutput(ns("denoised_density"), height = "600px")
+								)
 							)
 						)
 					),
@@ -672,6 +680,22 @@ mod_denoiser_server <- function(id, eset_raw, eset_norm = NULL) {
 				show_rownames = FALSE,
 				show_colnames = FALSE
 			)
+		})
+		
+		output$denoised_density <- renderPlot({
+			req(rv$denoise_results, eset_raw())
+			pc_level <- input$pc_view_slider
+			
+			data = rv$denoise_results$denoised_data[[pc_level]]
+			plot_density_data(data,eset_raw())
+			# plot_denoise_heatmap(
+			# 	denoised_data = rv$denoise_results$denoised_data[[pc_level]],
+			# 	eset = eset_raw(),
+			# 	annotation_cols = input$annotation_cols,
+			# 	title = paste("Denoised Data -", pc_level, "PC(s) Removed"),
+			# 	show_rownames = FALSE,
+			# 	show_colnames = FALSE
+			# )
 		})
 		
 		# Cutpoint summary plot
