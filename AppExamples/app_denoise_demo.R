@@ -6,7 +6,7 @@
 
 # Development mode: reload package functions
 if (interactive()) {
-	local_path <- "../"
+	local_path <- "../" 
 	
 	# Document and reload
 	message("Documenting package...")
@@ -1022,7 +1022,7 @@ server <- function(input, output, session) {
 	# PC Visualizer module - pass denoiser results
 	pc_viz_results <- mod_pc_visualizer_server(
 		"pc_viz",
-		eset_raw = eset_raw,
+		eset_raw = eset_raw, 
 		denoiser_results = denoiser_results  # <-- Pass the denoiser results here
 	)
 }

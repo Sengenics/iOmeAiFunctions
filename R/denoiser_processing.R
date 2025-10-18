@@ -68,17 +68,17 @@ denoise_remove_PCs <- function(eset, assay_name = NULL, n_PCs = 1, scale = TRUE,
 		df_list[[i]] <- denoised_data
 	}
 	
-	# Remove PCs and reconstruct
-	denoised_data <- list()
-	for (i in 1:n_PCs) {
-		# ... reconstruction code ...
-		denoised_data[[i]] <- reconstructed_matrix
-	}
+	# # Remove PCs and reconstruct
+	# denoised_data <- list()
+	# for (i in 1:n_PCs) {
+	# 	# ... reconstruction code ...
+	# 	denoised_data[[i]] <- reconstructed_matrix
+	# }
 	
 	# Return results
 	return(list(
-		denoised_data = denoised_data,
-		denoised_data_o = df_list,
+		#denoised_data = denoised_data,
+		denoised_data = df_list,
 		pca_result = pca_result,
 		variance_explained = variance_contribution,
 		n_PCs_removed = n_PCs_vec
