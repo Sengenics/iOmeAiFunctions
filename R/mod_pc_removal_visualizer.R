@@ -285,7 +285,7 @@ mod_pc_visualizer_ui <- function(id) {
 								"Row (features)" = "row",
 								"Column (samples)" = "column"
 							),
-							selected = "row"
+							selected = "none"
 						)
 					),
 					column(
