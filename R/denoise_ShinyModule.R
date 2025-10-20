@@ -290,9 +290,7 @@ mod_denoiser_ui <- function(id) {
 							)
 						)
 					),
-					
 					## Pooled Normal Analysis ####
-					
 					tabPanel(
 						"Pooled Normal Analysis",
 						br(),
@@ -338,97 +336,8 @@ mod_denoiser_ui <- function(id) {
 								)
 							)
 						),
-						# fluidRow(
-						# 	column(
-						# 		width = 12,
-						# 		shinydashboard::box(
-						# 			title = "Pooled Normal Samples - Denoised Data Heatmap",
-						# 			width = NULL,
-						# 			status = "success",
-						# 			solidHeader = TRUE,
-						# 			plotOutput(ns("pn_denoised_heatmap"), height = "800px")
-						# 		)
-						# 	),
-						# 	
-						# 	column(
-						# 		width = 12,
-						# 		shinydashboard::box(
-						# 			title = "Correlation Plot",
-						# 			width = NULL,
-						# 			status = "success",
-						# 			solidHeader = TRUE,
-						# 			plotOutput(ns("pn_denoised_correlation"), height = "800px")
-						# 		)
-						# 	)
-						# ),
 						
-						# In your tabPanel("Pooled Normal Analysis", ...):
-						
-						fluidRow(
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "NetI Data",
-									width = NULL,
-									status = "info",
-									solidHeader = TRUE,
-									plotOutput(ns("pn_neti_heatmap"), height = "600px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "Normalized Data",
-									width = NULL,
-									status = "info",
-									solidHeader = TRUE,
-									plotOutput(ns("pn_norm_heatmap"), height = "600px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "Denoised Data",
-									width = NULL,
-									status = "success",
-									solidHeader = TRUE,
-									plotOutput(ns("pn_denoised_heatmap"), height = "600px")
-								)
-							)
-						),
-						fluidRow(
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "NetI Correlation",
-									width = NULL,
-									status = "info",
-									solidHeader = TRUE,
-									plotOutput(ns("pn_neti_correlation"), height = "600px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "Normalized Correlation",
-									width = NULL,
-									status = "info",
-									solidHeader = TRUE,
-									plotOutput(ns("pn_norm_correlation"), height = "600px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "Denoised Correlation",
-									width = NULL,
-									status = "success",
-									solidHeader = TRUE,
-									plotOutput(ns("pn_denoised_correlation"), height = "600px")
-								)
-							)
-						),
-						
+						# Statistics row
 						fluidRow(
 							column(
 								width = 6,
@@ -448,16 +357,24 @@ mod_denoiser_ui <- function(id) {
 								)
 							)
 						),
+						
+						# Three visualization modules side by side (plots stacked vertically within each)
 						fluidRow(
 							column(
-								width = 12,
-								shinydashboard::box(
-									title = "PN Samples - Expression Distribution",
-									width = NULL,
-									plotOutput(ns("pn_density_plot"), height = "400px")
-								)
+								width = 4,
+								mod_pn_viz_ui(ns("pn_neti"), title = "NetI Data", status = "primary", show_density = TRUE)
+							),
+							column(
+								width = 4,
+								mod_pn_viz_ui(ns("pn_norm"), title = "Normalized Data", status = "info", show_density = TRUE)
+							),
+							column(
+								width = 4,
+								mod_pn_viz_ui(ns("pn_denoised"), title = "Denoised Data", status = "success", show_density = TRUE)
 							)
 						),
+						
+						# Comparison plot
 						fluidRow(
 							column(
 								width = 12,
@@ -474,6 +391,8 @@ mod_denoiser_ui <- function(id) {
 					tabPanel(
 						"AAb-Called Data",
 						br(),
+						
+						# Cutpoint selection row
 						fluidRow(
 							column(
 								width = 6,
@@ -501,66 +420,21 @@ mod_denoiser_ui <- function(id) {
 								)
 							)
 						),
+						
+						# Full AAb-Called Data Heatmap (all samples)
 						fluidRow(
 							column(
 								width = 12,
 								shinydashboard::box(
-									title = "AAb-Called Data Heatmap",
+									title = "AAb-Called Data Heatmap (All Samples)",
 									width = NULL,
+									status = "info",
 									plotOutput(ns("aab_called_heatmap"), height = "600px")
-								)
-							),
-							
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "NetI",
-									width = NULL,
-									plotOutput(ns("aab_neti_pn_correlation"), height = "300px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "Norm",
-									width = NULL,
-									plotOutput(ns("aab_norm_pn_correlation"), height = "300px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "AAb-Called",
-									width = NULL,
-									plotOutput(ns("aab_called_pn_correlation"), height = "300px")
-								)
-							),
-							
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "NetI",
-									width = NULL,
-									plotOutput(ns("aab_neti_pn_heatmap"), height = "300px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "Norm",
-									width = NULL,
-									plotOutput(ns("aab_norm_pn_heatmap"), height = "300px")
-								)
-							),
-							column(
-								width = 4,
-								shinydashboard::box(
-									title = "AAb-Called",
-									width = NULL,
-									plotOutput(ns("aab_called_pn_heatmap"), height = "300px")
 								)
 							)
 						),
+						
+						# AAb Call Rate Distribution
 						fluidRow(
 							column(
 								width = 12,
@@ -570,10 +444,97 @@ mod_denoiser_ui <- function(id) {
 									plotOutput(ns("aab_call_rate_hist"), height = "400px")
 								)
 							)
+						),
+						
+						# Pooled Normal Sample Options
+						fluidRow(
+							column(
+								width = 12,
+								shinydashboard::box(
+									title = "Pooled Normal Sample Analysis Options",
+									width = NULL,
+									status = "warning",
+									collapsible = TRUE,
+									collapsed = FALSE,
+									
+									p(icon("info-circle"), 
+										strong("Note:"), 
+										"The visualizations below show only Pooled Normal samples from the AAb-called data."),
+									
+									fluidRow(
+										column(
+											width = 6,
+											checkboxInput(
+												ns("aab_show_expected_aabs"),
+												"Highlight Expected PN AAbs",
+												value = TRUE
+											)
+										),
+										column(
+											width = 6,
+											checkboxInput(
+												ns("aab_cluster_samples"),
+												"Cluster Samples",
+												value = FALSE
+											)
+										)
+									)
+								)
+							)
+						),
+						
+						# PN Sample Statistics for AAb-called data
+						fluidRow(
+							column(
+								width = 6,
+								shinydashboard::box(
+									title = "PN AAb Call Statistics",
+									width = NULL,
+									tableOutput(ns("aab_pn_stats_table"))
+								)
+							),
+							column(
+								width = 6,
+								shinydashboard::box(
+									title = "PN Expected AAb Detection (AAb-Called)",
+									width = NULL,
+									status = "warning",
+									tableOutput(ns("aab_pn_expected_aabs_table"))
+								)
+							)
+						),
+						
+						# Three visualization modules for PN samples: NetI, Norm, AAb-Called
+						# No density plots for binary AAb-called data
+						fluidRow(
+							column(
+								width = 4,
+								mod_pn_viz_ui(ns("aab_pn_neti"), title = "PN - NetI Data", status = "primary", show_density = FALSE)
+							),
+							column(
+								width = 4,
+								mod_pn_viz_ui(ns("aab_pn_norm"), title = "PN - Normalized Data", status = "info", show_density = FALSE)
+							),
+							column(
+								width = 4,
+								mod_pn_viz_ui(ns("aab_pn_called"), title = "PN - AAb-Called Data", status = "success", show_density = FALSE)
+							)
+						),
+						
+						# AAb Calls per PN Sample
+						fluidRow(
+							column(
+								width = 12,
+								shinydashboard::box(
+									title = "AAb Calls per Pooled Normal Sample",
+									width = NULL,
+									plotOutput(ns("aab_calls_per_pn_sample"), height = "400px")
+								)
+							)
 						)
 					),
-					
-					# Tab 4: Visualization
+
+					## Tab 4: Visualization ####
 					tabPanel(
 						"Visualization",
 						br(),
@@ -695,218 +656,126 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 		
 		ns <- session$ns
 		
-		observeEvent(input$denoise_mod_debug,{
+		observeEvent(input$denoise_mod_debug, {
 			browser()
 		})
 		
-		# Reactive values
+		# Reactive values ####
 		rv <- reactiveValues(
 			denoise_results = NULL,
 			cutpoint_results = NULL,
 			optimal_cutpoint = NULL,
 			aab_called_data = NULL,
-			all_results = NULL
+			all_results = NULL,
+			ExpSet_list = NULL
 		)
 		
-		observeEvent(input$denoise_update_ExpSet,{ 
+		# Update ExpressionSet with denoised and AAb data ####
+		observeEvent(input$denoise_update_ExpSet, { 
+			req(rv$denoise_results, rv$aab_called_data, ExpSet_list())
 			
-			(denoise_matrix = (rv$denoise_results$denoised_data[[length(rv$denoise_results$denoised_data)]]))
-			str(denoise_matrix)
-			colnames(denoise_matrix)
-			rownames(denoise_matrix)
-			#View(rv$cutpoint_results)
-			#View(rv$optimal_cutpoint)
-			(aab_called_data = rv$aab_called_data)
-			str(aab_called_data)
-			ExpSet_list = ExpSet_list()
-			sample_ExpSet = ExpSet_list$sample_ExpSet
+			denoise_matrix <- rv$denoise_results$denoised_data[[length(rv$denoise_results$denoised_data)]]
+			aab_called_data <- rv$aab_called_data
+			ExpSet_list_copy <- ExpSet_list()
+			sample_ExpSet <- ExpSet_list_copy$sample_ExpSet
 			
-			dim(sample_ExpSet)
-			dim(denoise_matrix)
-			dim(aab_called_data)
+			# Shift denoised data to make all values positive
+			denoise_matrix_median <- denoise_matrix + abs(min(denoise_matrix))
 			
-			hist(as.numeric(as.matrix(denoise_matrix)))
-			min(denoise_matrix)
-			denoise_matrix_median = denoise_matrix + abs(min(denoise_matrix))
-			hist(as.numeric(unlist(denoise_matrix_median)))
+			# Add matrices to ExpressionSet
+			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, denoise_matrix, 'denoised')
+			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, denoise_matrix_median, 'denoised_median')
+			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, aab_called_data, 'aab_called')
 			
-			denoise_l = denoise_matrix %>% 
-				rownames_to_column('Feature') %>% 
-				gather(key = Sample, value = denoise,-1)
+			ExpSet_list_copy$sample_ExpSet <- sample_ExpSet
+			rv$ExpSet_list <- ExpSet_list_copy
 			
-			aab_l = aab_called_data %>% 
-				rownames_to_column('Feature') %>% 
-				gather(key = Sample, value = aab,-1)
-			
-			df_l = denoise_l %>% 
-				left_join(aab_l) %>% 
-				mutate(aab = ifelse(is.na(aab),0,aab))
-			
-			aab_m = df_l %>% 
-				dplyr::select(Feature,Sample,aab) %>% 
-				spread(key = Sample, value = aab) %>% 
-				column_to_rownames('Feature') %>% 
-				as.matrix()
-			
-			#View(df_l)
-			
-			sample_ExpSet = ExpSet_add_matrix_function(sample_ExpSet,denoise_matrix,'denoised')
-			sample_ExpSet = ExpSet_add_matrix_function(sample_ExpSet,denoise_matrix_median,'denoised_median')
-			sample_ExpSet = ExpSet_add_matrix_function(sample_ExpSet,aab_m,'aab_called')
-			ExpSet_list$sample_ExpSet = sample_ExpSet
-			rv$ExpSet_list = ExpSet_list
+			showNotification("✓ ExpressionSet updated with denoised and AAb-called data", type = "message", duration = 3)
 		})
 		
-		# Download handler for ExpressionSet
+		# Download handler for ExpressionSet ####
 		output$download_expset <- downloadHandler(
 			filename = function() {
-				paste0("ExpressionSet_with_reconstruction_", 
-							 format(Sys.time(), "%Y%m%d_%H%M%S"), 
-							 ".rds")
+				paste0("ExpressionSet_with_reconstruction_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".rds")
 			},
 			content = function(file) {
 				req(rv$ExpSet_list)
-				
 				withProgress(message = "Preparing download...", value = 0.5, {
 					tryCatch({
-						# Save the ExpressionSet
 						saveRDS(rv$ExpSet_list, file)
-						
-						showNotification(
-							"✓ ExpressionSet downloaded successfully",
-							type = "message",
-							duration = 3
-						)
+						showNotification("✓ ExpressionSet downloaded successfully", type = "message", duration = 3)
 					}, error = function(e) {
-						showNotification(
-							paste("Error saving ExpressionSet:", e$message),
-							type = "error",
-							duration = 10
-						)
+						showNotification(paste("Error saving ExpressionSet:", e$message), type = "error", duration = 10)
 					})
 				})
 			}
 		)
 		
-		# Update UI choices based on eset
+		# Update UI choices based on eset ####
 		observe({
 			req(eset_raw()) 
-			
 			metadata <- Biobase::pData(eset_raw())
 			
-			# Update PN column choices
-			updateSelectInput(
-				session,
-				"PN_column",
-				choices = colnames(metadata),
-				selected = if("Sample_Group" %in% colnames(metadata)) "Sample_Group" else colnames(metadata)[1]
-			)
+			updateSelectInput(session, "PN_column", choices = colnames(metadata),
+												selected = if("Sample_Group" %in% colnames(metadata)) "Sample_Group" else colnames(metadata)[1])
 			
-			# Update annotation choices
-			updateSelectizeInput(
-				session,
-				"annotation_cols",
-				choices = colnames(metadata),
-				selected = if("Sample_Group" %in% colnames(metadata)) "Sample_Group" else NULL
-			)
+			updateSelectizeInput(session, "annotation_cols", choices = colnames(metadata),
+													 selected = if("Sample_Group" %in% colnames(metadata)) "Sample_Group" else NULL)
 			
-			# Update t-SNE color/shape choices
 			updateSelectInput(session, "tsne_color", choices = colnames(metadata))
-			updateSelectInput(
-				session, 
-				"tsne_shape", 
-				choices = c("None" = "none", colnames(metadata))
-			)
+			updateSelectInput(session, "tsne_shape", choices = c("None" = "none", colnames(metadata)))
 		})
 		
-		# Update PC slider max based on n_PCs input
+		# Update PC slider max based on n_PCs input ####
 		observe({
-			updateSliderInput(
-				session,
-				"pc_view_slider",
-				max = input$n_PCs,
-				value = min(input$n_PCs)
-			)
+			updateSliderInput(session, "pc_view_slider", max = input$n_PCs, value = min(input$n_PCs))
 		})
 		
-		# Parse PN AAbs input
+		# Parse PN AAbs input ####
 		PN_AAbs_parsed <- reactive({
 			req(input$PN_AAbs)
-			
-			# Split by comma and trim whitespace
 			aabs <- unlist(strsplit(input$PN_AAbs, ","))
 			aabs <- trimws(aabs)
-			aabs <- aabs[aabs != ""]
-			
-			return(aabs)
+			aabs[aabs != ""]
 		})
 		
-		# Run denoising pipeline
+		# Run denoising pipeline ####
 		observeEvent(input$run_denoise, {
 			req(eset_raw())
 			
-			# Show progress
 			withProgress(message = 'Running denoising pipeline...', value = 0, {
 				
 				# Step 1: Validate inputs
 				incProgress(0.1, detail = "Validating inputs...")
 				tryCatch({
-					validate_denoise_inputs(
-						eset = eset_raw(),
-						assay_name = input$assay_name,
-						PN_column = input$PN_column,
-						PN_value = input$PN_value
-					)
+					validate_denoise_inputs(eset = eset_raw(), assay_name = input$assay_name,
+																	PN_column = input$PN_column, PN_value = input$PN_value)
 				}, error = function(e) {
-					showNotification(
-						paste("Validation error:", e$message),
-						type = "error",
-						duration = 10
-					)
+					showNotification(paste("Validation error:", e$message), type = "error", duration = 10)
 					return(NULL)
 				})
 				
 				# Step 2: Remove PCs
 				incProgress(0.2, detail = "Removing principal components...")
-				rv$denoise_results <- denoise_remove_PCs(
-					eset = eset_raw(),
-					assay_name = input$assay_name,
-					n_PCs = input$n_PCs,
-					scale = input$scale_pca,
-					center = input$center_pca
-				)
+				rv$denoise_results <- denoise_remove_PCs(eset = eset_raw(), assay_name = input$assay_name,
+																								 n_PCs = input$n_PCs, scale = input$scale_pca, center = input$center_pca)
 				
 				# Step 3: Find cutpoints for each PC level
 				incProgress(0.3, detail = "Testing cutpoints...")
-				
-				cut_seq <- seq(
-					from = input$cut_min,
-					to = input$cut_max,
-					by = input$cut_step
-				)
-				
+				cut_seq <- seq(from = input$cut_min, to = input$cut_max, by = input$cut_step)
 				all_cutpoint_results <- list()
 				
 				for (i in seq_along(rv$denoise_results$denoised_data)) {
-					incProgress(
-						0.3 / length(rv$denoise_results$denoised_data),
-						detail = paste("Testing PC level", i, "...")
-					)
+					incProgress(0.3 / length(rv$denoise_results$denoised_data), detail = paste("Testing PC level", i, "..."))
 					
 					cutpoint_results <- denoise_find_cutpoints(
-						denoised_data = rv$denoise_results$denoised_data[[i]],
-						eset = eset_raw(),
-						PN_column = input$PN_column,
-						PN_value = input$PN_value,
-						PN_AAbs = PN_AAbs_parsed(),
-						cut_seq = cut_seq,
-						method = input$method
+						denoised_data = rv$denoise_results$denoised_data[[i]], eset = eset_raw(),
+						PN_column = input$PN_column, PN_value = input$PN_value,
+						PN_AAbs = PN_AAbs_parsed(), cut_seq = cut_seq, method = input$method
 					)
-					
 					cutpoint_results$PCs_removed <- i
 					all_cutpoint_results[[i]] <- cutpoint_results
 				}
-				
 				rv$cutpoint_results <- do.call(rbind, all_cutpoint_results)
 				
 				# Step 4: Select optimal cutpoint
@@ -920,608 +789,211 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 				incProgress(0.2, detail = "Generating AAb-called data...")
 				rv$aab_called_data <- denoise_apply_cutpoint(
 					denoised_data = rv$denoise_results$denoised_data[[rv$optimal_cutpoint$PCs_removed]],
-					cutpoint = rv$optimal_cutpoint$cutpoint,
-					method = input$method
+					cutpoint = rv$optimal_cutpoint$cutpoint, method = input$method
 				)
 				
 				# Update cutpoint slider
-				updateSliderInput(
-					session,
-					"cutpoint_slider",
-					min = input$cut_min,
-					max = input$cut_max,
-					value = rv$optimal_cutpoint$cutpoint,
-					step = input$cut_step
-				)
+				updateSliderInput(session, "cutpoint_slider", min = input$cut_min, max = input$cut_max,
+													value = rv$optimal_cutpoint$cutpoint, step = input$cut_step)
 				
 				incProgress(0.1, detail = "Complete!")
-				
-				showNotification(
-					"Denoising complete!",
-					type = "message",
-					duration = 5
-				)
-				
-				return(reactive({
-					list(
-						denoise_results = rv$denoise_results,    # This now includes pca_result!
-						cutpoint_results = rv$cutpoint_results,
-						optimal_cutpoint = rv$optimal_cutpoint,
-						aab_called_data = rv$aab_called_data
-					)
-				}))
+				showNotification("Denoising complete!", type = "message", duration = 5)
 			})
 		})
 		
-		# PCA variance plot
+		# PCA & Denoising Tab Outputs ####
 		output$pca_variance_plot <- renderPlot({
 			req(rv$denoise_results)
-			
 			variance_df <- data.frame(
 				PC = paste0("PC", seq_along(rv$denoise_results$variance_explained)),
 				Variance = rv$denoise_results$variance_explained
 			)
-			
-			ggplot2::ggplot(variance_df[1:min(20, nrow(variance_df)), ], 
-											ggplot2::aes(x = PC, y = Variance)) +
+			ggplot2::ggplot(variance_df[1:min(20, nrow(variance_df)), ], ggplot2::aes(x = PC, y = Variance)) +
 				ggplot2::geom_bar(stat = "identity", fill = "steelblue") +
-				ggplot2::geom_vline(xintercept = input$n_PCs + 0.5, 
-														linetype = "dashed", color = "red", size = 1) +
-				ggplot2::labs(
-					title = "Variance Explained by Principal Components",
-					subtitle = paste("Red line indicates", input$n_PCs, "PC(s) to be removed"),
-					x = "Principal Component",
-					y = "Variance Explained (%)"
-				) +
+				ggplot2::geom_vline(xintercept = input$n_PCs + 0.5, linetype = "dashed", color = "red", size = 1) +
+				ggplot2::labs(title = "Variance Explained by Principal Components",
+											subtitle = paste("Red line indicates", input$n_PCs, "PC(s) to be removed"),
+											x = "Principal Component", y = "Variance Explained (%)") +
 				ggplot2::theme_minimal() +
 				ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
 		})
 		
-		# Denoised info table
 		output$denoised_info_table <- renderTable({
 			req(rv$denoise_results)
 			pc_level <- input$pc_view_slider
-			
 			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
-			
 			data.frame(
 				Metric = c("PCs Removed", "Features", "Samples", "Max Value", "Min Value"),
-				Value = c(
-					pc_level,
-					nrow(denoised_data),
-					ncol(denoised_data),
-					round(max(denoised_data), 2),
-					round(min(denoised_data), 2)
-				)
+				Value = c(pc_level, nrow(denoised_data), ncol(denoised_data),
+									round(max(denoised_data), 2), round(min(denoised_data), 2))
 			)
 		})
 		
-		# Denoised heatmap
 		output$denoised_heatmap <- renderPlot({
 			req(rv$denoise_results, eset_raw())
-			pc_level <- input$pc_view_slider
-			
 			plot_denoise_heatmap(
-				denoised_data = rv$denoise_results$denoised_data[[pc_level]],
-				eset = eset_raw(),
-				annotation_cols = input$annotation_cols,
-				title = paste("Denoised Data -", pc_level, "PC(s) Removed"),
-				
-				show_rownames = FALSE,
-				show_colnames = FALSE
+				denoised_data = rv$denoise_results$denoised_data[[input$pc_view_slider]],
+				eset = eset_raw(), annotation_cols = input$annotation_cols,
+				title = paste("Denoised Data -", input$pc_view_slider, "PC(s) Removed"),
+				show_rownames = FALSE, show_colnames = FALSE
 			)
 		})
 		
 		output$denoised_density <- renderPlot({
 			req(rv$denoise_results, eset_raw())
-			pc_level <- input$pc_view_slider
-			
-			data = rv$denoise_results$denoised_data[[pc_level]]
-			plot_density_data(data,eset_raw())
-			# plot_denoise_heatmap(
-			# 	denoised_data = rv$denoise_results$denoised_data[[pc_level]],
-			# 	eset = eset_raw(),
-			# 	annotation_cols = input$annotation_cols,
-			# 	title = paste("Denoised Data -", pc_level, "PC(s) Removed"),
-			# 	show_rownames = FALSE,
-			# 	show_colnames = FALSE
-			# )
+			plot_density_data(rv$denoise_results$denoised_data[[input$pc_view_slider]], eset_raw())
 		})
 		
-		# Cutpoint summary plot
+		# Cutpoint Analysis Tab Outputs ####
 		output$cutpoint_summary_plot <- renderPlot({
 			req(rv$cutpoint_results, rv$optimal_cutpoint)
-			
-			pc_level <- input$pc_view_slider
-			cutpoint_subset <- rv$cutpoint_results[rv$cutpoint_results$PCs_removed == pc_level, ]
-			
-			plot_cutpoint_summary(
-				cutpoint_results = cutpoint_subset,
-				optimal_cutpoint = rv$optimal_cutpoint$cutpoint
-			)
+			cutpoint_subset <- rv$cutpoint_results[rv$cutpoint_results$PCs_removed == input$pc_view_slider, ]
+			plot_cutpoint_summary(cutpoint_results = cutpoint_subset, optimal_cutpoint = rv$optimal_cutpoint$cutpoint)
 		})
 		
-		# Cutpoint results table
 		output$cutpoint_table <- renderDT({
 			req(rv$cutpoint_results)
-			
-			pc_level <- input$pc_view_slider
-			cutpoint_subset <- rv$cutpoint_results[rv$cutpoint_results$PCs_removed == pc_level, ]
-			
-			DT::datatable(
-				cutpoint_subset,
-				options = list(
-					pageLength = 10,
-					scrollX = TRUE,
-					order = list(list(3, 'desc'))  # Sort by TP_FP_ratio
-				),
-				rownames = FALSE
-			) %>%
+			cutpoint_subset <- rv$cutpoint_results[rv$cutpoint_results$PCs_removed == input$pc_view_slider, ]
+			DT::datatable(cutpoint_subset, options = list(pageLength = 10, scrollX = TRUE, order = list(list(3, 'desc'))), rownames = FALSE) %>%
 				DT::formatRound(columns = c('cutpoint', 'TP_FP_ratio', 'zz_2_frac', 'zz_4_frac'), digits = 2) %>%
-				DT::formatStyle(
-					'TP_FP_ratio',
-					background = DT::styleColorBar(cutpoint_subset$TP_FP_ratio, 'lightblue'),
-					backgroundSize = '100% 90%',
-					backgroundRepeat = 'no-repeat',
-					backgroundPosition = 'center'
-				)
+				DT::formatStyle('TP_FP_ratio', background = DT::styleColorBar(cutpoint_subset$TP_FP_ratio, 'lightblue'),
+												backgroundSize = '100% 90%', backgroundRepeat = 'no-repeat', backgroundPosition = 'center')
 		})
 		
-		# Get AAb-called data for selected cutpoint
+		# AAb-Called Data Tab Outputs ####
 		current_aab_data <- reactive({
-			#browser()
 			req(rv$denoise_results, input$cutpoint_slider)
-			
-			pc_level <- input$pc_view_slider
-			
 			denoise_apply_cutpoint(
-				denoised_data = rv$denoise_results$denoised_data[[pc_level]],
-				cutpoint = input$cutpoint_slider,
-				method = input$method
+				denoised_data = rv$denoise_results$denoised_data[[input$pc_view_slider]],
+				cutpoint = input$cutpoint_slider, method = input$method
 			)
 		})
 		
-		# Selected cutpoint info
 		output$selected_cutpoint_info <- renderTable({
 			req(rv$cutpoint_results)
-			
-			pc_level <- input$pc_view_slider
 			cutpoint_subset <- rv$cutpoint_results[
-				rv$cutpoint_results$PCs_removed == pc_level &
+				rv$cutpoint_results$PCs_removed == input$pc_view_slider &
 					abs(rv$cutpoint_results$cutpoint - input$cutpoint_slider) < 0.01,
 			]
-			
 			if (nrow(cutpoint_subset) > 0) {
 				data.frame(
 					Metric = c("Cutpoint", "PN AAb Count", "TP:FP Ratio", "ZZ_con2 Rate"),
-					Value = c(
-						cutpoint_subset$cutpoint[1],
-						cutpoint_subset$PN_Aab_count_67_perc[1],
-						round(cutpoint_subset$TP_FP_ratio[1], 2),
-						round(cutpoint_subset$zz_2_frac[1], 3)
-					)
+					Value = c(cutpoint_subset$cutpoint[1], cutpoint_subset$PN_Aab_count_67_perc[1],
+										round(cutpoint_subset$TP_FP_ratio[1], 2), round(cutpoint_subset$zz_2_frac[1], 3))
 				)
 			} else {
 				data.frame(Metric = "No data", Value = "-")
 			}
 		})
 		
-		# Optimal cutpoint table
 		output$optimal_cutpoint_table <- renderTable({
 			req(rv$optimal_cutpoint)
-			
 			data.frame(
-				Parameter = c("PCs Removed", "Cutpoint", "PN AAb Count", "PN Hit Rate (%)", 
-											"TP:FP Ratio", "Unique AAbs", "Median AAbs/Sample"),
-				Value = c(
-					rv$optimal_cutpoint$PCs_removed,
-					rv$optimal_cutpoint$cutpoint,
-					rv$optimal_cutpoint$PN_Aab_count_67_perc,
-					round(rv$optimal_cutpoint$PN_AAb_hit_rate, 1),
-					round(rv$optimal_cutpoint$TP_FP_ratio, 2),
-					rv$optimal_cutpoint$N_unique_AAbs,
-					rv$optimal_cutpoint$sample_AAb_median
-				)
+				Parameter = c("PCs Removed", "Cutpoint", "PN AAb Count", "PN Hit Rate (%)", "TP:FP Ratio", "Unique AAbs", "Median AAbs/Sample"),
+				Value = c(rv$optimal_cutpoint$PCs_removed, rv$optimal_cutpoint$cutpoint, rv$optimal_cutpoint$PN_Aab_count_67_perc,
+									round(rv$optimal_cutpoint$PN_AAb_hit_rate, 1), round(rv$optimal_cutpoint$TP_FP_ratio, 2),
+									rv$optimal_cutpoint$N_unique_AAbs, rv$optimal_cutpoint$sample_AAb_median)
 			)
 		})
 		
-		## AAb-called ####
-		output$aab_called_heatmap <- renderPlot({ 
+		output$aab_called_heatmap <- renderPlot({
 			req(current_aab_data(), eset_raw())
-			
 			plot_denoise_heatmap(
-				denoised_data = current_aab_data(),
-				eset = eset_raw(),
-				annotation_cols = input$annotation_cols,
+				denoised_data = current_aab_data(), eset = eset_raw(), annotation_cols = input$annotation_cols,
 				title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
-				#cluster_cols = FALSE,
-				#cluster_rows = FALSE,
-				show_rownames = TRUE,
-				show_colnames = FALSE
+				show_rownames = TRUE, show_colnames = FALSE
 			)
 		})
 		
-		aab_called_pn_data = reactive({
-			pn_samples = rownames(pn_data()$pn_metadata)
-			data = current_aab_data()
-			pn_data = data[,pn_samples]
-			filtered_pn <- pn_data[rowSums(pn_data) != 0, ]
-			str(pn_data)
-			plot_data = filtered_pn
-			plot_data
-		})
-		
-		output$aab_called_pn_correlation = renderPlot({
-			plot_data = aab_called_pn_data()
-			correlation_title_plot_function(plot_data,method = 'pearson')
-			
-		})
-		
-		output$aab_called_pn_heatmap <- renderPlot({ 
-			req(aab_called_pn_data(), eset_raw())
-			plot_data = aab_called_pn_data()
-			plot_denoise_heatmap(
-				denoised_data = plot_data,
-				eset = eset_raw(),
-				#annotation_cols = input$annotation_cols,
-				#title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
-				cluster_cols = FALSE,
-				cluster_rows = FALSE,
-				show_rownames = TRUE,
-				show_colnames = TRUE
-			)
-		})
-		
-		
-		aab_neti_pn_correlation_data = reactive({
-			aab_pn_data = aab_called_pn_data()
-			data = exprs(eset_raw())
-			plot_data = data[rownames(aab_pn_data),colnames(aab_pn_data)]
-			plot_data
-		})
-		output$aab_neti_pn_correlation = renderPlot({
-			plot_data = aab_neti_pn_correlation_data()
-			correlation_title_plot_function(plot_data,method = 'pearson')
-		})
-		
-		output$aab_neti_pn_heatmap <- renderPlot({  
-			plot_data = aab_neti_pn_correlation_data()
-			plot_denoise_heatmap(
-				denoised_data = plot_data,
-				eset = eset_raw(),
-				#annotation_cols = input$annotation_cols,
-				#title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
-				cluster_cols = FALSE,
-				cluster_rows = FALSE,
-				show_rownames = TRUE,
-				show_colnames = TRUE
-			)
-		})
-		
-		aab_norm_pn_correlation_data = reactive({
-			aab_pn_data = aab_called_pn_data()
-			data = exprs(eset_norm())
-			plot_data = data[rownames(aab_pn_data),colnames(aab_pn_data)]
-			plot_data
-		})
-		output$aab_norm_pn_correlation = renderPlot({
-			plot_data = aab_norm_pn_correlation_data()
-			correlation_title_plot_function(plot_data,method = 'pearson')
-		})
-		
-		output$aab_norm_pn_heatmap <- renderPlot({ 
-			plot_data = aab_norm_pn_correlation_data()
-			plot_denoise_heatmap(
-				denoised_data = plot_data,
-				eset = eset_raw(),
-				#annotation_cols = input$annotation_cols,
-				#title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
-				cluster_cols = FALSE,
-				cluster_rows = FALSE,
-				show_rownames = TRUE,
-				show_colnames = TRUE
-			)
-		})
-		
-		# AAb call rate histogram
 		output$aab_call_rate_hist <- renderPlot({
 			req(current_aab_data())
-			
-			call_rates <- apply(current_aab_data(), 1, function(x) {
-				length(which(x > 0)) / length(x) * 100
-			})
-			
-			graphics::hist(
-				call_rates,
-				breaks = 30,
-				main = "Distribution of AAb Call Rates",
-				xlab = "Call Rate (%)",
-				ylab = "Number of Antigens",
-				col = "skyblue",
-				border = "white"
-			)
+			call_rates <- apply(current_aab_data(), 1, function(x) length(which(x > 0)) / length(x) * 100)
+			graphics::hist(call_rates, breaks = 30, main = "Distribution of AAb Call Rates",
+										 xlab = "Call Rate (%)", ylab = "Number of Antigens", col = "skyblue", border = "white")
 			graphics::abline(v = median(call_rates), col = "red", lwd = 2, lty = 2)
-			graphics::legend("topright", 
-											 legend = paste("Median:", round(median(call_rates), 1), "%"),
+			graphics::legend("topright", legend = paste("Median:", round(median(call_rates), 1), "%"),
 											 col = "red", lwd = 2, lty = 2, bty = "n")
 		})
 		
-		# AAb borders plot
-		# AAb borders plot
+		# Visualization Tab Outputs ####
 		output$aab_borders_plot <- renderPlot({
-			req(current_aab_data(), eset_raw())
-			
-			# Get background data
-			# if (!is.null(eset_norm) && !is.null(eset_norm())) {
-			# 	background_data <- get_expression_data(eset_norm(), input$norm_assay_name)
-			# } else {
-			# 	background_data <- get_expression_data(eset_raw(), input$assay_name)
-			# }
-			
-			background_data = exprs(eset_norm())
-			
-			# Ensure background_data is a matrix before transposing
-			if (!is.matrix(background_data)) {
-				background_data <- as.matrix(background_data)
-			}
-			
-			# Row-center background data
+			req(current_aab_data(), eset_raw(), eset_norm())
+			background_data <- Biobase::exprs(eset_norm())
+			if (!is.matrix(background_data)) background_data <- as.matrix(background_data)
 			background_RC <- t(scale(t(background_data), scale = FALSE, center = TRUE))
-			
 			plot_denoise_borders(
-				background_data = background_RC,
-				aab_called_data = current_aab_data(),
-				eset = eset_raw(),
-				annotation_cols = input$annotation_cols,
+				background_data = background_RC, aab_called_data = current_aab_data(),
+				eset = eset_raw(), annotation_cols = input$annotation_cols,
 				variable = if(length(input$annotation_cols) > 0) input$annotation_cols[1] else NULL,
 				title = "AAb Borders on Row-Centered Data"
 			)
 		})
-		# output$aab_borders_plot <- renderPlot({
-		# 	req(current_aab_data(), eset_raw())
-		# 	
-		# 	# Get background data
-		# 	if (!is.null(eset_norm) && !is.null(eset_norm())) {
-		# 		background_data <- get_expression_data(eset_norm(), input$norm_assay_name)
-		# 	} else {
-		# 		background_data <- get_expression_data(eset_raw(), input$assay_name)
-		# 	}
-		# 	
-		# 	# Row-center background data
-		# 	background_RC <- t(scale(t(background_data), scale = FALSE, center = TRUE))
-		# 	
-		# 	plot_denoise_borders(
-		# 		background_data = background_RC,
-		# 		aab_called_data = current_aab_data(),
-		# 		eset = eset_raw(),
-		# 		annotation_cols = input$annotation_cols,
-		# 		variable = if(length(input$annotation_cols) > 0) input$annotation_cols[1] else NULL,
-		# 		title = "AAb Borders on Row-Centered Data"
-		# 	)
-		# })
 		
-		
-		
-		# t-SNE plot
 		output$tsne_plot <- renderPlot({
 			req(current_aab_data(), eset_raw())
-			
 			shape_by <- if(input$tsne_shape == "none") NULL else input$tsne_shape
-			
 			plot_denoise_tsne(
-				aab_called_data = current_aab_data(),
-				eset = eset_raw(),
-				color_by = input$tsne_color,
-				shape_by = shape_by,
-				perplexity = input$tsne_perplexity,
-				seed = 42
+				aab_called_data = current_aab_data(), eset = eset_raw(),
+				color_by = input$tsne_color, shape_by = shape_by,
+				perplexity = input$tsne_perplexity, seed = 42
 			)
 		})
 		
-		# Summary statistics table
+		# Summary Tab Outputs ####
 		output$summary_stats_table <- renderTable({
 			req(rv$aab_called_data, eset_raw())
-			
 			calculate_aab_summary(
-				aab_called_data = rv$aab_called_data,
-				eset = eset_raw(),
+				aab_called_data = rv$aab_called_data, eset = eset_raw(),
 				group_by = if(length(input$annotation_cols) > 0) input$annotation_cols[1] else NULL
 			)
 		})
 		
-		# Parameter comparison table
 		output$parameter_comparison_table <- renderDT({
 			req(rv$cutpoint_results)
-			
 			comparison <- compare_denoise_parameters(
-				cutpoint_results = rv$cutpoint_results,
-				top_n = 20,
-				sort_by = "TP_FP_ratio"
+				cutpoint_results = rv$cutpoint_results, top_n = 20, sort_by = "TP_FP_ratio"
 			)
-			
-			DT::datatable(
-				comparison,
-				options = list(pageLength = 10, scrollX = TRUE),
-				rownames = FALSE
-			) %>%
+			DT::datatable(comparison, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE) %>%
 				DT::formatRound(columns = c('cutpoint', 'TP_FP_ratio', 'zz_2_frac', 'zz_4_frac'), digits = 2)
 		})
 		
-		# Download results
+		# Download Handlers ####
 		output$download_results <- downloadHandler(
-			filename = function() {
-				paste0("denoiser_results_", Sys.Date(), ".zip")
-			},
+			filename = function() paste0("denoiser_results_", Sys.Date(), ".zip"),
 			content = function(file) {
-				# Create temp directory
 				temp_dir <- tempdir()
 				results_dir <- file.path(temp_dir, "denoiser_results")
 				dir.create(results_dir, showWarnings = FALSE)
 				
-				# Save AAb-called data
-				write.csv(
-					rv$aab_called_data,
-					file.path(results_dir, "AAb_called_data.csv")
-				)
+				write.csv(rv$aab_called_data, file.path(results_dir, "AAb_called_data.csv"))
+				write.csv(rv$cutpoint_results, file.path(results_dir, "cutpoint_analysis.csv"), row.names = FALSE)
+				write.csv(rv$optimal_cutpoint, file.path(results_dir, "optimal_cutpoint.csv"), row.names = FALSE)
 				
-				# Save cutpoint results
-				write.csv(
-					rv$cutpoint_results,
-					file.path(results_dir, "cutpoint_analysis.csv"),
-					row.names = FALSE
-				)
-				
-				# Save optimal parameters
-				write.csv(
-					rv$optimal_cutpoint,
-					file.path(results_dir, "optimal_cutpoint.csv"),
-					row.names = FALSE
-				)
-				
-				# Save denoised matrices
 				for (i in seq_along(rv$denoise_results$denoised_data)) {
-					write.csv(
-						rv$denoise_results$denoised_data[[i]],
-						file.path(results_dir, paste0("denoised_", i, "PCs.csv"))
-					)
+					write.csv(rv$denoise_results$denoised_data[[i]], file.path(results_dir, paste0("denoised_", i, "PCs.csv")))
 				}
-				
-				# Create zip file
 				zip(file, results_dir, flags = "-r9Xj")
 			}
 		)
 		
-		# Download template
 		output$download_template <- downloadHandler(
-			filename = function() {
-				paste0(input$template_name, ".R")
-			},
+			filename = function() paste0(input$template_name, ".R"),
 			content = function(file) {
 				generate_aab_caller_template(
-					output_file = file,
-					project_name = input$project_name,
-					eset_file = "eset.rds",  # User should update this
-					assay_name = input$assay_name,
-					n_PCs = input$n_PCs,
-					PN_AAbs = PN_AAbs_parsed(),
-					exp_PN_AAbs = seq(input$exp_PN_min, input$exp_PN_max),
-					annotation_cols = input$annotation_cols
+					output_file = file, project_name = input$project_name, eset_file = "eset.rds",
+					assay_name = input$assay_name, n_PCs = input$n_PCs, PN_AAbs = PN_AAbs_parsed(),
+					exp_PN_AAbs = seq(input$exp_PN_min, input$exp_PN_max), annotation_cols = input$annotation_cols
 				)
 			}
 		)
 		
-		
-		
-		# Add these after the existing output functions in mod_denoiser_server:
-		
-		## PN Denoised Heatmap ######
-		
-		# Sync pn_pc_level with the main pc_view_slider
+		# Pooled Normal Analysis - Data Preparation ####
 		observe({
 			req(rv$denoise_results)
-			
-			updateNumericInput(
-				session,
-				"pn_pc_level",
-				value = input$pc_view_slider,  # Match the main PC slider
-				max = length(rv$denoise_results$denoised_data)
-			)
+			updateNumericInput(session, "pn_pc_level", value = input$pc_view_slider,
+												 max = length(rv$denoise_results$denoised_data))
 		})
 		
-		# pn_data = reactive({
-		# 
-		# 	req(rv$denoise_results, eset_raw())
-		# 	
-		# 	pc_level <- input$pn_pc_level
-		# 	if (pc_level > length(rv$denoise_results$denoised_data)) {
-		# 		pc_level <- length(rv$denoise_results$denoised_data)
-		# 	}
-		# 	
-		# 	denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
-		# 	
-		# 	# Get PN sample identifiers
-		# 	metadata <- Biobase::pData(eset_raw())
-		# 	PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
-		# 	
-		# 	# Filter to only PN samples
-		# 	if (length(PN_samples) == 0) {
-		# 		showNotification(
-		# 			"No Pooled Normal samples found!",
-		# 			type = "warning",
-		# 			duration = 5
-		# 		)
-		# 		return(NULL)
-		# 	}
-		# 	
-		# 	
-		# 	# Subset to PN samples
-		# 	pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
-		# 	# Prepare annotation for PN samples
-		# 	pn_metadata <- metadata[colnames(pn_data), , drop = FALSE]
-		# 	list(pn_data = pn_data,
-		# 			 pn_metadata = pn_metadata)
-		# })
-		# output$pn_denoised_heatmap <- renderPlot({
-		# 	pc_level <- input$pn_pc_level
-		# 	pn_data_list = pn_data()
-		# 	pn_data = pn_data_list$pn_data
-		# 	pn_metadata = pn_data_list$pn_metadata
-		# 	
-		# 		
-		# 	if (ncol(pn_data) == 0) {
-		# 		showNotification(
-		# 			"No matching PN samples in denoised data!",
-		# 			type = "error",
-		# 			duration = 5
-		# 		)
-		# 		return(NULL)
-		# 	}
-		# 	
-		# 	# # Prepare annotation for PN samples
-		# 	# pn_metadata <- metadata[colnames(pn_data), , drop = FALSE]
-		# 	
-		# 	annotation_col <- NULL
-		# 	if (length(input$annotation_cols) > 0) {
-		# 		annotation_col <- pn_metadata[, input$annotation_cols, drop = FALSE]
-		# 	}
-		# 	
-		# 	# Highlight expected PN AAbs
-		# 	annotation_row <- NULL
-		# 	if (input$pn_show_expected_aabs) {
-		# 		expected_aabs <- PN_AAbs_parsed()
-		# 		annotation_row <- data.frame(
-		# 			ExpectedAAb = ifelse(rownames(pn_data) %in% expected_aabs, "Expected", "Other"),
-		# 			row.names = rownames(pn_data)
-		# 		)
-		# 	}
-		# 	
-		# 	# Create heatmap
-		# 	pheatmap::pheatmap(
-		# 		pn_data,
-		# 		main = paste0("Pooled Normal Samples - Denoised Data (", pc_level, " PC", 
-		# 									ifelse(pc_level > 1, "s", ""), " Removed)"),
-		# 		annotation_col = annotation_col,
-		# 		annotation_row = annotation_row,
-		# 		cluster_rows = TRUE,
-		# 		cluster_cols = input$pn_cluster_samples,
-		# 		show_rownames = TRUE,
-		# 		show_colnames = TRUE,
-		# 		fontsize_row = 8,
-		# 		fontsize_col = 10,
-		# 		color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
-		# 		annotation_colors = if (input$pn_show_expected_aabs) {
-		# 			list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
-		# 		} else NULL
-		# 	)
-		# })
-		# output$pn_denoised_correlation <- renderPlot({
-		# 	pn_data_list = pn_data()
-		# 	pn_data = pn_data_list$pn_data
-		# 	
-		# 	correlation_title_plot_function(pn_data)
-		# })
-		
-		# Create a reactive that returns all three datasets filtered for PN samples
 		pn_data <- reactive({
 			req(rv$denoise_results, eset_raw(), eset_norm())
 			
@@ -1530,460 +1002,252 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 				pc_level <- length(rv$denoise_results$denoised_data)
 			}
 			
-			# Get PN sample identifiers
 			metadata <- Biobase::pData(eset_raw())
 			PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
 			
-			# Filter to only PN samples
 			if (length(PN_samples) == 0) {
-				showNotification(
-					"No Pooled Normal samples found!",
-					type = "warning",
-					duration = 5
-				)
+				showNotification("No Pooled Normal samples found!", type = "warning", duration = 5)
 				return(NULL)
 			}
 			
-			# Get all three data types
 			neti_data <- Biobase::exprs(eset_raw())
 			norm_data <- Biobase::exprs(eset_norm())
 			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
 			
-			# Subset to PN samples for each
 			pn_neti <- neti_data[, colnames(neti_data) %in% PN_samples, drop = FALSE]
 			pn_norm <- norm_data[, colnames(norm_data) %in% PN_samples, drop = FALSE]
 			pn_denoised <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
 			
-			# Remove rows with zero sum from all datasets
 			pn_neti <- pn_neti[rowSums(pn_neti) != 0, , drop = FALSE]
 			pn_norm <- pn_norm[rowSums(pn_norm) != 0, , drop = FALSE]
 			pn_denoised <- pn_denoised[rowSums(pn_denoised) != 0, , drop = FALSE]
 			
-			# Prepare annotation for PN samples
 			pn_metadata <- metadata[colnames(pn_denoised), , drop = FALSE]
 			
-			list(
-				pn_neti = pn_neti,
-				pn_norm = pn_norm,
-				pn_denoised = pn_denoised,
-				pn_metadata = pn_metadata,
-				pc_level = pc_level
-			)
+			list(pn_neti = pn_neti, pn_norm = pn_norm, pn_denoised = pn_denoised,
+					 pn_metadata = pn_metadata, pc_level = pc_level)
 		})
 		
-		# Helper function to create consistent annotation
-		get_pn_annotations <- function(pn_data, pn_metadata) {
-			annotation_col <- NULL
-			if (length(input$annotation_cols) > 0) {
-				annotation_col <- pn_metadata[, input$annotation_cols, drop = FALSE]
-			}
+		aab_pn_data <- reactive({ 
+			req(current_aab_data(), eset_raw(), eset_norm())
 			
-			# Highlight expected PN AAbs
-			annotation_row <- NULL
-			if (input$pn_show_expected_aabs) {
-				expected_aabs <- PN_AAbs_parsed()
-				annotation_row <- data.frame(
-					ExpectedAAb = ifelse(rownames(pn_data) %in% expected_aabs, "Expected", "Other"),
-					row.names = rownames(pn_data)
-				)
-			}
+			metadata <- Biobase::pData(eset_raw())
+			PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
 			
-			list(
-				annotation_col = annotation_col,
-				annotation_row = annotation_row
-			)
-		}
-		
-		# Heatmap 1: NetI Data ####
-		output$pn_neti_heatmap <- renderPlot({
-			pn_data_list <- pn_data()
-			req(pn_data_list)
+			if (length(PN_samples) == 0) return(NULL)
 			
-			pn_neti <- pn_data_list$pn_neti
-			pn_metadata <- pn_data_list$pn_metadata
+			neti_data <- Biobase::exprs(eset_raw())
+			norm_data <- Biobase::exprs(eset_norm())
+			aab_data <- current_aab_data()
 			
-			if (ncol(pn_neti) == 0) {
-				showNotification(
-					"No matching PN samples in NetI data!",
-					type = "error",
-					duration = 5
-				)
-				return(NULL)
-			}
+			pn_aab <- aab_data[, colnames(aab_data) %in% PN_samples, drop = FALSE]
+			pn_aab <- pn_aab[rowSums(pn_aab) != 0, , drop = FALSE]
 			
-			annotations <- get_pn_annotations(pn_neti, pn_metadata)
+			pn_neti <- neti_data[rownames(pn_aab), colnames(neti_data) %in% PN_samples, drop = FALSE]
+			pn_norm <- norm_data[rownames(pn_aab), colnames(norm_data) %in% PN_samples, drop = FALSE]
+
 			
-			pheatmap::pheatmap(
-				pn_neti,
-				main = "Pooled Normal Samples - NetI Data",
-				annotation_col = annotations$annotation_col,
-				annotation_row = annotations$annotation_row,
-				annotation_legend = FALSE,
-				cluster_rows = FALSE,  # No clustering
-				cluster_cols = FALSE,  # No clustering
-				show_rownames = FALSE,
-				show_colnames = TRUE,
-				fontsize_row = 8,
-				fontsize_col = 10,
-				color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
-				annotation_colors = if (input$pn_show_expected_aabs) {
-					list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
-				} else NULL
-			)
+			pn_metadata <- metadata[colnames(pn_aab), , drop = FALSE]
+			
+			list(pn_neti = pn_neti, pn_norm = pn_norm, pn_denoised = pn_aab,
+					 pn_metadata = pn_metadata, pc_level = input$pn_pc_level)
 		})
 		
-		# Heatmap 2: Normalized Data ####
-		output$pn_norm_heatmap <- renderPlot({
-			pn_data_list <- pn_data()
-			req(pn_data_list)
-			
-			pn_norm <- pn_data_list$pn_norm
-			pn_metadata <- pn_data_list$pn_metadata
-			
-			if (ncol(pn_norm) == 0) {
-				showNotification(
-					"No matching PN samples in normalized data!",
-					type = "error",
-					duration = 5
-				)
-				return(NULL)
-			}
-			
-			annotations <- get_pn_annotations(pn_norm, pn_metadata)
-			
-			pheatmap::pheatmap(
-				pn_norm,
-				main = "Pooled Normal Samples - Normalized Data",
-				annotation_col = annotations$annotation_col,
-				annotation_row = annotations$annotation_row,
-				annotation_legend = FALSE,
-				cluster_rows = FALSE,  # No clustering
-				cluster_cols = FALSE,  # No clustering
-				show_rownames = FALSE,
-				show_colnames = TRUE,
-				fontsize_row = 8,
-				fontsize_col = 10,
-				color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
-				annotation_colors = if (input$pn_show_expected_aabs) {
-					list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
-				} else NULL
-			)
-		})
-		
-		# Heatmap 3: Denoised Data ####
-		output$pn_denoised_heatmap <- renderPlot({
-			pn_data_list <- pn_data()
-			req(pn_data_list)
-			
-			pn_denoised <- pn_data_list$pn_denoised
-			pn_metadata <- pn_data_list$pn_metadata
-			pc_level <- pn_data_list$pc_level
-			
-			if (ncol(pn_denoised) == 0) {
-				showNotification(
-					"No matching PN samples in denoised data!",
-					type = "error",
-					duration = 5
-				)
-				return(NULL)
-			}
-			
-			annotations <- get_pn_annotations(pn_denoised, pn_metadata)
-			
-			pheatmap::pheatmap(
-				pn_denoised,
-				main = paste0("Pooled Normal Samples - Denoised Data (", pc_level, " PC", 
-											ifelse(pc_level > 1, "s", ""), " Removed)"),
-				annotation_col = annotations$annotation_col,
-				annotation_row = annotations$annotation_row,
-				annotation_legend = FALSE,
-				cluster_rows = FALSE,  # No clustering
-				cluster_cols = FALSE,  # No clustering
-				show_rownames = TRUE,
-				show_colnames = FALSE,
-				fontsize_row = 8,
-				fontsize_col = 10,
-				color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
-				annotation_colors = if (input$pn_show_expected_aabs) {
-					list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
-				} else NULL
-			)
-		})
-		
-		# Correlation Plot 1: NetI Data ####
-		output$pn_neti_correlation <- renderPlot({
-			pn_data_list <- pn_data() 
-			req(pn_data_list)
-			
-			pn_neti <- pn_data_list$pn_neti
-			
-			if (ncol(pn_neti) < 2) {
-				plot.new()
-				text(0.5, 0.5, "Need at least 2 samples for correlation", cex = 1.5)
-				return(NULL)
-			}
-			
-			# Transpose for correlation (samples as rows)
-			correlation_title_plot_function(
-				plot_data = pn_neti,
-				method = "pearson"
-			)
-			title(sub = "NetI Data", line = 0.5)
-		})
-		
-		# Correlation Plot 2: Normalized Data ####
-		output$pn_norm_correlation <- renderPlot({
-			pn_data_list <- pn_data()
-			req(pn_data_list)
-			
-			pn_norm <- pn_data_list$pn_norm
-			
-			if (ncol(pn_norm) < 2) {
-				plot.new()
-				text(0.5, 0.5, "Need at least 2 samples for correlation", cex = 1.5)
-				return(NULL)
-			}
-			
-			# Transpose for correlation (samples as rows)
-			correlation_title_plot_function(
-				plot_data = pn_norm,
-				method = "pearson"
-			)
-			title(sub = "Normalized Data", line = 0.5)
-		})
-		
-		# Correlation Plot 3: Denoised Data ####
-		output$pn_denoised_correlation <- renderPlot({
-			pn_data_list <- pn_data()
-			req(pn_data_list)
-			
-			pn_denoised <- pn_data_list$pn_denoised
-			pc_level <- pn_data_list$pc_level
-			
-			if (ncol(pn_denoised) < 2) {
-				plot.new()
-				text(0.5, 0.5, "Need at least 2 samples for correlation", cex = 1.5)
-				return(NULL)
-			}
-			
-			# Transpose for correlation (samples as rows)
-			correlation_title_plot_function(
-				plot_data = pn_denoised,
-				method = "pearson"
-			)
-			title(sub = paste0("Denoised Data (", pc_level, " PC", 
-												 ifelse(pc_level > 1, "s", ""), " Removed)"), 
-						line = 0.5)
-		})
-		
-		
-		# PN Statistics Table ####
+		# Pooled Normal Analysis - Statistics ####
 		output$pn_stats_table <- renderTable({
-			req(rv$denoise_results, eset_raw())
+			req(pn_data())
+			pn_denoised <- pn_data()$pn_denoised
+			if (ncol(pn_denoised) == 0) return(data.frame(Metric = "No PN samples", Value = NA))
 			
-			pc_level <- input$pn_pc_level
-			if (pc_level > length(rv$denoise_results$denoised_data)) {
-				pc_level <- length(rv$denoise_results$denoised_data)
-			}
-			
-			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
-			
-			# Get PN samples
-			metadata <- Biobase::pData(eset_raw())
-			PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
-			
-			pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
-			
-			if (ncol(pn_data) == 0) return(data.frame(Metric = "No PN samples", Value = NA))
-			
-			# Calculate statistics
 			data.frame(
-				Metric = c(
-					"Number of PN Samples",
-					"Number of Features",
-					"Mean Expression",
-					"Median Expression",
-					"SD Expression",
-					"Min Expression",
-					"Max Expression",
-					"Features > 0",
-					"% Features > 0"
-				),
-				Value = c(
-					ncol(pn_data),
-					nrow(pn_data),
-					round(mean(pn_data), 3),
-					round(median(pn_data), 3),
-					round(sd(as.vector(pn_data)), 3),
-					round(min(pn_data), 3),
-					round(max(pn_data), 3),
-					sum(rowMeans(pn_data) > 0),
-					round(sum(rowMeans(pn_data) > 0) / nrow(pn_data) * 100, 1)
-				)
+				Metric = c("Number of PN Samples", "Number of Features", "Mean Expression", "Median Expression",
+									 "SD Expression", "Min Expression", "Max Expression", "Features > 0", "% Features > 0"),
+				Value = c(ncol(pn_denoised), nrow(pn_denoised), round(mean(pn_denoised), 3), round(median(pn_denoised), 3),
+									round(sd(as.vector(pn_denoised)), 3), round(min(pn_denoised), 3), round(max(pn_denoised), 3),
+									sum(rowMeans(pn_denoised) > 0), round(sum(rowMeans(pn_denoised) > 0) / nrow(pn_denoised) * 100, 1))
 			)
 		})
 		
-		# PN Expected AAbs Table ####
 		output$pn_expected_aabs_table <- renderTable({
-			req(rv$denoise_results, eset_raw())
+			req(pn_data())
+			pn_denoised <- pn_data()$pn_denoised
+			if (ncol(pn_denoised) == 0) return(data.frame(AAb = "No data", Status = NA))
 			
-			pc_level <- input$pn_pc_level
-			if (pc_level > length(rv$denoise_results$denoised_data)) {
-				pc_level <- length(rv$denoise_results$denoised_data)
-			}
-			
-			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
-			
-			# Get PN samples
-			metadata <- Biobase::pData(eset_raw())
-			PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
-			pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
-			
-			if (ncol(pn_data) == 0) return(data.frame(AAb = "No data", Status = NA))
-			
-			# Check expected AAbs
 			expected_aabs <- PN_AAbs_parsed()
-			expected_in_data <- expected_aabs[expected_aabs %in% rownames(pn_data)]
+			expected_in_data <- expected_aabs[expected_aabs %in% rownames(pn_denoised)]
 			
 			if (length(expected_in_data) == 0) {
-				return(data.frame(
-					AAb = "None found",
-					Status = "Not detected in data"
-				))
+				return(data.frame(AAb = "None found", Status = "Not detected in data"))
 			}
 			
-			# Calculate mean expression for each expected AAb
 			aab_results <- data.frame(
 				AAb = expected_in_data,
-				Mean_Expression = sapply(expected_in_data, function(aab) {
-					round(mean(pn_data[aab, ]), 3)
-				}),
-				Positive_Samples = sapply(expected_in_data, function(aab) {
-					sum(pn_data[aab, ] > 0)
-				}),
-				Percent_Positive = sapply(expected_in_data, function(aab) {
-					round(sum(pn_data[aab, ] > 0) / ncol(pn_data) * 100, 1)
-				}),
+				Mean_Expression = sapply(expected_in_data, function(aab) round(mean(pn_denoised[aab, ]), 3)),
+				Positive_Samples = sapply(expected_in_data, function(aab) sum(pn_denoised[aab, ] > 0)),
+				Percent_Positive = sapply(expected_in_data, function(aab) round(sum(pn_denoised[aab, ] > 0) / ncol(pn_denoised) * 100, 1)),
 				stringsAsFactors = FALSE
 			)
-			
-			# Add detection status
-			aab_results$Status <- ifelse(
-				aab_results$Percent_Positive >= 50,
-				"✓ Detected",
-				"⚠ Weak/Absent"
-			)
-			
+			aab_results$Status <- ifelse(aab_results$Percent_Positive >= 50, "✓ Detected", "⚠ Weak/Absent")
 			aab_results
 		})
 		
-		# PN Density Plot ####
-		output$pn_density_plot <- renderPlot({
-			req(rv$denoise_results, eset_raw())
-			
-			pc_level <- input$pn_pc_level
-			if (pc_level > length(rv$denoise_results$denoised_data)) {
-				pc_level <- length(rv$denoise_results$denoised_data)
-			}
-			
-			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
-			
-			# Get PN samples
-			metadata <- Biobase::pData(eset_raw())
-			PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
-			pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
-			
-			if (ncol(pn_data) == 0) return(NULL)
-			
-			# Convert to long format for ggplot
-			pn_long <- data.frame(
-				Sample = rep(colnames(pn_data), each = nrow(pn_data)),
-				Expression = as.vector(pn_data)
+		output$aab_pn_stats_table <- renderTable({
+			req(aab_pn_data())
+			pn_aab <- aab_pn_data()$pn_denoised
+			data.frame(
+				Metric = c("Number of PN Samples", "Total AAb Calls", "Unique AAbs Called",
+									 "Mean AAbs per Sample", "Median AAbs per Sample", "Max AAbs in a Sample"),
+				Value = c(ncol(pn_aab), sum(pn_aab > 0), sum(rowSums(pn_aab) > 0),
+									round(mean(colSums(pn_aab)), 1), median(colSums(pn_aab)), max(colSums(pn_aab)))
 			)
-			
-			# Create density plot
-			ggplot2::ggplot(pn_long, ggplot2::aes(x = Expression, color = Sample)) +
-				ggplot2::geom_density(size = 1, alpha = 0.7) +
-				ggplot2::labs(
-					title = "Expression Distribution in Pooled Normal Samples",
-					subtitle = paste0("After removing ", pc_level, " PC", ifelse(pc_level > 1, "s", "")),
-					x = "Expression Value",
-					y = "Density"
-				) +
-				ggplot2::theme_minimal(base_size = 14) +
-				ggplot2::theme(legend.position = "right")
 		})
 		
-		# PN Comparison Plot ####
-		output$pn_comparison_plot <- renderPlot({
-			req(rv$denoise_results, eset_raw())
+		output$aab_pn_expected_aabs_table <- renderTable({
+			req(aab_pn_data())
+			pn_aab <- aab_pn_data()$pn_denoised
+			expected_aabs <- PN_AAbs_parsed()
+			expected_in_data <- expected_aabs[expected_aabs %in% rownames(pn_aab)]
 			
-			pc_level <- input$pn_pc_level
-			if (pc_level > length(rv$denoise_results$denoised_data)) {
-				pc_level <- length(rv$denoise_results$denoised_data)
+			if (length(expected_in_data) == 0) {
+				return(data.frame(AAb = "None found", Status = "Not detected"))
 			}
 			
-			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
+			aab_results <- data.frame(
+				AAb = expected_in_data,
+				Calls = sapply(expected_in_data, function(aab) sum(pn_aab[aab, ] > 0)),
+				Percent = sapply(expected_in_data, function(aab) round(sum(pn_aab[aab, ] > 0) / ncol(pn_aab) * 100, 1)),
+				stringsAsFactors = FALSE
+			)
+			aab_results$Status <- ifelse(aab_results$Percent >= 50, "✓ Called", "⚠ Not Called")
+			aab_results
+		})
+		
+		output$aab_calls_per_pn_sample <- renderPlot({
+			req(aab_pn_data())
+			pn_aab <- aab_pn_data()$pn_denoised
+			aab_counts <- colSums(pn_aab)
+			barplot(aab_counts, main = "AAb Calls per PN Sample", xlab = "Sample", ylab = "Number of AAb Calls",
+							col = "steelblue", las = 2, cex.names = 0.8)
+			abline(h = median(aab_counts), col = "red", lwd = 2, lty = 2)
+			legend("topright", legend = paste("Median:", median(aab_counts)), col = "red", lwd = 2, lty = 2, bty = "n")
+		})
+		
+		# Pooled Normal Comparison Plot ####
+		output$pn_comparison_plot <- renderPlot({
+			req(pn_data())
+			pn_denoised <- pn_data()$pn_denoised
 			
-			# Get PN and non-PN samples
 			metadata <- Biobase::pData(eset_raw())
 			PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
 			
-			pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
-			non_pn_data <- denoised_data[, !(colnames(denoised_data) %in% PN_samples), drop = FALSE]
+			all_denoised <- rv$denoise_results$denoised_data[[pn_data()$pc_level]]
+			non_pn_data <- all_denoised[, !(colnames(all_denoised) %in% PN_samples), drop = FALSE]
 			
-			if (ncol(pn_data) == 0 || ncol(non_pn_data) == 0) {
-				return(NULL)
-			}
+			if (ncol(pn_denoised) == 0 || ncol(non_pn_data) == 0) return(NULL)
 			
-			# Prepare comparison data
 			comparison_df <- data.frame(
-				Expression = c(as.vector(pn_data), as.vector(non_pn_data)),
-				Group = rep(c("Pooled Normal", "Other Samples"), 
-										c(length(as.vector(pn_data)), length(as.vector(non_pn_data))))
+				Expression = c(as.vector(pn_denoised), as.vector(non_pn_data)),
+				Group = rep(c("Pooled Normal", "Other Samples"), c(length(as.vector(pn_denoised)), length(as.vector(non_pn_data))))
 			)
 			
-			# Create comparison plots
 			p1 <- ggplot2::ggplot(comparison_df, ggplot2::aes(x = Expression, fill = Group)) +
 				ggplot2::geom_density(alpha = 0.5) +
 				ggplot2::scale_fill_manual(values = c("Pooled Normal" = "#2ca02c", "Other Samples" = "#1f77b4")) +
-				ggplot2::labs(
-					title = "Expression Distribution: PN vs Other Samples",
-					x = "Expression Value",
-					y = "Density"
-				) +
+				ggplot2::labs(title = "Expression Distribution: PN vs Other Samples", x = "Expression Value", y = "Density") +
 				ggplot2::theme_minimal(base_size = 12)
 			
 			p2 <- ggplot2::ggplot(comparison_df, ggplot2::aes(x = Group, y = Expression, fill = Group)) +
 				ggplot2::geom_violin(alpha = 0.7) +
 				ggplot2::geom_boxplot(width = 0.2, alpha = 0.8, outlier.alpha = 0.3) +
 				ggplot2::scale_fill_manual(values = c("Pooled Normal" = "#2ca02c", "Other Samples" = "#1f77b4")) +
-				ggplot2::labs(
-					title = "Expression Distribution Comparison",
-					x = "",
-					y = "Expression Value"
-				) +
+				ggplot2::labs(title = "Expression Distribution Comparison", x = "", y = "Expression Value") +
 				ggplot2::theme_minimal(base_size = 12) +
 				ggplot2::theme(legend.position = "none")
 			
-			# Combine plots
 			gridExtra::grid.arrange(p1, p2, ncol = 2)
 		})
 		
-		# Update the pn_pc_level slider max when denoising completes
-		observe({
-			req(rv$denoise_results)
-			
-			updateNumericInput(
-				session,
-				"pn_pc_level",
-				max = length(rv$denoise_results$denoised_data),
-				value = min(input$pn_pc_level, length(rv$denoise_results$denoised_data))
-			)
-		})
+		# Call PN Visualization Modules ####
+		mod_pn_viz_server(
+			id = "pn_neti",
+			data = reactive({ req(pn_data()); pn_data()$pn_neti }),
+			metadata = reactive({ req(pn_data()); pn_data()$pn_metadata }),
+			title = "NetI Data",
+			annotation_cols = reactive({ input$annotation_cols }),
+			highlight_features = reactive({ if (input$pn_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+			cluster_rows = FALSE,
+			cluster_cols = reactive({ input$pn_cluster_samples }),
+			show_density = TRUE
+		)
 		
+		mod_pn_viz_server(
+			id = "pn_norm",
+			data = reactive({ req(pn_data()); pn_data()$pn_norm }),
+			metadata = reactive({ req(pn_data()); pn_data()$pn_metadata }),
+			title = "Normalized Data",
+			annotation_cols = reactive({ input$annotation_cols }),
+			highlight_features = reactive({ if (input$pn_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+			cluster_rows = FALSE,
+			cluster_cols = reactive({ input$pn_cluster_samples }),
+			show_density = TRUE
+		)
 		
-		# Return reactive values for use by parent app
+		mod_pn_viz_server(
+			id = "pn_denoised",
+			data = reactive({ req(pn_data()); pn_data()$pn_denoised }),
+			metadata = reactive({ req(pn_data()); pn_data()$pn_metadata }),
+			title = reactive({
+				req(pn_data())
+				pc_level <- pn_data()$pc_level
+				paste0("Denoised Data (", pc_level, " PC", ifelse(pc_level > 1, "s", ""), " Removed)")
+			}),
+			annotation_cols = reactive({ input$annotation_cols }),
+			highlight_features = reactive({ if (input$pn_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+			cluster_rows = FALSE,
+			cluster_cols = reactive({ input$pn_cluster_samples }),
+			show_density = TRUE
+		)
+		
+		# Call AAb PN Visualization Modules (no density for binary data) ####
+		mod_pn_viz_server(
+			id = "aab_pn_neti",
+			data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_neti }),
+			metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
+			title = "PN - NetI Data",
+			annotation_cols = reactive({ input$annotation_cols }),
+			highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+			cluster_rows = FALSE,
+			cluster_cols = reactive({ input$aab_cluster_samples }),
+			show_density = FALSE
+		)
+		
+		mod_pn_viz_server(
+			id = "aab_pn_norm",
+			data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_norm }),
+			metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
+			title = "PN - Normalized Data",
+			annotation_cols = reactive({ input$annotation_cols }),
+			highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+			cluster_rows = FALSE,
+			cluster_cols = reactive({ input$aab_cluster_samples }),
+			show_density = FALSE
+		)
+		
+		mod_pn_viz_server(
+			id = "aab_pn_called",
+			data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_denoised }),
+			metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
+			title = reactive({
+				paste0("PN - AAb-Called Data (Cutpoint: ", input$cutpoint_slider, ")")
+			}),
+			annotation_cols = reactive({ input$annotation_cols }),
+			highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+			cluster_rows = FALSE,
+			cluster_cols = FALSE,
+			show_density = FALSE
+		)
+		
+		# Return results ####
 		return(reactive({
 			list(
 				denoise_results = rv$denoise_results,
@@ -1994,10 +1258,6 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			)
 		}))
 	})
-	
-
-	
-	
 }
 
 # Replace the debug observer with this enhanced version:
