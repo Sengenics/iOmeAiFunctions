@@ -8,7 +8,7 @@ mod_denoiser_ui <- function(id) {
 	
 	tagList(
 		fluidRow(
-			# Left panel - Controls
+			# Left panel - Controls ####
 			
 			column(
 				width = 3,
@@ -192,7 +192,7 @@ mod_denoiser_ui <- function(id) {
 				)
 			),
 			
-			# Right panel - Tabs
+			# Right panel - Tabs #####
 			column(
 				width = 9,
 				tabsetPanel(
@@ -201,6 +201,7 @@ mod_denoiser_ui <- function(id) {
 					
 					tabPanel('Components',
 									 mod_pc_visualizer_ui("pc_viz")),
+						
 					# Tab 1: PCA & Denoising
 					tabPanel(
 						"PCA & Denoising",
