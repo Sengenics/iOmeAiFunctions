@@ -338,29 +338,97 @@ mod_denoiser_ui <- function(id) {
 								)
 							)
 						),
+						# fluidRow(
+						# 	column(
+						# 		width = 12,
+						# 		shinydashboard::box(
+						# 			title = "Pooled Normal Samples - Denoised Data Heatmap",
+						# 			width = NULL,
+						# 			status = "success",
+						# 			solidHeader = TRUE,
+						# 			plotOutput(ns("pn_denoised_heatmap"), height = "800px")
+						# 		)
+						# 	),
+						# 	
+						# 	column(
+						# 		width = 12,
+						# 		shinydashboard::box(
+						# 			title = "Correlation Plot",
+						# 			width = NULL,
+						# 			status = "success",
+						# 			solidHeader = TRUE,
+						# 			plotOutput(ns("pn_denoised_correlation"), height = "800px")
+						# 		)
+						# 	)
+						# ),
+						
+						# In your tabPanel("Pooled Normal Analysis", ...):
+						
 						fluidRow(
 							column(
-								width = 12,
+								width = 4,
 								shinydashboard::box(
-									title = "Pooled Normal Samples - Denoised Data Heatmap",
+									title = "NetI Data",
 									width = NULL,
-									status = "success",
+									status = "info",
 									solidHeader = TRUE,
-									plotOutput(ns("pn_denoised_heatmap"), height = "800px")
+									plotOutput(ns("pn_neti_heatmap"), height = "600px")
 								)
 							),
-							
 							column(
-								width = 12,
+								width = 4,
 								shinydashboard::box(
-									title = "Correlation Plot",
+									title = "Normalized Data",
+									width = NULL,
+									status = "info",
+									solidHeader = TRUE,
+									plotOutput(ns("pn_norm_heatmap"), height = "600px")
+								)
+							),
+							column(
+								width = 4,
+								shinydashboard::box(
+									title = "Denoised Data",
 									width = NULL,
 									status = "success",
 									solidHeader = TRUE,
-									plotOutput(ns("pn_denoised_correlation"), height = "800px")
+									plotOutput(ns("pn_denoised_heatmap"), height = "600px")
 								)
 							)
 						),
+						fluidRow(
+							column(
+								width = 4,
+								shinydashboard::box(
+									title = "NetI Correlation",
+									width = NULL,
+									status = "info",
+									solidHeader = TRUE,
+									plotOutput(ns("pn_neti_correlation"), height = "600px")
+								)
+							),
+							column(
+								width = 4,
+								shinydashboard::box(
+									title = "Normalized Correlation",
+									width = NULL,
+									status = "info",
+									solidHeader = TRUE,
+									plotOutput(ns("pn_norm_correlation"), height = "600px")
+								)
+							),
+							column(
+								width = 4,
+								shinydashboard::box(
+									title = "Denoised Correlation",
+									width = NULL,
+									status = "success",
+									solidHeader = TRUE,
+									plotOutput(ns("pn_denoised_correlation"), height = "600px")
+								)
+							)
+						),
+						
 						fluidRow(
 							column(
 								width = 6,
@@ -938,6 +1006,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 				eset = eset_raw(),
 				annotation_cols = input$annotation_cols,
 				title = paste("Denoised Data -", pc_level, "PC(s) Removed"),
+				
 				show_rownames = FALSE,
 				show_colnames = FALSE
 			)
@@ -1065,6 +1134,8 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 				eset = eset_raw(),
 				annotation_cols = input$annotation_cols,
 				title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				#cluster_cols = FALSE,
+				#cluster_rows = FALSE,
 				show_rownames = TRUE,
 				show_colnames = FALSE
 			)
@@ -1092,10 +1163,12 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			plot_denoise_heatmap(
 				denoised_data = plot_data,
 				eset = eset_raw(),
-				annotation_cols = input$annotation_cols,
-				title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				#annotation_cols = input$annotation_cols,
+				#title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				cluster_cols = FALSE,
+				cluster_rows = FALSE,
 				show_rownames = TRUE,
-				show_colnames = FALSE
+				show_colnames = TRUE
 			)
 		})
 		
@@ -1111,15 +1184,17 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			correlation_title_plot_function(plot_data,method = 'pearson')
 		})
 		
-		output$aab_neti_pn_heatmap <- renderPlot({ 
+		output$aab_neti_pn_heatmap <- renderPlot({  
 			plot_data = aab_neti_pn_correlation_data()
 			plot_denoise_heatmap(
 				denoised_data = plot_data,
 				eset = eset_raw(),
-				annotation_cols = input$annotation_cols,
-				title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				#annotation_cols = input$annotation_cols,
+				#title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				cluster_cols = FALSE,
+				cluster_rows = FALSE,
 				show_rownames = TRUE,
-				show_colnames = FALSE
+				show_colnames = TRUE
 			)
 		})
 		
@@ -1139,10 +1214,12 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			plot_denoise_heatmap(
 				denoised_data = plot_data,
 				eset = eset_raw(),
-				annotation_cols = input$annotation_cols,
-				title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				#annotation_cols = input$annotation_cols,
+				#title = paste("AAb-Called Data - Cutpoint:", input$cutpoint_slider),
+				cluster_cols = FALSE,
+				cluster_rows = FALSE,
 				show_rownames = TRUE,
-				show_colnames = FALSE
+				show_colnames = TRUE
 			)
 		})
 		
@@ -1351,16 +1428,107 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			)
 		})
 		
-		pn_data = reactive({
+		# pn_data = reactive({
+		# 
+		# 	req(rv$denoise_results, eset_raw())
+		# 	
+		# 	pc_level <- input$pn_pc_level
+		# 	if (pc_level > length(rv$denoise_results$denoised_data)) {
+		# 		pc_level <- length(rv$denoise_results$denoised_data)
+		# 	}
+		# 	
+		# 	denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
+		# 	
+		# 	# Get PN sample identifiers
+		# 	metadata <- Biobase::pData(eset_raw())
+		# 	PN_samples <- rownames(metadata)[metadata[[input$PN_column]] == input$PN_value]
+		# 	
+		# 	# Filter to only PN samples
+		# 	if (length(PN_samples) == 0) {
+		# 		showNotification(
+		# 			"No Pooled Normal samples found!",
+		# 			type = "warning",
+		# 			duration = 5
+		# 		)
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	
+		# 	# Subset to PN samples
+		# 	pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
+		# 	# Prepare annotation for PN samples
+		# 	pn_metadata <- metadata[colnames(pn_data), , drop = FALSE]
+		# 	list(pn_data = pn_data,
+		# 			 pn_metadata = pn_metadata)
+		# })
+		# output$pn_denoised_heatmap <- renderPlot({
+		# 	pc_level <- input$pn_pc_level
+		# 	pn_data_list = pn_data()
+		# 	pn_data = pn_data_list$pn_data
+		# 	pn_metadata = pn_data_list$pn_metadata
+		# 	
+		# 		
+		# 	if (ncol(pn_data) == 0) {
+		# 		showNotification(
+		# 			"No matching PN samples in denoised data!",
+		# 			type = "error",
+		# 			duration = 5
+		# 		)
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# # Prepare annotation for PN samples
+		# 	# pn_metadata <- metadata[colnames(pn_data), , drop = FALSE]
+		# 	
+		# 	annotation_col <- NULL
+		# 	if (length(input$annotation_cols) > 0) {
+		# 		annotation_col <- pn_metadata[, input$annotation_cols, drop = FALSE]
+		# 	}
+		# 	
+		# 	# Highlight expected PN AAbs
+		# 	annotation_row <- NULL
+		# 	if (input$pn_show_expected_aabs) {
+		# 		expected_aabs <- PN_AAbs_parsed()
+		# 		annotation_row <- data.frame(
+		# 			ExpectedAAb = ifelse(rownames(pn_data) %in% expected_aabs, "Expected", "Other"),
+		# 			row.names = rownames(pn_data)
+		# 		)
+		# 	}
+		# 	
+		# 	# Create heatmap
+		# 	pheatmap::pheatmap(
+		# 		pn_data,
+		# 		main = paste0("Pooled Normal Samples - Denoised Data (", pc_level, " PC", 
+		# 									ifelse(pc_level > 1, "s", ""), " Removed)"),
+		# 		annotation_col = annotation_col,
+		# 		annotation_row = annotation_row,
+		# 		cluster_rows = TRUE,
+		# 		cluster_cols = input$pn_cluster_samples,
+		# 		show_rownames = TRUE,
+		# 		show_colnames = TRUE,
+		# 		fontsize_row = 8,
+		# 		fontsize_col = 10,
+		# 		color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+		# 		annotation_colors = if (input$pn_show_expected_aabs) {
+		# 			list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
+		# 		} else NULL
+		# 	)
+		# })
+		# output$pn_denoised_correlation <- renderPlot({
+		# 	pn_data_list = pn_data()
+		# 	pn_data = pn_data_list$pn_data
+		# 	
+		# 	correlation_title_plot_function(pn_data)
+		# })
 		
-			req(rv$denoise_results, eset_raw())
+		# Create a reactive that returns all three datasets filtered for PN samples
+		pn_data <- reactive({
+			req(rv$denoise_results, eset_raw(), eset_norm())
 			
 			pc_level <- input$pn_pc_level
 			if (pc_level > length(rv$denoise_results$denoised_data)) {
 				pc_level <- length(rv$denoise_results$denoised_data)
 			}
-			
-			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
 			
 			# Get PN sample identifiers
 			metadata <- Biobase::pData(eset_raw())
@@ -1376,34 +1544,35 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 				return(NULL)
 			}
 			
+			# Get all three data types
+			neti_data <- Biobase::exprs(eset_raw())
+			norm_data <- Biobase::exprs(eset_norm())
+			denoised_data <- rv$denoise_results$denoised_data[[pc_level]]
 			
-			# Subset to PN samples
-			pn_data <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
+			# Subset to PN samples for each
+			pn_neti <- neti_data[, colnames(neti_data) %in% PN_samples, drop = FALSE]
+			pn_norm <- norm_data[, colnames(norm_data) %in% PN_samples, drop = FALSE]
+			pn_denoised <- denoised_data[, colnames(denoised_data) %in% PN_samples, drop = FALSE]
+			
+			# Remove rows with zero sum from all datasets
+			pn_neti <- pn_neti[rowSums(pn_neti) != 0, , drop = FALSE]
+			pn_norm <- pn_norm[rowSums(pn_norm) != 0, , drop = FALSE]
+			pn_denoised <- pn_denoised[rowSums(pn_denoised) != 0, , drop = FALSE]
+			
 			# Prepare annotation for PN samples
-			pn_metadata <- metadata[colnames(pn_data), , drop = FALSE]
-			list(pn_data = pn_data,
-					 pn_metadata = pn_metadata)
+			pn_metadata <- metadata[colnames(pn_denoised), , drop = FALSE]
+			
+			list(
+				pn_neti = pn_neti,
+				pn_norm = pn_norm,
+				pn_denoised = pn_denoised,
+				pn_metadata = pn_metadata,
+				pc_level = pc_level
+			)
 		})
-			
-		output$pn_denoised_heatmap <- renderPlot({
-			pc_level <- input$pn_pc_level
-			pn_data_list = pn_data()
-			pn_data = pn_data_list$pn_data
-			pn_metadata = pn_data_list$pn_metadata
-			
-				
-			if (ncol(pn_data) == 0) {
-				showNotification(
-					"No matching PN samples in denoised data!",
-					type = "error",
-					duration = 5
-				)
-				return(NULL)
-			}
-			
-			# # Prepare annotation for PN samples
-			# pn_metadata <- metadata[colnames(pn_data), , drop = FALSE]
-			
+		
+		# Helper function to create consistent annotation
+		get_pn_annotations <- function(pn_data, pn_metadata) {
 			annotation_col <- NULL
 			if (length(input$annotation_cols) > 0) {
 				annotation_col <- pn_metadata[, input$annotation_cols, drop = FALSE]
@@ -1419,16 +1588,40 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 				)
 			}
 			
-			# Create heatmap
-			pheatmap::pheatmap(
-				pn_data,
-				main = paste0("Pooled Normal Samples - Denoised Data (", pc_level, " PC", 
-											ifelse(pc_level > 1, "s", ""), " Removed)"),
+			list(
 				annotation_col = annotation_col,
-				annotation_row = annotation_row,
-				cluster_rows = TRUE,
-				cluster_cols = input$pn_cluster_samples,
-				show_rownames = TRUE,
+				annotation_row = annotation_row
+			)
+		}
+		
+		# Heatmap 1: NetI Data ####
+		output$pn_neti_heatmap <- renderPlot({
+			pn_data_list <- pn_data()
+			req(pn_data_list)
+			
+			pn_neti <- pn_data_list$pn_neti
+			pn_metadata <- pn_data_list$pn_metadata
+			
+			if (ncol(pn_neti) == 0) {
+				showNotification(
+					"No matching PN samples in NetI data!",
+					type = "error",
+					duration = 5
+				)
+				return(NULL)
+			}
+			
+			annotations <- get_pn_annotations(pn_neti, pn_metadata)
+			
+			pheatmap::pheatmap(
+				pn_neti,
+				main = "Pooled Normal Samples - NetI Data",
+				annotation_col = annotations$annotation_col,
+				annotation_row = annotations$annotation_row,
+				annotation_legend = FALSE,
+				cluster_rows = FALSE,  # No clustering
+				cluster_cols = FALSE,  # No clustering
+				show_rownames = FALSE,
 				show_colnames = TRUE,
 				fontsize_row = 8,
 				fontsize_col = 10,
@@ -1439,15 +1632,149 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			)
 		})
 		
-		
-
-		output$pn_denoised_correlation <- renderPlot({
-			pn_data_list = pn_data()
-			pn_data = pn_data_list$pn_data
+		# Heatmap 2: Normalized Data ####
+		output$pn_norm_heatmap <- renderPlot({
+			pn_data_list <- pn_data()
+			req(pn_data_list)
 			
-			correlation_title_plot_function(pn_data)
+			pn_norm <- pn_data_list$pn_norm
+			pn_metadata <- pn_data_list$pn_metadata
+			
+			if (ncol(pn_norm) == 0) {
+				showNotification(
+					"No matching PN samples in normalized data!",
+					type = "error",
+					duration = 5
+				)
+				return(NULL)
+			}
+			
+			annotations <- get_pn_annotations(pn_norm, pn_metadata)
+			
+			pheatmap::pheatmap(
+				pn_norm,
+				main = "Pooled Normal Samples - Normalized Data",
+				annotation_col = annotations$annotation_col,
+				annotation_row = annotations$annotation_row,
+				annotation_legend = FALSE,
+				cluster_rows = FALSE,  # No clustering
+				cluster_cols = FALSE,  # No clustering
+				show_rownames = FALSE,
+				show_colnames = TRUE,
+				fontsize_row = 8,
+				fontsize_col = 10,
+				color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+				annotation_colors = if (input$pn_show_expected_aabs) {
+					list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
+				} else NULL
+			)
 		})
 		
+		# Heatmap 3: Denoised Data ####
+		output$pn_denoised_heatmap <- renderPlot({
+			pn_data_list <- pn_data()
+			req(pn_data_list)
+			
+			pn_denoised <- pn_data_list$pn_denoised
+			pn_metadata <- pn_data_list$pn_metadata
+			pc_level <- pn_data_list$pc_level
+			
+			if (ncol(pn_denoised) == 0) {
+				showNotification(
+					"No matching PN samples in denoised data!",
+					type = "error",
+					duration = 5
+				)
+				return(NULL)
+			}
+			
+			annotations <- get_pn_annotations(pn_denoised, pn_metadata)
+			
+			pheatmap::pheatmap(
+				pn_denoised,
+				main = paste0("Pooled Normal Samples - Denoised Data (", pc_level, " PC", 
+											ifelse(pc_level > 1, "s", ""), " Removed)"),
+				annotation_col = annotations$annotation_col,
+				annotation_row = annotations$annotation_row,
+				annotation_legend = FALSE,
+				cluster_rows = FALSE,  # No clustering
+				cluster_cols = FALSE,  # No clustering
+				show_rownames = TRUE,
+				show_colnames = FALSE,
+				fontsize_row = 8,
+				fontsize_col = 10,
+				color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+				annotation_colors = if (input$pn_show_expected_aabs) {
+					list(ExpectedAAb = c(Expected = "#d62728", Other = "grey80"))
+				} else NULL
+			)
+		})
+		
+		# Correlation Plot 1: NetI Data ####
+		output$pn_neti_correlation <- renderPlot({
+			pn_data_list <- pn_data() 
+			req(pn_data_list)
+			
+			pn_neti <- pn_data_list$pn_neti
+			
+			if (ncol(pn_neti) < 2) {
+				plot.new()
+				text(0.5, 0.5, "Need at least 2 samples for correlation", cex = 1.5)
+				return(NULL)
+			}
+			
+			# Transpose for correlation (samples as rows)
+			correlation_title_plot_function(
+				plot_data = pn_neti,
+				method = "pearson"
+			)
+			title(sub = "NetI Data", line = 0.5)
+		})
+		
+		# Correlation Plot 2: Normalized Data ####
+		output$pn_norm_correlation <- renderPlot({
+			pn_data_list <- pn_data()
+			req(pn_data_list)
+			
+			pn_norm <- pn_data_list$pn_norm
+			
+			if (ncol(pn_norm) < 2) {
+				plot.new()
+				text(0.5, 0.5, "Need at least 2 samples for correlation", cex = 1.5)
+				return(NULL)
+			}
+			
+			# Transpose for correlation (samples as rows)
+			correlation_title_plot_function(
+				plot_data = pn_norm,
+				method = "pearson"
+			)
+			title(sub = "Normalized Data", line = 0.5)
+		})
+		
+		# Correlation Plot 3: Denoised Data ####
+		output$pn_denoised_correlation <- renderPlot({
+			pn_data_list <- pn_data()
+			req(pn_data_list)
+			
+			pn_denoised <- pn_data_list$pn_denoised
+			pc_level <- pn_data_list$pc_level
+			
+			if (ncol(pn_denoised) < 2) {
+				plot.new()
+				text(0.5, 0.5, "Need at least 2 samples for correlation", cex = 1.5)
+				return(NULL)
+			}
+			
+			# Transpose for correlation (samples as rows)
+			correlation_title_plot_function(
+				plot_data = pn_denoised,
+				method = "pearson"
+			)
+			title(sub = paste0("Denoised Data (", pc_level, " PC", 
+												 ifelse(pc_level > 1, "s", ""), " Removed)"), 
+						line = 0.5)
+		})
 		
 		
 		# PN Statistics Table ####
