@@ -1208,6 +1208,46 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			show_density = TRUE
 		)
 		
+		# # Call AAb PN Visualization Modules (no density for binary data) ####
+		# mod_pn_viz_server(
+		# 	id = "aab_pn_neti",
+		# 	data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_neti }),
+		# 	metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
+		# 	title = "PN - NetI Data",
+		# 	annotation_cols = reactive({ input$annotation_cols }),
+		# 	highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+		# 	cluster_rows = FALSE,
+		# 	cluster_cols = reactive({ input$aab_cluster_samples }),
+		# 	show_density = FALSE
+		# )
+		# 
+		# mod_pn_viz_server(
+		# 	id = "aab_pn_norm",
+		# 	data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_norm }),
+		# 	metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
+		# 	title = "PN - Normalized Data",
+		# 	annotation_cols = reactive({ input$annotation_cols }),
+		# 	highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+		# 	cluster_rows = FALSE,
+		# 	cluster_cols = reactive({ input$aab_cluster_samples }),
+		# 	show_density = FALSE
+		# )
+		# 
+		# mod_pn_viz_server(
+		# 	id = "aab_pn_called",
+		# 	data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_denoised }),
+		# 	metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
+		# 	title = reactive({
+		# 		paste0("PN - AAb-Called Data (Cutpoint: ", input$cutpoint_slider, ")")
+		# 	}),
+		# 	annotation_cols = reactive({ input$annotation_cols }),
+		# 	highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
+		# 	cluster_rows = FALSE,
+		# 	cluster_cols = FALSE,
+		# 	show_density = FALSE
+		# )
+		# 
+		
 		# Call AAb PN Visualization Modules (no density for binary data) ####
 		mod_pn_viz_server(
 			id = "aab_pn_neti",
@@ -1218,7 +1258,8 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
 			cluster_rows = FALSE,
 			cluster_cols = reactive({ input$aab_cluster_samples }),
-			show_density = FALSE
+			show_density = FALSE,
+			show_rownames = TRUE  # Add this
 		)
 		
 		mod_pn_viz_server(
@@ -1230,7 +1271,8 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
 			cluster_rows = FALSE,
 			cluster_cols = reactive({ input$aab_cluster_samples }),
-			show_density = FALSE
+			show_density = FALSE,
+			show_rownames = TRUE  # Add this
 		)
 		
 		mod_pn_viz_server(
@@ -1244,8 +1286,10 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
 			cluster_rows = FALSE,
 			cluster_cols = FALSE,
-			show_density = FALSE
+			show_density = FALSE,
+			show_rownames = TRUE  # Show rownames for AAb-called data!
 		)
+		
 		
 		# Return results ####
 		return(reactive({

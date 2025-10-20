@@ -10,14 +10,13 @@ mod_pn_viz_ui <- function(id, title = "Data Visualization", status = "info", sho
 	ns <- NS(id)
 	
 	tagList(
-		actionButton(ns('debug'),'Denug'),
+		actionButton(ns('debug'),'Debug'),
 		shinydashboard::box(
 			title = title,
 			width = NULL,
 			status = status,
 			solidHeader = TRUE,
 			collapsible = TRUE,
-			
 			plotOutput(ns("heatmap"), height = "400px")
 		),
 		
@@ -68,7 +67,8 @@ mod_pn_viz_server <- function(id,
 															highlight_features = reactive(NULL),
 															cluster_rows = FALSE,
 															cluster_cols = FALSE,
-															show_density = TRUE) {
+															show_density = TRUE,
+															show_rownames = FALSE) {  # Add this parameter
 	
 	moduleServer(id, function(input, output, session) {
 		
@@ -101,6 +101,71 @@ mod_pn_viz_server <- function(id,
 			}
 		})
 		
+		# Get show_rownames setting (handle both reactive and static)
+		get_show_rownames <- reactive({
+			if (is.reactive(show_rownames)) {
+				show_rownames()
+			} else {
+				show_rownames
+			}
+		})
+		
+		# Heatmap ####
+		# Heatmap ####
+		# output$heatmap <- renderPlot({
+		# 	req(data(), metadata())
+		# 	
+		# 	plot_data <- data()
+		# 	plot_metadata <- metadata()
+		# 	
+		# 	# Validate data
+		# 	if (ncol(plot_data) == 0 || nrow(plot_data) == 0) {
+		# 		plot.new()
+		# 		text(0.5, 0.5, "No data available", cex = 1.5, col = "red")
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# Prepare column annotations
+		# 	annotation_col <- NULL
+		# 	anno_cols <- annotation_cols()
+		# 	if (!is.null(anno_cols) && length(anno_cols) > 0) {
+		# 		# Match sample order
+		# 		annotation_col <- plot_metadata[colnames(plot_data), anno_cols, drop = FALSE]
+		# 	}
+		# 	
+		# 	# Prepare row annotations (highlight specific features)
+		# 	annotation_row <- NULL
+		# 	highlight_feat <- highlight_features()
+		# 	if (!is.null(highlight_feat) && length(highlight_feat) > 0) {
+		# 		annotation_row <- data.frame(
+		# 			Highlighted = ifelse(rownames(plot_data) %in% highlight_feat, "Yes", "No"),
+		# 			row.names = rownames(plot_data)
+		# 		)
+		# 	}
+		# 	
+		# 	# Detect if data is binary (AAb-called data)
+		# 	is_binary <- all(plot_data %in% c(0, 1))
+		# 	
+		# 	# Create heatmap
+		# 	pheatmap::pheatmap(
+		# 		plot_data,
+		# 		main = get_title(),
+		# 		annotation_col = annotation_col,
+		# 		annotation_row = annotation_row,
+		# 		annotation_legend = FALSE,
+		# 		cluster_rows = get_cluster_rows(),
+		# 		cluster_cols = get_cluster_cols(),
+		# 		show_rownames = is_binary,  # Show rownames for binary data
+		# 		show_colnames = TRUE,
+		# 		fontsize_row = if (is_binary) 6 else 8,  # Smaller font for binary data
+		# 		fontsize_col = 10,
+		# 		color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+		# 		annotation_colors = if (!is.null(annotation_row)) {
+		# 			list(Highlighted = c(Yes = "#d62728", No = "grey80"))
+		# 		} else NULL
+		# 	)
+		# })
+		
 		# Heatmap ####
 		output$heatmap <- renderPlot({
 			req(data(), metadata())
@@ -119,7 +184,6 @@ mod_pn_viz_server <- function(id,
 			annotation_col <- NULL
 			anno_cols <- annotation_cols()
 			if (!is.null(anno_cols) && length(anno_cols) > 0) {
-				# Match sample order
 				annotation_col <- plot_metadata[colnames(plot_data), anno_cols, drop = FALSE]
 			}
 			
@@ -142,9 +206,9 @@ mod_pn_viz_server <- function(id,
 				annotation_legend = FALSE,
 				cluster_rows = get_cluster_rows(),
 				cluster_cols = get_cluster_cols(),
-				show_rownames = FALSE,
+				show_rownames = get_show_rownames(),  # Use the parameter
 				show_colnames = TRUE,
-				fontsize_row = 8,
+				fontsize_row = 6,  # Small font for many rows
 				fontsize_col = 10,
 				color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
 				annotation_colors = if (!is.null(annotation_row)) {
