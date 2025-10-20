@@ -671,7 +671,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 		)
 		
 		# Update ExpressionSet with denoised and AAb data ####
-		observeEvent(input$denoise_update_ExpSet, { 
+		observeEvent(input$denoise_update_ExpSet, {   
 			req(rv$denoise_results, rv$aab_called_data, ExpSet_list())
 			
 			denoise_matrix <- rv$denoise_results$denoised_data[[length(rv$denoise_results$denoised_data)]]
@@ -679,13 +679,32 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 			ExpSet_list_copy <- ExpSet_list()
 			sample_ExpSet <- ExpSet_list_copy$sample_ExpSet
 			
+			denoise_matrix_l = denoise_matrix %>% 
+				as.data.frame() %>% 
+				rownames_to_column("Feautres") %>% 
+				gather(key = Sample, value = denoise, -1)
+			
+			aab_called_data_l = aab_called_data %>% 
+				as.data.frame() %>% 
+				rownames_to_column("Feautres") %>% 
+				gather(key = Sample, value = aab, -1)
+			
+			df_l = denoise_matrix_l %>% 
+				left_join(aab_called_data_l)
+			colnames(df_l)
+			aab_m = df_l %>% 
+				dplyr::select(Feautres,Sample,aab) %>% 
+				spread(key = Sample, value = aab) %>% 
+				column_to_rownames("Feautres") %>% 
+				as.matrix()
+			
 			# Shift denoised data to make all values positive
-			denoise_matrix_median <- denoise_matrix + abs(min(denoise_matrix))
+			denoise_matrix_median <- denoise_matrix + abs(min(denoise_matrix)) + 1
 			
 			# Add matrices to ExpressionSet
 			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, denoise_matrix, 'denoised')
 			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, denoise_matrix_median, 'denoised_median')
-			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, aab_called_data, 'aab_called')
+			sample_ExpSet <- ExpSet_add_matrix_function(sample_ExpSet, aab_m, 'aab_called')
 			
 			ExpSet_list_copy$sample_ExpSet <- sample_ExpSet
 			rv$ExpSet_list <- ExpSet_list_copy
