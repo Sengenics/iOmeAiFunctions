@@ -143,13 +143,21 @@ generate_Cy3BSA_lineplot_list <- function(datCollate,
 	PerProtein = ggplot()
 	if(QC %in% names(PerProtein_data)){
 	  if(data_name %in% names(PerProtein_data[[QC]])){
+
+	    data = PerProtein_data
+	    grouping_column = feature_column
+	    x = 'Sample'
+
+
     	PerProtein <- QC_line_plot_list_function(
     		Data,
     		PerProtein_data,
     		QC,
     		data_name,
-    		'Protein',
+    		#'Protein',
+    		feature_column,
     		'Sample',
+    		#'Sample',
     		feature_column
     	) +
     		geom_hline(yintercept = datCollate$param$Cy3BSA_log2RFU,
@@ -212,8 +220,10 @@ QC_line_plot_list_function <- function(Data,
 	# Access sub-data and join with full data
 	sub_data <- data[[QC]][[data_name]]
 	plot_data <- Data %>%
-		left_join(sub_data$data, by = "Sample")  # assumes Sample is common key
+		left_join(sub_data$data, by = grouping_column)  # assumes Sample is common key
 
+	# plot_data <- Data %>%
+	#   left_join(sub_data$data, by = "feature")
 	# Clean feature names dynamically
 	plot_data[[feature_column]] <- plot_data[[feature_column]] %>%
 		stringr::str_replace_all("_([0-9])$", "_0\\1") %>%
@@ -522,6 +532,263 @@ QC_filter_outlier_histogram <- function(flag_sample_order, plot_title, grouping_
 
 	return(filter_outlier_histogram)
 }
+
+
+#' Generate IgR2 Lineplot List
+#'
+#' Creates diagnostic QC plots for IgG control antibody R² statistics, including:
+#' - Ratio to first probe replicate
+#' - Mean Net Intensity
+#' - Log2-transformed mean Net Intensity
+#' - Log2-transformed ratio
+#'
+#' @param datCollate A list containing input data, parameters, and manifest.
+#' @param PerSample_data QC results list for PerSample level.
+#'
+#' @return A named list of ggplot2 objects:
+#' \describe{
+#'   \item{ratio}{Scatter plot of ratio to first probe replicate (untransformed).}
+#'   \item{mean}{Scatter plot of mean Net Intensity with RFU threshold line.}
+#'   \item{log2_mean}{Scatter plot of log2 mean Net Intensity with RFU threshold line.}
+#'   \item{log2_ratio}{Scatter plot of log2 ratio to first probe replicate.}
+#' }
+#'
+#' @export
+generate_IgR2_lineplot_list <- function(datCollate,
+                                        PerSample_data) {
+
+  QC <- 'ctrl_QC'
+  data_name <- 'IgR2'
+
+  # Extract sub_data
+  sub_data <- PerSample_data[[QC]][[data_name]]
+
+  # Labels reference table
+  labels_data <- datCollate$data$RawData %>%
+    dplyr::select(Labels, Sample) %>%
+    distinct()
+
+  # Join labels to each data component
+  sub_data$ratio$data <- sub_data$ratio$data %>%
+    left_join(labels_data, by = "Sample")
+  sub_data$mean$data <- sub_data$mean$data %>%
+    left_join(labels_data, by = "Sample")
+  sub_data$log2_mean$data <- sub_data$log2_mean$data %>%
+    left_join(labels_data, by = "Sample")
+  sub_data$log2_ratio$data <- sub_data$log2_ratio$data %>%
+    left_join(labels_data, by = "Sample")
+
+  # Get probe name
+  Probe <- datCollate$param$Probe
+
+  # Generate plots
+  ratio_plot <- R2_plot_list_function(
+    sub_data,
+    'ratio',
+    paste0('Ratio to ', Probe, '_1'),
+    FALSE
+  ) +
+    geom_abline(intercept = 0, slope = 1)
+
+  mean_plot <- R2_plot_list_function(
+    sub_data,
+    'mean',
+    'Mean Net Intensity',
+    FALSE
+  ) +
+    geom_hline(yintercept = 2^datCollate$param$ctrl_antibody_RFU,
+               col = 'blue',
+               linetype = 'dashed')
+
+  log2_mean_plot <- R2_plot_list_function(
+    sub_data,
+    'log2_mean',
+    'Mean Net Intensity',
+    TRUE
+  ) +
+    geom_hline(yintercept = datCollate$param$ctrl_antibody_RFU,
+               col = 'blue',
+               linetype = 'dashed')
+
+  log2_ratio_plot <- R2_plot_list_function(
+    sub_data,
+    'log2_ratio',
+    paste0('Ratio to ', Probe, '_1'),
+    TRUE
+  ) +
+    geom_abline(intercept = 0, slope = 1)
+
+  # Return list of plots
+  list(
+    ratio = ratio_plot,
+    mean = mean_plot,
+    log2_mean = log2_mean_plot,
+    log2_ratio = log2_ratio_plot
+  )
+}
+
+
+#' Generate R² Plot from Sub-data
+#'
+#' Wrapper function that extracts the appropriate data from sub_data structure
+#' and generates an R² line plot for detection antibody dilution series.
+#'
+#' @param sub_data A list containing data and statistics for different plot types
+#'   (ratio, mean, log2_mean, log2_ratio), each with Data, data, AvgR2, and AvgSlope.
+#' @param plot_name Character. Name of the plot type (e.g., "ratio", "mean").
+#' @param ylab Character. Y-axis label for the plot.
+#' @param log2 Logical. If TRUE, apply log2 transformation to axes.
+#'
+#' @return A ggplot2 object showing the dilution series with R² and slope statistics.
+#'
+#' @export
+R2_plot_list_function <- function(sub_data, plot_name, ylab, log2) {
+
+  print('R2_plot_list_function')
+  print(plot_name)
+
+  # Combine Data and data components
+  plot_data <- sub_data[[plot_name]]$Data %>%
+    left_join(sub_data[[plot_name]]$data, by = "Sample")
+
+  # Extract statistics
+  title <- 'Detection antibody dilution series'
+  AvgR2 <- sub_data[[plot_name]]$AvgR2
+  AvgSlope <- sub_data[[plot_name]]$AvgSlope
+
+  # Create subtitle with R² and optionally slope
+  subtitle <- if (grepl("Ratio", ylab)) {
+    bquote(R^2 == .(AvgR2) * ", Average Slope = " * .(AvgSlope))
+  } else {
+    bquote(R^2 == .(AvgR2))
+  }
+
+  # Generate plot
+  QC_R2_line_plotly_function(plot_data, title, subtitle, ylab, log2)
+}
+
+
+#' Create R² Line Plot (Static ggplot)
+#'
+#' Generates a static ggplot2 line plot for R² QC data with dilution series.
+#' Lines are colored by QC status (pass/flag), with flagged samples highlighted
+#' with thicker lines.
+#'
+#' @param plot_data Data frame containing columns: Dilution, value, Sample, QC.
+#' @param title Character. Plot title.
+#' @param subtitle Expression or character. Plot subtitle (typically R² statistics).
+#' @param ylab Character. Y-axis label.
+#' @param log2 Logical. If TRUE, apply log2 transformation to both axes.
+#'
+#' @return A ggplot2 object.
+#'
+#' @export
+QC_R2_line_plot_function <- function(plot_data, title, subtitle, ylab, log2 = FALSE) {
+
+  p <- ggplot(plot_data)
+
+  if (log2 == FALSE) {
+    p <- p +
+      geom_line(data = plot_data %>% filter(QC == 'pass'),
+                aes(x = Dilution, y = value, group = Sample, col = QC)) +
+      geom_line(data = plot_data %>% filter(QC == 'flag'),
+                aes(x = Dilution, y = value, group = Sample, col = QC),
+                size = 1.1) +
+      geom_point(data = plot_data,
+                 aes(x = Dilution, y = value, group = Sample)) +
+      labs(x = 'Dilution',
+           y = ylab,
+           title = title,
+           subtitle = subtitle)
+  } else {
+    p <- p +
+      geom_line(data = plot_data %>% filter(QC == 'pass'),
+                aes(x = log2(Dilution), y = log2(value), group = Sample, col = QC),
+                drop = FALSE) +
+      geom_line(data = plot_data %>% filter(QC == 'flag'),
+                aes(x = log2(Dilution), y = log2(value), group = Sample, col = QC),
+                drop = FALSE, size = 1.1) +
+      geom_point(data = plot_data,
+                 aes(x = log2(Dilution), y = log2(value), group = Sample)) +
+      labs(x = 'log2(Dilution)',
+           y = paste0('log2(', ylab, ')'),
+           title = title,
+           subtitle = subtitle)
+  }
+
+  p <- p +
+    scale_color_manual(values = c("#D95F02", "#1B9E77")) +
+    theme(
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 14),
+      axis.text.x = element_text(angle = 0, hjust = 0, size = 10)
+    )
+
+  p
+}
+
+
+#' Create R² Line Plot (Interactive-ready ggplot)
+#'
+#' Generates a ggplot2 line plot for R² QC data suitable for conversion to plotly.
+#' Uses geom_path for lines and shape 21 points for better interactivity.
+#' Lines are colored by QC status, points are filled by Labels.
+#'
+#' @param plot_data Data frame containing columns: Dilution, value, Sample, QC, Labels.
+#' @param title Character. Plot title.
+#' @param subtitle Expression or character. Plot subtitle (typically R² statistics).
+#' @param ylab Character. Y-axis label.
+#' @param log2 Logical. If TRUE, apply log2 transformation to both axes.
+#'
+#' @return A ggplot2 object optimized for plotly conversion.
+#'
+#' @export
+QC_R2_line_plotly_function <- function(plot_data, title, subtitle, ylab, log2 = FALSE) {
+
+  print('QC_R2_line_plotly_function')
+  print(colnames(plot_data))
+
+  # Remove rows with missing QC values
+  plot_data <- plot_data %>%
+    filter(!is.na(QC))
+
+  print(colnames(plot_data))
+
+  p <- ggplot(plot_data)
+
+  if (log2 == FALSE) {
+    p <- p +
+      geom_path(aes(x = Dilution, y = value, group = Sample, col = QC)) +
+      geom_point(aes(x = Dilution, y = value, group = Sample,
+                     fill = Labels, label = Sample),
+                 shape = 21, size = 2) +
+      labs(x = 'Dilution',
+           y = ylab,
+           title = title,
+           subtitle = subtitle)
+  } else {
+    p <- p +
+      geom_path(aes(x = log2(Dilution), y = log2(value), group = Sample, col = QC)) +
+      geom_point(aes(x = log2(Dilution), y = log2(value), group = Sample,
+                     fill = Labels, label = Sample),
+                 shape = 21, size = 2) +
+      labs(x = 'log2(Dilution)',
+           y = paste0('log2(', ylab, ')'),
+           title = title,
+           subtitle = subtitle)
+  }
+
+  p <- p +
+    scale_colour_brewer(palette = "Dark2", drop = FALSE) +
+    theme(
+      axis.title = element_text(size = 14),
+      plot.title = element_text(size = 14),
+      axis.text.x = element_text(angle = 0, hjust = 0, size = 10)
+    )
+
+  p
+}
+
 
 
 
