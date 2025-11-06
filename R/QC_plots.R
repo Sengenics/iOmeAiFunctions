@@ -791,5 +791,275 @@ QC_R2_line_plotly_function <- function(plot_data, title, subtitle, ylab, log2 = 
 
 
 
+#' Plot Flagged QC Metrics for Single Sample
+#'
+#' Creates a horizontal bar chart showing the percentage of spots flagged for
+#' various QC metrics (e.g., saturated, negative, low signal) for a single sample.
+#' Color-coded by pass/fail status.
+#'
+#' @param sample Character string specifying the sample name
+#' @param flagged_df Data frame containing flagged QC metrics with columns:
+#'   - `Sample`: Sample identifier
+#'   - `metric`: QC metric type (e.g., "Saturated", "Negative", "Low Signal")
+#'   - `value`: Percentage of spots flagged for this metric
+#'   - `QC`: QC status ("pass" or "flag")
+#' @param flagged_QC_type Character vector specifying which QC metric types to
+#'   display and their order. Examples: c("Saturated", "Negative", "Low Signal",
+#'   "High Background", "Poor Morphology"). Default is NULL (show all metrics)
+#'
+#' @return A ggplot object showing a horizontal bar chart with:
+#'   - Y-axis: QC metric types (ordered by flagged_QC_type)
+#'   - X-axis: Percentage of flagged spots
+#'   - Fill color: QC status (pass = one color, flag = another)
+#'   - Color palette: Brewer "Dark2" palette
+#'   - No legend (colors self-explanatory in context)
+#'
+#' @details
+#' This function is designed for QC dashboards to quickly visualize which
+#' quality metrics have the most flagged spots. The bars are stacked by
+#' QC status (pass vs flag).
+#' 
+#' The function:
+#' - Filters to the specified sample
+#' - Filters to selected QC metric types (if specified)
+#' - Orders metrics according to flagged_QC_type vector
+#' - Uses factor levels to ensure all metrics show even if some have 0 values
+#' - Sets QC factor levels to c('pass', 'flag') for consistent coloring
+#' 
+#' Typical QC metrics include:
+#' - "Saturated": Spots with saturated pixels
+#' - "Negative": Spots with negative net intensity
+#' - "Low Signal": Spots below minimum signal threshold
+#' - "High Background": Spots with excessive background
+#' - "Poor Morphology": Spots with irregular shape
+#' - "Not Found": Spots that couldn't be detected
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage with default metrics
+#' p <- single_flagged_plot_function("Sample1", flagged_df)
+#' 
+#' # With specific metrics in custom order
+#' p <- single_flagged_plot_function(
+#'   sample = "Sample1",
+#'   flagged_df = QC_results$flagged_df,
+#'   flagged_QC_type = c("Saturated", "Negative", "Low Signal")
+#' )
+#' 
+#' # In Shiny with user-selected metrics
+#' output$flagged_plot <- renderPlot({
+#'   single_flagged_plot_function(
+#'     sample = input$selected_sample,
+#'     flagged_df = values$QC$flagged_df,
+#'     flagged_QC_type = input$flagged_QC_type
+#'   )
+#' })
+#' 
+#' # Using with QC_Merge_PerSample output
+#' qc_data <- QC_Merge_PerSample(datCollate, QC)
+#' p <- single_flagged_plot_function(
+#'   sample = "Sample1",
+#'   flagged_df = qc_data$flagged_df,
+#'   flagged_QC_type = c("Saturated", "Negative", "Low Signal", 
+#'                       "High Background", "Poor Morphology")
+#' )
+#' }
+#'
+#' @seealso 
+#' \code{\link{QC_Merge_PerSample}} for generating flagged_df
+#' \code{\link{single_grid_function}} which uses this plot in QC layouts
+#' @author DrGarnett
+#' @export
+single_flagged_plot_function <- function(sample, 
+																				 flagged_df,
+																				 flagged_QC_type = NULL) {
+	
+	# Filter to specified sample
+	flagged_df <- flagged_df %>% 
+		filter(Sample == sample)
+	
+	# Filter to selected QC types if specified
+	if (!is.null(flagged_QC_type)) {
+		flagged_df <- flagged_df %>%
+			filter(metric %in% flagged_QC_type)
+		
+		# Set factor levels for metrics to control order
+		flagged_df$metric <- factor(flagged_df$metric, levels = flagged_QC_type)
+	}
+	
+	# Set QC factor levels for consistent coloring
+	flagged_df$QC <- factor(flagged_df$QC, levels = c('pass', 'flag'))
+	
+	# Create horizontal bar plot
+	metric_plot <- ggplot(flagged_df) +
+		geom_col(aes(x = value, y = metric, fill = QC)) + 
+		scale_y_discrete(drop = FALSE) +   # Show all factor levels even if no data
+		scale_fill_brewer(palette = "Dark2", drop = FALSE) +  # Use Dark2 color palette
+		ylab('') + 
+		xlab("Percentage") +
+		ggtitle(sample) + 
+		theme(legend.position = 'none')  # Hide legend to save space
+	
+	return(metric_plot)
+}
 
 
+#' Plot Control Probe Intensities for Single Sample
+#'
+#' Creates a boxplot showing the distribution of net intensities for control
+#' probes (detection antibody controls and BSA controls) in a single sample.
+#' Useful for quality control to ensure controls are performing as expected.
+#'
+#' @param sample Character string specifying the sample name
+#' @param datCollate List object containing experiment data with structure:
+#'   - `data$RawData`: Data frame with raw GPR data containing columns:
+#'     Labels, Sample, Protein, BG, FG, NetI
+#' @param ctrl_antibody_probes Character vector of protein names representing
+#'   detection antibody control probes (e.g., anti-IgG, anti-biotin).
+#'   Default is NULL (no antibody controls shown)
+#' @param ctrl_BSA_probes Character vector of protein names representing
+#'   BSA control probes (e.g., Cy3-BSA, Cy5-BSA).
+#'   Default is NULL (no BSA controls shown)
+#'
+#' @return A ggplot object showing:
+#'   - Boxplots of log2(NetI) for each control protein
+#'   - Faceted by control type (Detection Antibody vs Cy3BSA)
+#'   - Color-coded by control type
+#'   - Free y-axis scales for each facet (allows different ranges)
+#'   - X-axis labels hidden (protein names shown in legend/facet)
+#'   - No legend (redundant with facet labels)
+#'
+#' @details
+#' This function visualizes the performance of positive control probes which
+#' should show consistent, high signal across replicates. The controls are
+#' separated into two categories:
+#' 
+#' **Detection Antibody Controls:**
+#' - Probes with labeled detection antibodies (e.g., anti-IgG-Cy3)
+#' - Should show high, consistent signal
+#' - Used to verify detection reagent functionality
+#' 
+#' **BSA Controls:**
+#' - Cy3-BSA or Cy5-BSA spotted directly on array
+#' - Should show very high, consistent signal
+#' - Used to verify scanner/imaging functionality
+#' 
+#' The function:
+#' - Filters raw data to the specified sample
+#' - Selects only control probes (antibody + BSA)
+#' - Classifies each probe into its control type
+#' - Plots log2(NetI) distributions as boxplots
+#' - Uses free y-scales since BSA typically has much higher signal than antibody controls
+#' 
+#' Interpretation:
+#' - Tight boxplots = good replicate consistency
+#' - High median values = good control performance
+#' - Outliers may indicate spot defects
+#'
+#' @examples
+#' \dontrun{
+#' # Basic usage
+#' p <- select_ctrl_probe_plot_function(
+#'   sample = "Sample1",
+#'   datCollate = datCollate,
+#'   ctrl_antibody_probes = c("Anti-IgG-Cy3", "Anti-Biotin-Cy3"),
+#'   ctrl_BSA_probes = c("Cy3-BSA", "Cy5-BSA")
+#' )
+#' 
+#' # With only antibody controls
+#' p <- select_ctrl_probe_plot_function(
+#'   sample = "Sample1",
+#'   datCollate = datCollate,
+#'   ctrl_antibody_probes = c("Anti-IgG-Cy3", "Anti-Biotin-Cy3"),
+#'   ctrl_BSA_probes = NULL
+#' )
+#' 
+#' # In Shiny with user-selected controls
+#' output$ctrl_plot <- renderPlot({
+#'   select_ctrl_probe_plot_function(
+#'     sample = input$selected_sample,
+#'     datCollate = values$datCollate,
+#'     ctrl_antibody_probes = input$ctrl_antibody_probes,
+#'     ctrl_BSA_probes = input$ctrl_BSA_probes
+#'   )
+#' })
+#' 
+#' # In single_grid_function
+#' single_grid_function(
+#'   sample = "Sample1",
+#'   datCollate = datCollate,
+#'   dat = dat,
+#'   QC = QC,
+#'   ctrl_antibody_probes = c("Anti-IgG-Cy3"),
+#'   ctrl_BSA_probes = c("Cy3-BSA")
+#' )
+#' }
+#'
+#' @seealso 
+#' \code{\link{single_grid_function}} which uses this plot in QC layouts
+#' \code{\link{single_flagged_plot_function}} for flagged spot metrics
+#' @author DrGarnett
+#' @export
+select_ctrl_probe_plot_function <- function(sample,
+																						datCollate) {
+	
+	
+	ctrl_antibody_probes = datCollate$param$ctrl_antibody_probes
+	ctrl_BSA_probes = datCollate$param$ctrl_BSA_probes
+	# Combine all control probes
+	all_ctrl_probes <- c(ctrl_antibody_probes, ctrl_BSA_probes)
+	
+	# Return empty plot if no controls specified
+	if (is.null(all_ctrl_probes) || length(all_ctrl_probes) == 0) {
+		return(
+			ggplot() + 
+				annotate("text", x = 0.5, y = 0.5, 
+								 label = "No control probes specified",
+								 size = 5) +
+				theme_void()
+		)
+	}
+	
+	# Extract and filter raw data
+	raw_data <- datCollate$data$RawData %>%  
+		dplyr::select(Labels, Sample, Protein, BG, FG, NetI) %>% 
+		dplyr::filter(Sample %in% sample) %>% 
+		filter(Protein %in% all_ctrl_probes)
+	
+	# Check if any control probes found
+	if (nrow(raw_data) == 0) {
+		return(
+			ggplot() + 
+				annotate("text", x = 0.5, y = 0.5, 
+								 label = "No control probe data found for this sample",
+								 size = 5) +
+				theme_void()
+		)
+	}
+	
+	# Classify control type
+	raw_data <- raw_data %>%
+		mutate(type = case_when(
+			Protein %in% ctrl_antibody_probes ~ 'Detection Antibody',
+			Protein %in% ctrl_BSA_probes ~ 'Cy3BSA',
+			TRUE ~ 'Unknown'
+		))
+	
+	# Filter out zero/negative NetI for log transform
+	raw_data <- raw_data %>%
+		filter(NetI > 0)
+	
+	# Create boxplot
+	p <- ggplot(raw_data, aes(x = Protein, y = log2(NetI), col = type)) + 
+		geom_boxplot() + 
+		theme(
+			axis.text.x = element_blank(),   # Hide x-axis labels (too many proteins)
+			axis.ticks.x = element_blank(),  # Hide x-axis ticks
+			legend.position = 'none'          # Hide legend (redundant with facet)
+		) + 
+		ylab('Log2(NetI)') + 
+		xlab('Control Probes') +
+		facet_wrap(type ~ ., scales = 'free', ncol = 1)  # Separate panels, free y-scales
+	
+	return(p)
+}

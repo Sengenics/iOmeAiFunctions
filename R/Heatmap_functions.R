@@ -24,8 +24,11 @@ Heatmap_data_function <- function(m, meta, s_cols) {
 	rownames(meta) <- meta$Sample
 	# Reorder matrix columns to match metadata
 	m <- m[, rownames(meta)]
+	
+	s_cols = s_cols[s_cols %in% colnames(meta)]
 	(s_cols = sort(s_cols,decreasing = T))
 	# Convert selected metadata columns to factor
+
 	meta[, s_cols] <- lapply(meta[, s_cols, drop = FALSE], factor)
 	# Keep only annotation-relevant columns in meta
 	meta <- meta[, s_cols, drop = FALSE]
