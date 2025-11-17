@@ -1,4 +1,6 @@
 # tools/setup_package.R
+version = "0.1.2"
+release_data = '2025-11-17'
 
 options(
 	renv.consent = TRUE,
@@ -39,10 +41,11 @@ source("tools/install_dependencies.R")
 # --- Set Version and Encoding if missing ---
 desc_path <- "DESCRIPTION"
 desc <- readLines(desc_path)
+
 if (!any(grepl("^Version:", desc))) {
-	desc <- append(desc, "Version: 0.1.0", after = grep("^Package:", desc))
+	desc <- append(desc, paste("Version: ",version), after = grep("^Package:", desc))
 	writeLines(desc, desc_path)
-	message("✔ DESCRIPTION Version set to 0.1.0")
+	message(paste("✔ DESCRIPTION Version set to",version))
 }
 if (!any(grepl("^Encoding:", desc))) {
 	desc <- append(desc, "Encoding: UTF-8", after = grep("^Version:", desc))
