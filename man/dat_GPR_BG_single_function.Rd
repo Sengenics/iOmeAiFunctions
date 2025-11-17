@@ -75,7 +75,7 @@ p <- dat_GPR_BG_single_function("Sample1", datCollate, scale = "Log2")
 # BG plot with custom scale
 p <- dat_GPR_BG_single_function("Sample1", datCollate,
                                  use_custom_scale = TRUE,
-                                 custom_min = 0, 
+                                 custom_min = 0,
                                  custom_max = 10000)
 }
 

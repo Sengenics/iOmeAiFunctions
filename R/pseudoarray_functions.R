@@ -34,50 +34,50 @@
 #' \dontrun{
 #' # Get manifest for a single sample
 #' sample_info <- single_manifest_function("Sample1", datCollate)
-#' 
+#'
 #' # Include a specific remark column
-#' sample_info <- single_manifest_function("Sample1", datCollate, 
+#' sample_info <- single_manifest_function("Sample1", datCollate,
 #'                                          remark_col = "QC_Remark")
 #' }
 #'
 #' @author DrGarnett
 #' @export
-single_manifest_function <- function(sample, datCollate, remark_col = NULL) { 
-	
+single_manifest_function <- function(sample, datCollate, remark_col = NULL) {
+
 	# Extract manifest from datCollate
 	manifest <- datCollate$manifest
-	
+
 	# Filter to specified sample
-	manifest <- manifest %>% 
+	manifest <- manifest %>%
 		filter(Sample == sample)
-	
+
 	# Define base columns to include
 	base_cols <- c("Sample", "Labels", "GPR", "Slide_ID", "Block")
-	
+
 	# Find Batch_ID columns
 	batch_cols <- grep('Batch_ID', colnames(manifest), value = TRUE)
-	
+
 	# Find quality columns (case-insensitive)
 	quality_cols <- colnames(manifest)[grep('quality', tolower(colnames(manifest)))]
-	
+
 	# Add Assay if present
 	assay_col <- if("Assay" %in% colnames(manifest)) "Assay" else character(0)
-	
+
 	# Combine all column names
 	col_names <- c(base_cols, batch_cols, assay_col, quality_cols)
-	
+
 	# Add remark column if specified and exists
 	if (!is.null(remark_col) && remark_col %in% colnames(manifest)) {
 		col_names <- c(col_names, remark_col)
 	}
-	
+
 	# Select only columns that exist in manifest
 	col_names <- col_names[col_names %in% colnames(manifest)]
-	
+
 	# Select and return
-	manifest <- manifest %>% 
+	manifest <- manifest %>%
 		dplyr::select(one_of(col_names))
-	
+
 	return(manifest)
 }
 
@@ -119,28 +119,28 @@ single_manifest_function <- function(sample, datCollate, remark_col = NULL) {
 #' This function is designed for quality control dashboards where you want to
 #' display BG, FG, and NetI side-by-side for comparison. All three plots use
 #' the same scale type (RFU or Log2) and data type filters for consistency.
-#' 
+#'
 #' The NetI plot has its legend removed to save space in grid layouts, but
 #' the BG and FG plots retain their legends.
-#' 
+#'
 #' All three plots share the same color scale limits (if use_custom_scale = TRUE)
 #' to ensure comparable color intensity across the trio.
 #'
 #' @examples
 #' \dontrun{
 #' # Generate QC pseudo array grid
-#' plots <- QC_pseudo_array_grid_function("Sample1", datCollate, 
-#'                                         data_type = c('all'), 
+#' plots <- QC_pseudo_array_grid_function("Sample1", datCollate,
+#'                                         data_type = c('all'),
 #'                                         scale = "RFU")
-#' 
+#'
 #' # Display in grid using cowplot or patchwork
 #' library(cowplot)
 #' plot_grid(plots$BG, plots$FG, plots$NetI, nrow = 1)
-#' 
+#'
 #' # Or with patchwork
 #' library(patchwork)
 #' plots$BG | plots$FG | plots$NetI
-#' 
+#'
 #' # With log2 scale and custom limits
 #' plots <- QC_pseudo_array_grid_function("Sample1", datCollate,
 #'                                         data_type = c('feature'),
@@ -148,7 +148,7 @@ single_manifest_function <- function(sample, datCollate, remark_col = NULL) {
 #'                                         use_custom_scale = TRUE,
 #'                                         custom_min = 0,
 #'                                         custom_max = 16)
-#' 
+#'
 #' # In Shiny with flagged proteins
 #' plots <- QC_pseudo_array_grid_function(
 #'   sample = input$selected_sample,
@@ -161,13 +161,13 @@ single_manifest_function <- function(sample, datCollate, remark_col = NULL) {
 #' )
 #' }
 #'
-#' @seealso 
+#' @seealso
 #' \code{\link{dat_GPR_BG_single_function}} for background plots
 #' \code{\link{dat_GPR_FG_single_function}} for foreground plots
 #' \code{\link{dat_GPR_NetI_single_function}} for net intensity plots
 #' @author DrGarnett
 #' @export
-QC_pseudo_array_grid_function <- function(sample, 
+QC_pseudo_array_grid_function <- function(sample,
 																					datCollate,
 																					wavelength,
 																					data_type = c('all'),
@@ -179,12 +179,12 @@ QC_pseudo_array_grid_function <- function(sample,
 																					scale_mode = "auto_per_plot",
 																					custom_min = NULL,
 																					custom_max = NULL) {
-	
+
 	print('QC_pseudo_array_grid_function')
-	
+
 	# Initialize list to store plots
 	pseudo_array_list <- list()
-	
+
 	# Generate Background plot
 	pseudo_array_list$BG <- dat_GPR_BG_single_function(
 		sample = sample,
@@ -196,7 +196,7 @@ QC_pseudo_array_grid_function <- function(sample,
 		custom_min = custom_min,
 		custom_max = custom_max
 	)
-	
+
 	# Generate Foreground plot
 	pseudo_array_list$FG <- dat_GPR_FG_single_function(
 		sample = sample,
@@ -209,7 +209,7 @@ QC_pseudo_array_grid_function <- function(sample,
 		custom_min = custom_min,
 		custom_max = custom_max
 	)
-	
+
 	# Generate Net Intensity plot
 	pseudo_array_list$NetI <- dat_GPR_NetI_single_function(
 		sample = sample,
@@ -225,7 +225,7 @@ QC_pseudo_array_grid_function <- function(sample,
 		custom_max = custom_max,
 		show_flags = show_flags
 	) + theme(legend.position = "none")  # Remove legend for cleaner grid display
-	
+
 	return(pseudo_array_list)
 }
 
@@ -246,7 +246,7 @@ QC_pseudo_array_grid_function <- function(sample,
 #' @param QC List object containing QC data for density plots
 #' @param image_file_path Character string specifying the path to the TIFF image file.
 #'   If NULL or file doesn't exist, the grid layout will be adjusted to exclude the image
-#' @param image_wavelength_index Integer specifying which wavelength/page of the TIFF 
+#' @param image_wavelength_index Integer specifying which wavelength/page of the TIFF
 #'   to display. Default is 1
 #' @param jpg_brightness Numeric value for image brightness adjustment (0-200).
 #'   Default is 100 (no change)
@@ -277,15 +277,15 @@ QC_pseudo_array_grid_function <- function(sample,
 #' 1. **Number of blocks**: Adjusts plot dimensions based on array block count
 #'    - Single block (1): Uses larger pseudo array dimensions (1204 × 512)
 #'    - Multiple blocks (>1): Scales dimensions proportionally (512 / n_blocks)
-#' 
-#' 2. **Image availability**: 
+#'
+#' 2. **Image availability**:
 #'    - With image: Full layout including image display area
 #'    - Without image: Condensed layout without image row
-#' 
+#'
 #' The function uses complex grid layouts with different proportions:
 #' - With image: 6:27 ratio for tables, various ratios for plots
 #' - Without image: Full-width tables and plots
-#' 
+#'
 #' Image processing:
 #' - Loads TIFF using helper function \code{get_slide_images_function}
 #' - Applies brightness adjustment using \code{magick::image_modulate}
@@ -301,7 +301,7 @@ QC_pseudo_array_grid_function <- function(sample,
 #'   QC = QC,
 #'   image_file_path = "path/to/image.tif"
 #' )
-#' 
+#'
 #' # Without image
 #' grid_plot <- single_grid_function(
 #'   sample = "Sample1",
@@ -310,7 +310,7 @@ QC_pseudo_array_grid_function <- function(sample,
 #'   QC = QC,
 #'   image_file_path = NULL
 #' )
-#' 
+#'
 #' # With custom pseudo array settings
 #' grid_plot <- single_grid_function(
 #'   sample = "Sample1",
@@ -323,7 +323,7 @@ QC_pseudo_array_grid_function <- function(sample,
 #'   show_flags = TRUE,
 #'   jpg_brightness = 120
 #' )
-#' 
+#'
 #' # In Shiny server
 #' output$qc_grid <- renderPlot({
 #'   single_grid_function(
@@ -343,18 +343,20 @@ QC_pseudo_array_grid_function <- function(sample,
 #' })
 #' }
 #'
-#' @seealso 
+#' @seealso
 #' \code{\link{QC_pseudo_array_grid_function}} for pseudo array generation
 #' \code{\link{single_manifest_function}} for manifest extraction
 #' \code{\link{create_bg_fg_density_plot}} for density plots
 #' @author DrGarnett
 #' @export
-single_grid_function <- function(sample, 
+single_grid_function <- function(sample,
 																 datCollate,
 																 dat,
 																 QC,
 																 image_file_path = NULL,
 																 image_wavelength_index = 1,
+																 image_wavelength_title = NULL,
+																 slide_image_number = NULL,
 																 jpg_brightness = 100,
 																 pseudo_scale = 'RFU',
 																 pseudo_data_type = c('all'),
@@ -366,23 +368,23 @@ single_grid_function <- function(sample,
 																 custom_max = NULL,
 																 point_size = 0.75,
 																 flagged_df,
-																 flagged_QC_type) { 
-	
-	print('single_grid_function')   
+																 flagged_QC_type) {
+
+	print('single_grid_function')
 	print(sample)
 	print(image_file_path)
-	
+
 	# Get sample manifest
 	single_manifest <- single_manifest_function(sample, datCollate)
-	
-	gpr <- single_manifest %>% 
+
+	gpr <- single_manifest %>%
 		pull(GPR)
-	
+
 	# Get GPR data and determine block numbers
 	df <- dat$data$gpr[[gpr]]$GPR_edit
 	df$Block <- as.character(df$Block)
 	block_numbers <- length(unique(df$Block))
-	
+
 	# Set layout dimensions based on number of blocks
 	if(block_numbers != 1){
 		full_pseudo_length <- 512
@@ -396,28 +398,41 @@ single_grid_function <- function(sample,
 		table_height <- 64
 		nrow <- c(33, 27)
 	}
-	
+
 	# Try to load and process TIFF image
 	jpgImgU <- tryCatch({
 		tif_sample_list <- list()
 		tif_sample_list[[sample]] <- image_file_path
 		jpg_file_path <- image_file_path
-		
+
 		# Create image info table
 		image_info <- data.frame(
 			'image_file' = basename(jpg_file_path),
 			'brightness' = jpg_brightness
 		)
-		
+
 		# Get image from TIFF file
 		page <- image_wavelength_index
+		# jpg_image <- get_slide_images_function(
+		# 	values = list(dat = dat),  # Create minimal values structure
+		# 	input = list(image_wavelength_index = page),
+		# 	tif_sample_list,
+		# 	sample
+		# )$image_list[[1]]
+
 		jpg_image <- get_slide_images_function(
-			values = list(dat = dat),  # Create minimal values structure
-			input = list(image_wavelength_index = page),
-			tif_sample_list,
-			sample
+		  datCollate,
+		  tif_sample_list,
+		  sample,
+		  image_wavelength_index,
+		  image_wavelength_title,
+		  slide_image_number
+		  # values = list(dat = dat),  # Create minimal values structure
+		  # input = list(image_wavelength_index = page),
+		  # tif_sample_list,
+		  # sample
 		)$image_list[[1]]
-		
+
 		# Apply brightness adjustment
 		edited_jpg_image <- image_modulate(
 			jpg_image,
@@ -425,14 +440,14 @@ single_grid_function <- function(sample,
 			saturation = 100,
 			hue = 100
 		)
-		
+
 		rasterGrob(edited_jpg_image)
 	},
 	error = function(cond){
 		warning("Could not load image: ", image_file_path, "\n", cond$message)
 		NULL
 	})
-	
+
 	# Generate pseudo array plots
 	pseudo_array <- QC_pseudo_array_grid_function(
 		sample = sample,
@@ -448,9 +463,9 @@ single_grid_function <- function(sample,
 		custom_min = custom_min,
 		custom_max = custom_max
 	)
-	
+
 	# Create grid layout based on whether image is available
-	if(!is.null(jpgImgU)){	
+	if(!is.null(jpgImgU)){
 		# Layout WITH image
 		hlay <- t(matrix(
 			c(
@@ -460,14 +475,14 @@ single_grid_function <- function(sample,
 			),
 			nrow = nrow[1]
 		))
-		
+
 		# Create image info table
 		image_info_table <- data.frame(
 			'image_file' = basename(image_file_path),
 			'brightness' = jpg_brightness,
 			check.names = FALSE
 		)
-		
+
 		gs <- list(
 			tableGrob(image_info_table, rows = NULL),
 			tableGrob(single_manifest, rows = NULL),
@@ -477,7 +492,7 @@ single_grid_function <- function(sample,
 																	 flagged_df,
 																	 flagged_QC_type),
 			create_bg_fg_density_plot(datCollate, QC, sample) +
-				coord_cartesian(xlim = c(4, 12)) + 
+				coord_cartesian(xlim = c(4, 12)) +
 				theme(legend.position = 'top'),
 			select_ctrl_probe_plot_function(sample, datCollate),
 			gridExtra::grid.arrange(grobs = pseudo_array, ncol = 3)
@@ -492,22 +507,178 @@ single_grid_function <- function(sample,
 			),
 			nrow = nrow[2]
 		))
-		
+
 		gs <- list(
 			tableGrob(single_manifest, rows = NULL),
 			single_flagged_plot_function(sample,
 																	 flagged_df,
 																	 flagged_QC_type),
-			create_bg_fg_density_plot(datCollate, QC, sample) + 
+			create_bg_fg_density_plot(datCollate, QC, sample) +
 				theme(legend.position = 'top'),
 			select_ctrl_probe_plot_function(sample, datCollate),
 			gridExtra::grid.arrange(grobs = pseudo_array, ncol = 3)
 		)
 	}
-	
+
 	# Arrange and return grid
 	grid.arrange(grobs = gs, layout_matrix = hlay)
 }
+
+#' Get slide images from TIFF files
+#'
+#' Reads TIFF image files for specified samples and extracts the requested
+#' wavelength channel. If too many samples are provided, randomly samples
+#' down to the maximum number specified.
+#'
+#' @param datCollate List containing manifest data with columns: GPR, Sample
+#' @param tif_sample_list Named list of TIFF file paths, where names are sample IDs
+#' @param samples Character vector of sample names to process
+#' @param wavelength_index Integer, which wavelength/channel to extract from TIFF (typically 1 or 2)
+#' @param wavelength_title Character, descriptive title for the wavelength (e.g., "532nm" or "635nm")
+#' @param slide_image_number Integer, maximum number of slide images to display
+#'
+#' @return List containing:
+#'   \itemize{
+#'     \item image_list: Named list of magick-image objects, one per sample
+#'     \item text: Character string with warning if samples were randomly selected
+#'     \item wavelength_title: The wavelength title passed in
+#'     \item image_file_path: Path to the last image file processed
+#'   }
+#'
+#' @details
+#' This function processes TIFF slide images for protein microarray analysis.
+#' It handles multi-page TIFF files where different wavelengths are stored
+#' as separate pages/layers.
+#'
+#' The function filters the manifest to get unique GPR files (one sample per slide),
+#' then reads the corresponding TIFF images. If more samples are provided than
+#' the maximum specified, it randomly samples down and returns a warning message.
+#'
+#' Requires the magick package for image reading.
+#'
+#' @note Original location: server.R (get_slide_images_function_old)
+#' @note Part of pseudoarray visualization suite
+#'
+#' @examples
+#' \dontrun{
+#' # Prepare data
+#' datCollate <- list(
+#'   data = list(
+#'     manifest = data.frame(
+#'       GPR = c("slide1.gpr", "slide1.gpr", "slide2.gpr"),
+#'       Sample = c("S1", "S2", "S3"),
+#'       stringsAsFactors = FALSE
+#'     )
+#'   )
+#' )
+#'
+#' tif_list <- list(
+#'   "S1" = "path/to/slide1.tif",
+#'   "S2" = "path/to/slide1.tif",
+#'   "S3" = "path/to/slide2.tif"
+#' )
+#'
+#' # Get images for 532nm wavelength
+#' result <- get_slide_images_function(
+#'   datCollate = datCollate,
+#'   tif_sample_list = tif_list,
+#'   samples = c("S1", "S2", "S3"),
+#'   wavelength_index = 1,
+#'   wavelength_title = "532nm",
+#'   slide_image_number = 10
+#' )
+#'
+#' # Access results
+#' images <- result$image_list
+#' warning_text <- result$text
+#' }
+#'
+#' @export
+#' @importFrom magick image_read
+#' @importFrom dplyr filter select group_by slice ungroup pull
+get_slide_images_function <- function(datCollate,
+                                      tif_sample_list,
+                                      samples,
+                                      wavelength_index,
+                                      wavelength_title,
+                                      slide_image_number) {
+
+  # Input validation
+  if (is.null(datCollate$data$manifest)) {
+    stop("datCollate must contain data$manifest")
+  }
+
+  if (!all(c("GPR", "Sample") %in% colnames(datCollate$data$manifest))) {
+    stop("manifest must contain 'GPR' and 'Sample' columns")
+  }
+
+  if (length(samples) == 0) {
+    stop("samples vector cannot be empty")
+  }
+
+  # Filter to get one sample per GPR file (unique slides)
+  samples_filtered <- datCollate$data$manifest %>%
+    filter(Sample %in% samples) %>%
+    dplyr::select(GPR, Sample) %>%
+    group_by(GPR) %>%
+    slice(1) %>%
+    ungroup() %>%
+    pull(Sample)
+
+  # Handle case where we have too many samples
+  slide_image_text <- ''
+  if (length(samples_filtered) > slide_image_number) {
+    samples_filtered <- sample(samples_filtered, slide_image_number)
+    slide_image_text <- paste0(
+      'There are too many samples, ',
+      slide_image_number,
+      ' random samples are shown'
+    )
+  }
+
+  # Initialize output
+  image_list <- list()
+  image_file_path <- ''
+
+  # Process each sample
+  for (sample in samples_filtered) {
+
+    # Get the TIFF file path for this sample
+    image_file_path <- tif_sample_list[[sample]][1]
+
+    # Try to read the image
+    tryCatch({
+
+      # Check file exists
+      if (!file.exists(image_file_path)) {
+        warning(paste0("Image file not found for sample ", sample, ": ", image_file_path))
+        next
+      }
+
+      # Read the TIFF image
+      jpg_image <- image_read(image_file_path)
+
+      # Extract the requested wavelength channel
+      image_list[[sample]] <- jpg_image[wavelength_index]
+
+    },
+    error = function(cond) {
+      warning(paste0("Error reading image for sample ", sample, ": ", cond$message))
+      return(NULL)
+    })
+  }
+
+  # Return list with all components
+  result <- list(
+    image_list = image_list,
+    text = slide_image_text,
+    wavelength_title = wavelength_title,
+    image_file_path = image_file_path
+  )
+
+  return(result)
+}
+
 
 #' Get Pseudo Array Color Scale Limits with Multiple Modes
 #'
@@ -536,21 +707,21 @@ single_grid_function <- function(sample,
 #'
 #' @details
 #' **Scaling Modes:**
-#' 
+#'
 #' 1. **auto_per_plot** (ORIGINAL - Maximum contrast per plot):
 #'    - Returns NULL for min/max
 #'    - ggplot2 auto-scales each plot to its own data range
 #'    - Pros: Maximum detail/contrast in each individual plot
 #'    - Cons: Colors NOT comparable between plots
 #'    - Use when: Examining single samples in isolation
-#' 
+#'
 #' 2. **auto_global** (Consistent auto-scaling):
 #'    - Calculates min/max from all data for this sample
 #'    - Same scale applied to BG, FG, and NetI plots
 #'    - Pros: Colors comparable within a sample's trio of plots
 #'    - Cons: May lose some detail if ranges differ greatly
 #'    - Use when: Comparing BG/FG/NetI within one sample
-#' 
+#'
 #' 3. **custom** (Match TIFF viewer):
 #'    - Uses explicit user-provided min/max
 #'    - Pros: Perfect match to TIFF image viewer colors
@@ -559,16 +730,16 @@ single_grid_function <- function(sample,
 #'
 #' @author DrGarnett
 #' @export
-get_pseudo_array_scale <- function(sample, 
+get_pseudo_array_scale <- function(sample,
 																	 datCollate,
-																	 scale_type = "RFU", 
+																	 scale_type = "RFU",
 																	 scale_mode = c("auto_per_plot", "auto_global", "custom"),
-																	 custom_min = NULL, 
+																	 custom_min = NULL,
 																	 custom_max = NULL) {
-	
+
 	# Match scale_mode argument
 	scale_mode <- match.arg(scale_mode)
-	
+
 	# For auto_per_plot, return NULL limits (original behavior)
 	if (scale_mode == "auto_per_plot") {
 		return(list(
@@ -578,7 +749,7 @@ get_pseudo_array_scale <- function(sample,
 			mode = scale_mode
 		))
 	}
-	
+
 	# For custom mode, use provided limits
 	if (scale_mode == "custom") {
 		if (is.null(custom_min) || is.null(custom_max)) {
@@ -591,20 +762,20 @@ get_pseudo_array_scale <- function(sample,
 			mode = scale_mode
 		))
 	}
-	
+
 	# For auto_global mode, calculate from data
 	raw_data <- datCollate$data$RawData
 	protein_data <- datCollate$data$Data
-	
+
 	# Get the raw data for this sample
-	feature_df <- protein_data %>% 
-		dplyr::select(Protein, data) %>% 
+	feature_df <- protein_data %>%
+		dplyr::select(Protein, data) %>%
 		distinct()
-	
-	df <- raw_data %>% 
-		filter(Sample == sample) %>% 
+
+	df <- raw_data %>%
+		filter(Sample == sample) %>%
 		left_join(feature_df, by = "Protein")
-	
+
 	# Calculate scale limits based on type
 	if (scale_type == "RFU") {
 		# Linear scale
@@ -619,7 +790,7 @@ get_pseudo_array_scale <- function(sample,
 		scale_min <- floor(min(log2(vals), na.rm = TRUE))
 		scale_max <- ceiling(max(log2(vals), na.rm = TRUE))
 	}
-	
+
 	list(
 		min = scale_min,
 		max = scale_max,
@@ -669,15 +840,15 @@ get_pseudo_array_scale <- function(sample,
 #' \dontrun{
 #' # Basic FG plot with auto-detected scale
 #' p <- dat_GPR_FG_single_function("Sample1", datCollate)
-#' 
+#'
 #' # FG plot with log2 scale
 #' p <- dat_GPR_FG_single_function("Sample1", datCollate, scale = "Log2")
-#' 
+#'
 #' # FG plot with custom scale to match TIFF images
 #' p <- dat_GPR_FG_single_function("Sample1", datCollate,
 #'                                  scale = "RFU",
 #'                                  use_custom_scale = TRUE,
-#'                                  custom_min = 0, 
+#'                                  custom_min = 0,
 #'                                  custom_max = 65535)
 #' }
 #'
@@ -686,50 +857,50 @@ get_pseudo_array_scale <- function(sample,
 #' @export
 dat_GPR_FG_single_function <- function(sample, datCollate,
 																			 wavelength = wavelength,
-																			 data_type = c('all'), 
-																			 scale = 'RFU', 
-																			 point_size = 0.75, 
+																			 data_type = c('all'),
+																			 scale = 'RFU',
+																			 point_size = 0.75,
 																			 scale_mode = "auto_per_plot",
-																			 custom_min = NULL, 
-																			 custom_max = NULL) { 
-	
+																			 custom_min = NULL,
+																			 custom_max = NULL) {
+
 	if(data_type == 'all'){
 		data_type = c('feature','ctrl')
 	}
-	
+
 	# Extract data from datCollate
 	raw_data <- datCollate$data$RawData
 	protein_data <- datCollate$data$Data
 	#wavelength <- dat$param$Wavelength
-	
+
 	# Get sample info
 	gpr <- single_manifest_function(sample, datCollate) %>% pull(GPR)
-	
+
 	# Prepare feature data
-	feature_df <- protein_data %>% 
-		dplyr::select(Protein, data) %>% 
+	feature_df <- protein_data %>%
+		dplyr::select(Protein, data) %>%
 		distinct()
-	
+
 	# Get raw data for this sample
-	df <- raw_data %>% 
-		filter(Sample == sample) %>% 
-		left_join(feature_df, by = "Protein") %>% 
+	df <- raw_data %>%
+		filter(Sample == sample) %>%
+		left_join(feature_df, by = "Protein") %>%
 		filter(data %in% data_type)
-	
+
 	# Get scale limits
 	scale_limits <- get_pseudo_array_scale(sample, datCollate,
 																				 scale, scale_mode, custom_min, custom_max)
-	
+
 	# Determine spot color based on wavelength
 	spot_col <- if(wavelength == '532') 'green' else 'red'
-	
+
 	# Create plot based on scale type
 	if(scale == 'RFU'){
-		p <- ggplot(df, aes(x = X, y = Y, col = FG, group = spot, label = Block)) + 
-			geom_point(size = point_size) + 
+		p <- ggplot(df, aes(x = X, y = Y, col = FG, group = spot, label = Block)) +
+			geom_point(size = point_size) +
 			ggtitle('Foreground') +
 			scale_colour_gradient(
-				low = 'black', 
+				low = 'black',
 				high = spot_col,
 				limits = c(scale_limits$min, scale_limits$max),
 				oob = scales::squish,
@@ -737,33 +908,33 @@ dat_GPR_FG_single_function <- function(sample, datCollate,
 			)
 	} else {
 		df <- df %>% filter(FG > 0)  # Remove zeros for log transform
-		
-		p <- ggplot(df, aes(x = X, y = Y, col = log2(FG), group = spot, label = Block)) + 
-			geom_point(size = point_size) + 
+
+		p <- ggplot(df, aes(x = X, y = Y, col = log2(FG), group = spot, label = Block)) +
+			geom_point(size = point_size) +
 			ggtitle('Foreground (Log2)') +
 			scale_colour_gradient(
-				low = 'black', 
+				low = 'black',
 				high = spot_col,
 				limits = c(scale_limits$min, scale_limits$max),
 				oob = scales::squish,
 				name = "Log2(FG)"
 			)
 	}
-	
+
 	# Apply theme
 	p <- p + theme(
-		plot.background = element_rect(fill = "black"), 
+		plot.background = element_rect(fill = "black"),
 		panel.background = element_rect(fill = 'black'),
-		panel.grid.major = element_line(colour = "black"), 
+		panel.grid.major = element_line(colour = "black"),
 		panel.grid.minor = element_line(colour = "black"),
 		axis.ticks.x = element_blank(),
 		axis.text.x = element_blank(),
 		axis.ticks.y = element_blank(),
 		axis.text.y = element_blank(),
 		plot.margin = unit(c(0, 0, 0, 0), "cm")
-	) + 
+	) +
 		scale_y_reverse()
-	
+
 	return(p)
 }
 
@@ -808,14 +979,14 @@ dat_GPR_FG_single_function <- function(sample, datCollate,
 #' \dontrun{
 #' # Basic BG plot
 #' p <- dat_GPR_BG_single_function("Sample1", datCollate)
-#' 
+#'
 #' # BG plot with log2 scale
 #' p <- dat_GPR_BG_single_function("Sample1", datCollate, scale = "Log2")
-#' 
+#'
 #' # BG plot with custom scale
 #' p <- dat_GPR_BG_single_function("Sample1", datCollate,
 #'                                  use_custom_scale = TRUE,
-#'                                  custom_min = 0, 
+#'                                  custom_min = 0,
 #'                                  custom_max = 10000)
 #' }
 #'
@@ -824,49 +995,49 @@ dat_GPR_FG_single_function <- function(sample, datCollate,
 #' @export
 dat_GPR_BG_single_function <- function(sample, datCollate,
 																			 wavelength = wavelength,
-																			 data_type = c('all'), 
+																			 data_type = c('all'),
 																			 scale = 'RFU',
 																			 scale_mode = "auto_per_plot",
-																			 custom_min = NULL, 
+																			 custom_min = NULL,
 																			 custom_max = NULL) {
-	
+
 	if(data_type == 'all'){
 		data_type = c('feature','ctrl')
 	}
-	
+
 	# Extract data from datCollate
 	raw_data <- datCollate$data$RawData
 	protein_data <- datCollate$data$Data
 	#wavelength <- datCollate$param$Wavelength
-	
+
 	# Get sample info
 	gpr <- single_manifest_function(sample, datCollate) %>% pull(GPR)
-	
+
 	# Prepare feature data
-	feature_df <- protein_data %>% 
-		dplyr::select(Protein, data) %>% 
+	feature_df <- protein_data %>%
+		dplyr::select(Protein, data) %>%
 		distinct()
-	
+
 	# Get raw data for this sample
-	df <- raw_data %>% 
-		filter(Sample == sample) %>% 
-		left_join(feature_df, by = "Protein") %>% 
+	df <- raw_data %>%
+		filter(Sample == sample) %>%
+		left_join(feature_df, by = "Protein") %>%
 		filter(data %in% data_type)
-	
+
 	# Get scale limits
 	scale_limits <- get_pseudo_array_scale(sample, datCollate,
 																				 scale, scale_mode, custom_min, custom_max)
-	
+
 	# Determine spot color based on wavelength
 	spot_col <- if(wavelength == '532') 'green' else 'red'
-	
+
 	# Create plot based on scale type
 	if(scale == 'RFU'){
-		p <- ggplot(df, aes(x = X, y = Y, col = BG, group = spot, label = Block)) + 
-			geom_point(size = 1, shape = 22) + 
+		p <- ggplot(df, aes(x = X, y = Y, col = BG, group = spot, label = Block)) +
+			geom_point(size = 1, shape = 22) +
 			ggtitle('Background') +
 			scale_colour_gradient(
-				low = 'black', 
+				low = 'black',
 				high = spot_col,
 				limits = c(scale_limits$min, scale_limits$max),
 				oob = scales::squish,
@@ -874,33 +1045,33 @@ dat_GPR_BG_single_function <- function(sample, datCollate,
 			)
 	} else {
 		df <- df %>% filter(BG > 0)  # Remove zeros for log transform
-		
-		p <- ggplot(df, aes(x = X, y = Y, col = log2(BG), group = spot, label = Block)) + 
-			geom_point(size = 1.2, shape = 5) + 
+
+		p <- ggplot(df, aes(x = X, y = Y, col = log2(BG), group = spot, label = Block)) +
+			geom_point(size = 1.2, shape = 5) +
 			ggtitle('Background (Log2)') +
 			scale_colour_gradient(
-				low = 'black', 
+				low = 'black',
 				high = spot_col,
 				limits = c(scale_limits$min, scale_limits$max),
 				oob = scales::squish,
 				name = "Log2(BG)"
 			)
 	}
-	
+
 	# Apply theme
 	p <- p + theme(
-		plot.background = element_rect(fill = "black"), 
+		plot.background = element_rect(fill = "black"),
 		panel.background = element_rect(fill = 'black'),
-		panel.grid.major = element_line(colour = "black"), 
+		panel.grid.major = element_line(colour = "black"),
 		panel.grid.minor = element_line(colour = "black"),
 		axis.ticks.x = element_blank(),
 		axis.text.x = element_blank(),
 		axis.ticks.y = element_blank(),
 		axis.text.y = element_blank(),
 		plot.margin = unit(c(0, 0, 0, 0), "cm")
-	) + 
+	) +
 		scale_y_reverse()
-	
+
 	return(p)
 }
 
@@ -914,7 +1085,7 @@ dat_GPR_BG_single_function <- function(sample, datCollate,
 #' @param sample Character string specifying the sample name
 #' @param datCollate List object containing experiment data with structure:
 #'   - `manifest`: Data frame with sample information
-#'   - `data$RawData`: Data frame with raw GPR data (columns: Sample, X, Y, NetI, 
+#'   - `data$RawData`: Data frame with raw GPR data (columns: Sample, X, Y, NetI,
 #'     Block, Row, Column, spot, Flags, Dia., Protein)
 #'   - `data$Data`: Data frame with protein annotations and flags (columns:
 #'     Sample, Protein, data, flag, num_test)
@@ -955,7 +1126,7 @@ dat_GPR_BG_single_function <- function(sample, datCollate,
 #' - Square (15): Low signal-to-noise (Flags = -75)
 #' - Asterisk (8): Not found (Flags = -100)
 #' - X (4): Other flags
-#' 
+#'
 #' Spot category colors (outline):
 #' - Gray: Pass
 #' - Blue: Outliers
@@ -963,7 +1134,7 @@ dat_GPR_BG_single_function <- function(sample, datCollate,
 #' - Black: Features
 #' - Wavelength color: Controls
 #' - White: Selected spots
-#' 
+#'
 #' The function automatically:
 #' - Scales point size by spot diameter (Dia. column) if available
 #' - Merges protein-level and spot-level flags
@@ -974,18 +1145,18 @@ dat_GPR_BG_single_function <- function(sample, datCollate,
 #' \dontrun{
 #' # Basic NetI plot with auto-scaling
 #' p <- dat_GPR_NetI_single_function("Sample1", datCollate)
-#' 
+#'
 #' # NetI plot with log2 scale, no flag shapes
 #' p <- dat_GPR_NetI_single_function("Sample1", datCollate,
-#'                                    scale = "Log2", 
+#'                                    scale = "Log2",
 #'                                    show_flags = FALSE)
-#' 
+#'
 #' # NetI plot with custom scale matching TIFF images
 #' p <- dat_GPR_NetI_single_function("Sample1", datCollate,
 #'                                    use_custom_scale = TRUE,
-#'                                    custom_min = 0, 
+#'                                    custom_min = 0,
 #'                                    custom_max = 65535)
-#' 
+#'
 #' # Feature-only NetI plot with flagged proteins
 #' p <- dat_GPR_NetI_single_function("Sample1", datCollate,
 #'                                    selected_data_type = "feature",
@@ -999,34 +1170,34 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 																				 wavelength = wavelength,
 																				 flagged_proteins = NULL,
 																				 selected_proteins = NULL,
-																				 selected_data_type = 'all', 
-																				 scale = 'RFU', 
+																				 selected_data_type = 'all',
+																				 scale = 'RFU',
 																				 point_size = 0.75,
 																				 scale_mode = "auto_per_plot",
 																				 custom_min = NULL,
 																				 custom_max = NULL,
 																				 show_flags = TRUE) {
-	
+
 	# Set data type filters
 	if (selected_data_type == 'all') {
 		data_type = c('feature', 'ctrl', 'failed', 'flagged', 'selected')
 	} else if (selected_data_type == 'feature') {
 		data_type = c('feature', 'failed', 'flagged', 'selected')
 	}
-	
+
 	# Extract data from datCollate
 	raw_data <- datCollate$data$RawData
 	protein_data <- datCollate$data$Data
 	#wavelength <- datCollate$param$Wavelength
-	
+
 	# Get sample info
 	gpr <- single_manifest_function(sample, datCollate) %>% pull(GPR)
-	
+
 	# Prepare feature data with flagged and selected proteins
 	feature_df <- protein_data %>%
 		dplyr::select(Protein, data) %>%
 		distinct()
-	
+
 	# Apply flagged proteins if provided
 	if (!is.null(flagged_proteins)) {
 		feature_df <- feature_df %>%
@@ -1034,19 +1205,19 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 													 ifelse(data != 'failed', 'flagged', data),
 													 data))
 	}
-	
+
 	# Apply selected proteins if provided
 	if (!is.null(selected_proteins)) {
 		feature_df <- feature_df %>%
 			mutate(data = ifelse(Protein %in% selected_proteins, 'selected', data))
 	}
-	
+
 	# Get protein-level flags
 	Data_flag <- protein_data %>%
 		dplyr::select(Sample, Protein, flag, num_test) %>%
 		filter(is.na(num_test)) %>%
 		rename(Protein_flag = flag)
-	
+
 	# Merge data
 	df <- raw_data %>%
 		filter(Sample == sample) %>%
@@ -1055,13 +1226,13 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 		filter(data %in% data_type) %>%
 		mutate(position = paste(Block, Row, Column)) %>%
 		mutate(flag = ifelse(is.na(Protein_flag), flag, Protein_flag))
-	
+
 	df$flag[is.na(df$flag)] = 'pass'
-	
+
 	# Get scale limits
 	scale_limits <- get_pseudo_array_scale(sample, datCollate,
 																				 scale, scale_mode, custom_min, custom_max)
-	
+
 	# Scale spot size by Dia.
 	default_point_size <- 220
 	if ('Dia.' %in% colnames(df)) {
@@ -1070,7 +1241,7 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 	} else {
 		df$point_scale <- point_size
 	}
-	
+
 	# Map flags to shapes
 	df$point_shape <- factor(case_when(
 		df$Flags == 0     ~ "Good (0)",
@@ -1080,7 +1251,7 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 		df$Flags == -100  ~ "Not Found (-100)",
 		TRUE              ~ "Other"
 	))
-	
+
 	# Set wavelength-dependent colors
 	if(wavelength == '532'){
 		spot_col <- 'green'
@@ -1091,10 +1262,10 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 		alt_col <- 'green'
 		flagged_col <- 'blue'
 	}
-	
+
 	# Start plot
 	p <- ggplot(data = df)
-	
+
 	# Add shape scale if showing flags
 	if(show_flags) {
 		p <- p + scale_shape_manual(
@@ -1109,23 +1280,23 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 			)
 		)
 	}
-	
+
 	# Non-feature spots as squares
-	p <- p + 
-		geom_point(data = df %>% filter(data != 'feature'), 
+	p <- p +
+		geom_point(data = df %>% filter(data != 'feature'),
 							 aes(x = X, y = Y, group = spot, label = position, col = data, size = point_scale),
-							 shape = 0) + 
+							 shape = 0) +
 		scale_size_identity()
-	
+
 	# Main feature spots with fill
 	if(scale == 'RFU'){
 		if(show_flags){
 			p <- p +
-				geom_point(data = df, 
+				geom_point(data = df,
 									 aes(x = X, y = Y, fill = NetI, group = spot, label = position, col = flag,
 									 		size = point_scale, shape = factor(point_shape))) +
 				scale_fill_gradient(
-					low = 'black', 
+					low = 'black',
 					high = spot_col,
 					limits = c(scale_limits$min, scale_limits$max),
 					oob = scales::squish,
@@ -1133,12 +1304,12 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 				)
 		} else {
 			p <- p +
-				geom_point(data = df, 
+				geom_point(data = df,
 									 aes(x = X, y = Y, fill = NetI, group = spot, label = position, col = flag,
-									 		size = point_scale), 
+									 		size = point_scale),
 									 shape = 16) +
 				scale_fill_gradient(
-					low = 'black', 
+					low = 'black',
 					high = spot_col,
 					limits = c(scale_limits$min, scale_limits$max),
 					oob = scales::squish,
@@ -1148,14 +1319,14 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 	} else {
 		# Log2 scale - filter out zeros/negatives
 		df <- df %>% filter(NetI > 0)
-		
+
 		if(show_flags){
 			p <- p +
-				geom_point(data = df, 
+				geom_point(data = df,
 									 aes(x = X, y = Y, fill = log2(NetI), group = spot, label = position, col = flag,
 									 		size = point_scale, shape = factor(point_shape))) +
 				scale_fill_gradient(
-					low = 'black', 
+					low = 'black',
 					high = spot_col,
 					limits = c(scale_limits$min, scale_limits$max),
 					oob = scales::squish,
@@ -1163,12 +1334,12 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 				)
 		} else {
 			p <- p +
-				geom_point(data = df, 
+				geom_point(data = df,
 									 aes(x = X, y = Y, fill = log2(NetI), group = spot, label = position, col = flag,
-									 		size = point_scale), 
+									 		size = point_scale),
 									 shape = 16) +
 				scale_fill_gradient(
-					low = 'black', 
+					low = 'black',
 					high = spot_col,
 					limits = c(scale_limits$min, scale_limits$max),
 					oob = scales::squish,
@@ -1176,21 +1347,21 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 				)
 		}
 	}
-	
+
 	# Apply theme
 	p <- p + theme(
-		plot.background = element_rect(fill = "black"), 
+		plot.background = element_rect(fill = "black"),
 		panel.background = element_rect(fill = 'black'),
-		panel.grid.major = element_line(colour = "black"), 
+		panel.grid.major = element_line(colour = "black"),
 		panel.grid.minor = element_line(colour = "black"),
 		axis.ticks.x = element_blank(),
 		axis.text.x = element_blank(),
 		axis.ticks.y = element_blank(),
 		axis.text.y = element_blank(),
 		plot.margin = unit(c(0, 0, 0, 0), "cm")
-	) + 
+	) +
 		scale_y_reverse()
-	
+
 	# Color scale for spot category annotations
 	p <- p + scale_color_manual(
 		breaks = c("pass", "Outlier 1", "Outlier 2", "Spot Filtered", "Negative",
@@ -1202,6 +1373,6 @@ dat_GPR_NetI_single_function <- function(sample, datCollate,
 			paste0(alt_col, 3), paste0(alt_col, 4), "orange3"
 		)
 	)
-	
+
 	return(p)
 }

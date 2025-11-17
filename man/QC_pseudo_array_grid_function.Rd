@@ -79,8 +79,8 @@ to ensure comparable color intensity across the trio.
 \examples{
 \dontrun{
 # Generate QC pseudo array grid
-plots <- QC_pseudo_array_grid_function("Sample1", datCollate, 
-                                        data_type = c('all'), 
+plots <- QC_pseudo_array_grid_function("Sample1", datCollate,
+                                        data_type = c('all'),
                                         scale = "RFU")
 
 # Display in grid using cowplot or patchwork

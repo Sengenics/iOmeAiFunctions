@@ -78,7 +78,7 @@ p <- dat_GPR_FG_single_function("Sample1", datCollate, scale = "Log2")
 p <- dat_GPR_FG_single_function("Sample1", datCollate,
                                  scale = "RFU",
                                  use_custom_scale = TRUE,
-                                 custom_min = 0, 
+                                 custom_min = 0,
                                  custom_max = 65535)
 }
 

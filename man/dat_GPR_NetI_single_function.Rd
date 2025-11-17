@@ -114,13 +114,13 @@ p <- dat_GPR_NetI_single_function("Sample1", datCollate)
 
 # NetI plot with log2 scale, no flag shapes
 p <- dat_GPR_NetI_single_function("Sample1", datCollate,
-                                   scale = "Log2", 
+                                   scale = "Log2",
                                    show_flags = FALSE)
 
 # NetI plot with custom scale matching TIFF images
 p <- dat_GPR_NetI_single_function("Sample1", datCollate,
                                    use_custom_scale = TRUE,
-                                   custom_min = 0, 
+                                   custom_min = 0,
                                    custom_max = 65535)
 
 # Feature-only NetI plot with flagged proteins

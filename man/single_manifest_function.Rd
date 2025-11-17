@@ -53,7 +53,7 @@ relevant columns. It automatically detects:
 sample_info <- single_manifest_function("Sample1", datCollate)
 
 # Include a specific remark column
-sample_info <- single_manifest_function("Sample1", datCollate, 
+sample_info <- single_manifest_function("Sample1", datCollate,
                                          remark_col = "QC_Remark")
 }
 
