@@ -78,7 +78,7 @@ Imports:
     writexl
 Type: Package
 Title: Functions for i-Ome AI Platform
-Version: 0.1.0
+Version: 0.1.2
 Encoding: UTF-8
 Authors@R: person("Shaun", "Garnett", email = "shaun.garnett@example.com", role = c("aut", "cre"))
 Description: Internal functions and dependencies for the i-Ome AI Shiny app.
@@ -87,3 +87,4 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends: 
 LazyData: true
+Date: 2025-11-17
