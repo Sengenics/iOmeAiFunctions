@@ -35,6 +35,9 @@ usethis::use_data(PSA_ROs_pkg, overwrite = TRUE)
 # Save it as internal data (won’t be exported to users)
 usethis::use_data(PSA_ROs_pkg, internal = TRUE, overwrite = TRUE)
 
+# Source and prepare ExpSet example data
+source("data-raw/ExpSet_data.R")
+
 # --- Install & sync dependencies ---
 source("tools/install_dependencies.R")
 
