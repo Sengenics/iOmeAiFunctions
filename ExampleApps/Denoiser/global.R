@@ -6,7 +6,7 @@
 
 
 run_debug <- !is.na(Sys.getenv("RSTUDIO", unset = NA))
-run_debug = F
+#run_debug = F
 print(run_debug)
 
 # Package Management #####
@@ -15,6 +15,7 @@ print(run_debug)
 if (run_debug) {
   ### Local Development ###
   local_path <- "../iOmeAiFunctions/"
+  file.exists(local_path)
   message("→ Using LOCAL iOmeAiFunctions at ", local_path)
 
   if (requireNamespace("devtools", quietly = TRUE)) {
@@ -34,10 +35,10 @@ if (run_debug) {
     #detach("package:iOmeAiFunctions", unload = TRUE, force = TRUE)
     renv::remove("iOmeAiFunctions")
     renv::purge("iOmeAiFunctions")
-    iOmeAiFunction_verion = ' v0.1.3'
+    iOmeAiFunction_version = 'v0.1.3'
     #iOmeAiFunction_verion = 'dev_minimal'
     remotes::install_github(
-      paste0("Sengenics/iOmeAiFunctions@",iOmeAiFunction_verion),
+      paste0("Sengenics/iOmeAiFunctions@",iOmeAiFunction_version),
       upgrade = "never",
       force = TRUE
     )

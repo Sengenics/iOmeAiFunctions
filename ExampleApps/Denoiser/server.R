@@ -161,6 +161,37 @@ server <- function(input, output, session) {
 	# ===================================================================
 	
 	# Load ExpSet_list
+	# ExpSet_list <- reactive({
+	# 	# Priority 1: Use uploaded data if available
+	# 	if (!is.null(uploaded_expset())) {
+	# 		message("✓ Using uploaded ExpSet data")
+	# 		return(uploaded_expset())
+	# 	}
+	# 	
+	# 	# Priority 2: Try to load from default locations
+	# 	possible_paths <- c(
+	# 		"ExampleData/ExpSet_list.rds",
+	# 		"../ExampleData/ExpSet_list.rds",
+	# 		"../../ExampleData/ExpSet_list.rds",
+	# 		"../../../ExampleData/ExpSet_list.rds",
+	# 		system.file("extdata", "ExpSet_list.rds", package = "iOmeAiFunctions")
+	# 	)
+	# 	
+	# 	for (path in possible_paths) {
+	# 		if (file.exists(path)) {
+	# 			message("✓ Loading ExpSet_list from: ", path)
+	# 			return(readRDS(path))
+	# 		}
+	# 	}
+	# 	
+	# 	showNotification(
+	# 		"ℹ️ No default ExpSet_list.rds found. Please upload an ExpSet.rds file above.",
+	# 		type = "warning",
+	# 		duration = 8
+	# 	)
+	# 	return(NULL)
+	# })
+	
 	ExpSet_list <- reactive({
 		# Priority 1: Use uploaded data if available
 		if (!is.null(uploaded_expset())) {
@@ -168,24 +199,20 @@ server <- function(input, output, session) {
 			return(uploaded_expset())
 		}
 		
-		# Priority 2: Try to load from default locations
-		possible_paths <- c(
-			"ExampleData/ExpSet_list.rds",
-			"../ExampleData/ExpSet_list.rds",
-			"../../ExampleData/ExpSet_list.rds",
-			"../../../ExampleData/ExpSet_list.rds",
-			system.file("extdata", "ExpSet_list.rds", package = "iOmeAiFunctions")
-		)
-		
-		for (path in possible_paths) {
-			if (file.exists(path)) {
-				message("✓ Loading ExpSet_list from: ", path)
-				return(readRDS(path))
+		# Priority 2: Load from package data
+		tryCatch({
+			data(ExpSet, package = "iOmeAiFunctions", envir = environment())
+			if (exists("ExpSet", inherits = FALSE)) {
+				message("✓ Using ExpSet from iOmeAiFunctions package")
+				return(ExpSet)
 			}
-		}
+		}, error = function(e) {
+			message("ℹ️ ExpSet not found in package: ", e$message)
+		})
 		
+		# No data available
 		showNotification(
-			"ℹ️ No default ExpSet_list.rds found. Please upload an ExpSet.rds file above.",
+			"ℹ️ No ExpSet data available. Please upload an ExpSet.rds file above.",
 			type = "warning",
 			duration = 8
 		)
