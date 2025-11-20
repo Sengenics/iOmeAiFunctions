@@ -56,6 +56,7 @@ if (run_debug) {
 }
 
 library(iOmeAiFunctions)
+exists("mod_pn_limma_ui")
 
 # Development mode: reload package functions
 # if (interactive()) {

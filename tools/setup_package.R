@@ -21,7 +21,7 @@ if (!file.exists("renv.lock")) {
 } else {
 	renv::restore()
 }
-
+#usethis::create_package(".")
 usethis::use_mit_license("Shaun Garnett")
 usethis::use_readme_rmd()
 usethis::use_build_ignore("tools/")

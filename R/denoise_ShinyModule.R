@@ -654,10 +654,41 @@ mod_denoiser_ui <- function(id) {
 mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
 	moduleServer(id, function(input, output, session) {
 		
+		
+		
 		ns <- session$ns
 		
 		observeEvent(input$denoise_mod_debug, {
 			browser()
+		})
+		
+		# Auto-populate expected PN AAbs from limma results
+		observe({
+			req(pn_limma_results())
+			
+			limma_res <- pn_limma_results()
+			
+			if (!is.null(limma_res$exp_PN_AAbs)) {
+				# Update expected AAbs range input
+				updateTextInput(
+					session,
+					"expected_pn_count",
+					value = paste(limma_res$exp_PN_AAbs, collapse = ",")
+				)
+				
+				# Update expected AAbs list
+				updateTextAreaInput(
+					session,
+					"expected_pn_aabs",
+					value = paste(limma_res$PN_AAbs, collapse = "\n")
+				)
+				
+				showNotification(
+					"✅ Expected PN AAbs auto-populated from limma analysis!",
+					type = "message",
+					duration = 5
+				)
+			}
 		})
 		
 		# Reactive values ####

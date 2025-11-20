@@ -42,7 +42,3 @@ modeling and report PSA-associated antigens in the final results table
 }
 }
 
-\author{
-\strong{Maintainer}: Shaun Garnett \email{shaun.garnett@example.com}
-
-}

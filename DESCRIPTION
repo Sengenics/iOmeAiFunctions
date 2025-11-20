@@ -76,13 +76,12 @@ Imports:
     vegan,
     viridis,
     writexl
-Type: Package
-Title: Functions for i-Ome AI Platform
-Version: 0.1.0
-Encoding: UTF-8
-Authors@R: person("Shaun", "Garnett", email = "shaun.garnett@example.com", role = c("aut", "cre"))
-Description: Internal functions and dependencies for the i-Ome AI Shiny app.
+Title: What the Package Does (One Line, Title Case)
+Version: 0.0.0.9000
+Authors@R: 
+Description: What the package does (one paragraph).
 License: MIT + file LICENSE
+Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends: 

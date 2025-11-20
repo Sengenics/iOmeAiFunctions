@@ -601,4 +601,24 @@ server <- function(input, output, session) {
 		eset_raw = eset_raw,
 		denoiser_results = denoiser_results  # <-- Pass the denoiser results here
 	)
+	
+	## PN LIMMA ####
+	
+	# Call PN limma module
+	pn_limma_results <- mod_pn_limma_server(
+		"pn_limma",
+		eset_raw = eset_raw,
+		eset_norm = eset_norm
+	)
+	
+	# Pass results to denoiser module
+	denoiser_results <- mod_denoiser_server(
+		"denoiser",
+		ExpSet_list = ExpSet_list,
+		eset_raw = eset_raw,
+		eset_norm = eset_norm,
+		#pn_limma_results = pn_limma_results  # <-- Add this
+	)
+	
+	
 }

@@ -13,7 +13,9 @@ ui <- dashboardPage(
 		sidebarMenu(
 			id = "sidebar",
 			menuItem("Data Selection", tabName = "data_select", icon = icon("database")),
+			menuItem("PN Limma Analysis", tabName = "pn_limma", icon = icon("chart-bar")),
 			menuItem("Denoiser", tabName = "denoise", icon = icon("filter")),
+			
 			#menuItem("PC Visualizer", tabName = "pc_viz", icon = icon("eye")),
 			menuItem("Help", tabName = "help", icon = icon("question-circle")),
 			actionButton('debug','Debug')
@@ -244,6 +246,116 @@ ui <- dashboardPage(
 				)
 			),
 			
+			tabItem(
+				tabName = "pn_limma",
+				
+				fluidRow(
+					box(
+						title = "Pooled Normal AAb Estimation",
+						width = 12,
+						status = "primary",
+						solidHeader = TRUE,
+						
+						p("Estimate the expected number of autoantibodies (AAbs) in Pooled Normal samples using limma differential expression analysis."),
+						
+						fluidRow(
+							column(
+								width = 4,
+								selectInput(
+									"limma_method",
+									"Analysis Method",
+									choices = c(
+										"Standard (PN vs Clinical)" = "standard",
+										"PSA Covariate (PN vs Clinical with PSA)" = "psa_cov"
+									),
+									selected = "psa_cov"
+								)
+							),
+							column(
+								width = 4,
+								numericInput(
+									"limma_fc_cutoff",
+									"Fold Change Cutoff",
+									value = 1.75,
+									min = 1.0,
+									max = 3.0,
+									step = 0.25
+								)
+							),
+							column(
+								width = 4,
+								br(),
+								actionButton(
+									"run_limma",
+									"Run Limma Analysis",
+									icon = icon("play"),
+									class = "btn-primary btn-lg",
+									style = "margin-top: 5px;"
+								)
+							)
+						),
+						
+						hr(),
+						
+						conditionalPanel(
+							condition = "output.limma_complete",
+							
+							h4("Expected PN AAbs"),
+							verbatimTextOutput("limma_summary"),
+							
+							hr(),
+							
+							fluidRow(
+								column(
+									width = 6,
+									h4("Top Differential Antigens"),
+									DT::dataTableOutput("limma_top_table")
+								),
+								column(
+									width = 6,
+									h4("Volcano Plot"),
+									plotOutput("limma_volcano", height = "400px")
+								)
+							),
+							
+							hr(),
+							
+							downloadButton("download_limma", "Download Full Results", class = "btn-success")
+						)
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "Help: PN Limma Analysis",
+						width = 12,
+						status = "info",
+						solidHeader = TRUE,
+						collapsible = TRUE,
+						collapsed = TRUE,
+						
+						h4("What is this analysis?"),
+						p("This step estimates how many autoantibodies we expect to find in Pooled Normal (PN) samples. This is critical for optimizing the denoising parameters."),
+						
+						h4("Two Methods:"),
+						tags$ul(
+							tags$li(strong("Standard:"), "Compares PN samples to clinical samples using a simple contrast: PN vs (Clinical groups)."),
+							tags$li(strong("PSA Covariate:"), "Same comparison but includes PSA score as a continuous covariate to account for PSA contamination.")
+						),
+						
+						h4("Output:"),
+						tags$ul(
+							tags$li(strong("Expected PN AAb Count:"), "The range of AAbs expected (e.g., 6-12), calculated based on the FC cutoff."),
+							tags$li(strong("Specific PN AAbs:"), "The list of antigens that pass the FC threshold (e.g., PSIP1, MAPK9, MX1)."),
+							tags$li("These values are used by the", strong("Denoiser tab"), "to optimize cutpoint selection.")
+						),
+						
+						h4("Usage:"),
+						p("Run this analysis", strong("before"), "running the denoiser. The results will automatically populate the", strong("Expected PN AAbs"), "field in the Denoiser tab.")
+					)
+				)
+			),
+			
 			### Denoiser tab ####
 			tabItem(
 				tabName = "denoise",
@@ -268,6 +380,14 @@ ui <- dashboardPage(
 						solidHeader = TRUE,
 						
 						h3("Quick Start Guide"),
+						
+						h4("Recommended Workflow"),
+						tags$ol(
+							tags$li(strong("Data Selection:"), "Upload or select your ExpressionSet data"),
+							tags$li(strong("PN Limma Analysis:"), "Run limma analysis to estimate expected PN AAbs"),
+							tags$li(strong("Denoiser:"), "Configure parameters (auto-populated from limma) and run denoising"),
+							tags$li(strong("Results:"), "Explore visualizations and export results")
+						),
 						
 						h4("1. Import Data (Optional)"),
 						p("You can either:"),
