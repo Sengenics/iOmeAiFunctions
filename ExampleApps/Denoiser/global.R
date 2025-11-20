@@ -58,6 +58,8 @@ if (run_debug) {
 library(iOmeAiFunctions)
 exists("mod_pn_limma_ui")
 
+source('../../R/denoise_ShinyModule.R')
+
 # Development mode: reload package functions
 # if (interactive()) {
 # 	local_path <- "../"

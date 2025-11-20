@@ -16,10 +16,14 @@ options(
 if (!requireNamespace("usethis", quietly = TRUE)) install.packages("usethis")
 if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
 
-if (!file.exists("renv.lock")) {
-	renv::init(bare = TRUE)
-} else {
-	renv::restore()
+# if (!file.exists("renv.lock")) {
+# 	renv::init(bare = TRUE)
+# } else {
+# 	renv::restore()
+# }
+
+if (file.exists("renv/activate.R")) {
+	source("renv/activate.R")
 }
 #usethis::create_package(".")
 usethis::use_mit_license("Shaun Garnett")
@@ -63,7 +67,8 @@ devtools::document()
 devtools::install(upgrade = "never")
 #remotes::install_local(upgrade = "never")
 
-renv::snapshot()
+#renv::snapshot()
+renv::snapshot(prompt = FALSE, force = TRUE)
 
 # --- Manage package conflicts ---
 if (!requireNamespace("conflicted", quietly = TRUE)) install.packages("conflicted")
