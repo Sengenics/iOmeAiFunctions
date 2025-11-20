@@ -14,7 +14,7 @@ print(run_debug)
 ## iOmeAiFunctions ####
 if (run_debug) {
   ### Local Development ###
-  local_path <- "../iOmeAiFunctions/"
+  local_path <- "../../../iOmeAiFunctions/"
   file.exists(local_path)
   message("→ Using LOCAL iOmeAiFunctions at ", local_path)
 
