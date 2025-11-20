@@ -610,14 +610,14 @@ server <- function(input, output, session) {
 		eset_raw = eset_raw,
 		eset_norm = eset_norm
 	)
-	
+	# 
 	# Pass results to denoiser module
 	denoiser_results <- mod_denoiser_server(
 		"denoiser",
 		ExpSet_list = ExpSet_list,
 		eset_raw = eset_raw,
 		eset_norm = eset_norm,
-		#pn_limma_results = pn_limma_results  # <-- Add this
+		pn_limma_results = pn_limma_results  # <-- Add this
 	)
 	
 	

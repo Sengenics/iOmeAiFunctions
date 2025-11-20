@@ -651,7 +651,7 @@ mod_denoiser_ui <- function(id) {
 #' @param eset_norm Reactive; ExpressionSet with normalized data (optional)
 #'
 #' @export
-mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL) {
+mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_limma_results = NULL) {
 	moduleServer(id, function(input, output, session) {
 		
 		

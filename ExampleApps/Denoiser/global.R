@@ -49,6 +49,7 @@ if (run_debug) {
     #renv::restore()
     renv::snapshot()
     rsconnect::writeManifest()
+    
 
   } else {
     message("→ Using installed iOmeAiFunctions package")
@@ -59,6 +60,7 @@ library(iOmeAiFunctions)
 exists("mod_pn_limma_ui")
 
 source('../../R/denoise_ShinyModule.R')
+source('../../R/mod_pn_limma.R')
 
 # Development mode: reload package functions
 # if (interactive()) {

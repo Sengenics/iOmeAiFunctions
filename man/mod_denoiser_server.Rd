@@ -4,7 +4,13 @@
 \alias{mod_denoiser_server}
 \title{Denoiser Module Server}
 \usage{
-mod_denoiser_server(id, ExpSet_list, eset_raw, eset_norm = NULL)
+mod_denoiser_server(
+  id,
+  ExpSet_list,
+  eset_raw,
+  eset_norm = NULL,
+  pn_limma_results = NULL
+)
 }
 \arguments{
 \item{id}{Character; module namespace ID}
