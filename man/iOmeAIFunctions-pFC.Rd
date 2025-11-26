@@ -21,8 +21,8 @@ baseline value calculated in step 1
 \item For each group being compared calculate per-antigen frequencies (penetrance
 frequency) of samples that exceed an FC threshold relative to the per-antigen
 baseline value calculated in step 1
-\item For samples that exceed the pFC threshold defined in step 3, calculate â on a
-per-antigen basis â the mean log2 intensity and the mean FC for each group of
+\item For samples that exceed the pFC threshold defined in step 3, calculate – on a
+per-antigen basis – the mean log2 intensity and the mean FC for each group of
 interest (include in the final results table)
 \item Using the frequencies calculated in step 3, perform Fisher's exact testing on a
 per-antigen basis, comparing groups of interest
