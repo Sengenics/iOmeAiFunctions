@@ -19,22 +19,22 @@ heatmap_module_server(
 
 \item{data_list}{A reactive expression returning a list with elements: \code{m}, \code{meta}, \code{anno_col}, and \code{rows}.}
 
-\item{show_rownames}{Logical. Whether to show row names in the detailed heatmap.}
+\item{show_rownames}{Logical.  Whether to show row names in the detailed heatmap.}
 
 \item{show_colnames}{Logical. Whether to show column names in the detailed heatmap.}
 
 \item{clustering_distance_cols}{A string specifying the distance metric for column clustering.}
 
-\item{input_values}{A reactive expression for user-selected UI state (e.g. heatmap view toggle).}
+\item{input_values}{A reactive expression for user-selected UI state (e.g.  heatmap view toggle).}
 }
 \value{
-No return value. Side effect: renders heatmap via \code{renderPlot()}.
+No return value.  Side effect: renders heatmap via \code{renderPlot()}.
 }
 \description{
 This server module generates interactive heatmaps with metadata annotations.
 It supports zoomed and detailed views and allows customization of clustering and label display.
 }
 \note{
-Version 1.0 from
+Version 1. 0 from
 heatmap_functions.R
 }

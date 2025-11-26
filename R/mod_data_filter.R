@@ -13,11 +13,22 @@
 #' Version 1.0 - Created for heatmap module
 #' Supports cascading AND logic filters
 #' @export
-mod_data_filter_ui <- function(id, label = "Data Filter") {
+mod_data_filter_ui <- function(id, label = "Data Filter",debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
 		h4(label),
+		
+		if (debug) {
+			actionButton(
+				ns("debug_filter"),
+				"🔍 Debug Filter",
+				icon = icon("bug"),
+				class = "btn-warning btn-sm",
+				style = "margin-bottom: 10px;"
+			)
+		},
+		
 		uiOutput(ns("filter_ui")),
 		
 		fluidRow(
@@ -84,9 +95,28 @@ mod_data_filter_ui <- function(id, label = "Data Filter") {
 #' Version 1.0 - Created for heatmap module
 #' Filters use cascading AND logic
 #' @export
-mod_data_filter_server <- function(id, eset, data_type = "pData") {
+mod_data_filter_server <- function(id, eset, data_type = "pData",debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
+		
+		observeEvent(input$debug_filter, {
+			message("\n╔═══════════════════════════════════════════════════════════╗")
+			message("║          🔍 DEBUG MODE - Data Filter Module              ║")
+			message("╚═══════════════════════════════════════════════════════════╝")
+			message("\n📍 Filter Info:")
+			message("   Data Type: ", data_type)
+			message("   Active Filters: ", length(filter_levels()))
+			message("   Filtered Count: ", length(filtered_indices()))
+			message("   Total Count: ", n_total())
+			message("\n💡 Useful commands:")
+			message("   filter_levels()")
+			message("   filtered_indices()")
+			message("   data_df()")
+			message("   eset()")
+			message("═══════════════════════════════════════════════════════════\n")
+			
+			browser()
+		})
 		
 		# Reactive values to track filter levels
 		filter_levels <- reactiveVal(list())

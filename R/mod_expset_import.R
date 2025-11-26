@@ -12,8 +12,23 @@
 #' Version 1.0 - Created for modular ExpSet import
 #' Original pattern from Denoiser app server.R
 #' @export
-mod_expset_import_ui <- function(id) {
+mod_expset_import_ui <- function(id, debug = FALSE) {
 	ns <- NS(id)
+	
+	if (debug) {
+		fluidRow(
+			column(
+				width = 12,
+				actionButton(
+					ns("debug_import"),
+					"🔍 Debug Import Module",
+					icon = icon("bug"),
+					class = "btn-warning btn-sm",
+					style = "margin-bottom: 10px;"
+				)
+			)
+		)
+	}
 	
 	tagList(
 		fluidRow(
@@ -92,9 +107,40 @@ mod_expset_import_ui <- function(id) {
 #' Version 1.0 - Created for modular ExpSet import
 #' Original pattern from Denoiser app server.R
 #' @export
-mod_expset_import_server <- function(id) {
+mod_expset_import_server <- function(id, debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
+		
+		# Debug button observer
+		observeEvent(input$debug_import, {
+			message("\n╔═══════════════════════════════════════════════════════════╗")
+			message("║          🔍 DEBUG MODE - ExpSet Import Module            ║")
+			message("╚═══════════════════════════════════════════════════════════╝")
+			message("\n📍 Available objects:")
+			message("   ✓ uploaded_expset()      : Uploaded data")
+			message("   ✓ upload_status()        : Status message")
+			message("   ✓ upload_success()       : Success flag")
+			message("   ✓ data_source()          : Data source")
+			message("   ✓ input$expset_file      : File input")
+			message("\n💡 Useful commands:")
+			message("   uploaded_expset()")
+			message("   upload_status()")
+			message("   data_source()")
+			message("   names(uploaded_expset())")
+			message("   sapply(uploaded_expset(), class)")
+			message("\n   # Check validation")
+			message("   lapply(uploaded_expset(), function(e) {")
+			message("     list(")
+			message("       has_pdata = ! is.null(Biobase::pData(e)),")
+			message("       has_exprs = !is.null(Biobase::exprs(e)),")
+			message("       n_samples = ncol(e),")
+			message("       n_features = nrow(e)")
+			message("     )")
+			message("   })")
+			message("═══════════════════════════════════════════════════════════\n")
+			
+			browser()
+		})
 		
 		# Reactive values to store state
 		uploaded_expset <- reactiveVal(NULL)
@@ -140,19 +186,54 @@ mod_expset_import_server <- function(id) {
 					error_msg <- paste("Invalid data type:", class(expset_data)[1])
 				}
 				
+				# if (is_valid) {
+				# 	# Additional validation: check that ExpressionSets have required components
+				# 	validation_results <- sapply(expset_data, function(eset) {
+				# 		has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
+				# 		has_pdata
+				# 	})
+				# 	
+				# 	validation_results_exprs <- sapply(expset_data, function(eset) {
+				# 		has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
+				# 		has_exprs
+				# 	})
+				# 	
+				# 	if (all(validation_results) && all(validation_results_exprs)) {
 				if (is_valid) {
 					# Additional validation: check that ExpressionSets have required components
-					validation_results <- sapply(expset_data, function(eset) {
-						has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
-						has_pdata
+					validation_results_pdata <- sapply(expset_data, function(eset) {
+						tryCatch({
+							pd <- Biobase::pData(eset)
+							! is.null(pd) && nrow(pd) > 0
+						}, error = function(e) FALSE)
 					})
+					
+					# validation_results_exprs <- sapply(expset_data, function(eset) {
+					# 	tryCatch({
+					# 		ex <- Biobase::exprs(eset)
+					# 		!is.null(ex) && nrow(ex) > 0 && ncol(ex) > 0
+					# 	}, error = function(e) FALSE)
+					# })
 					
 					validation_results_exprs <- sapply(expset_data, function(eset) {
-						has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
-						has_exprs
+						tryCatch({
+							# Check if ANY assay data exists (not just "exprs")
+							assay_names <- Biobase::assayDataElementNames(eset)
+							
+							if (length(assay_names) == 0) {
+								return(FALSE)
+							}
+							
+							# Check first available assay
+							first_assay <- Biobase::assayDataElement(eset, assay_names[1])
+							! is.null(first_assay) && nrow(first_assay) > 0 && ncol(first_assay) > 0
+						}, error = function(e) {
+							message("Validation error for eset: ", e$message)
+							FALSE
+						})
 					})
 					
-					if (all(validation_results) && all(validation_results_exprs)) {
+					if (all(validation_results_pdata) && all(validation_results_exprs)) {
 						# Store the loaded ExpSet
 						uploaded_expset(expset_data)
 						upload_status(paste("✅ Successfully loaded:", input$expset_file$name))
@@ -239,7 +320,7 @@ mod_expset_import_server <- function(id) {
 		# Main ExpSet_list reactive - tries upload first, then package data
 		ExpSet_list <- reactive({
 			# Priority 1: Use uploaded data if available
-			if (!is. null(uploaded_expset())) {
+			if (!is.null(uploaded_expset())) {
 				message("✓ Using uploaded ExpSet data")
 				return(uploaded_expset())
 			}

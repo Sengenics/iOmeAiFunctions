@@ -9,14 +9,14 @@ Heatmap_data_function(m, meta, s_cols)
 \arguments{
 \item{m}{A numeric matrix (e.g., expression data), with columns as samples.}
 
-\item{meta}{A data frame containing sample metadata. Must include a 'Sample' column.}
+\item{meta}{A data frame containing sample metadata.  Must include a 'Sample' column.}
 
 \item{s_cols}{A vector of column names (character) or indices (numeric) indicating metadata variables for annotation.}
 }
 \value{
 A list with the following elements:
 \describe{
-\item{m}{The reordered matrix with columns matching the metadata samples.}
+\item{m}{The reordered matrix with columns matching the metadata samples. }
 \item{meta}{The selected metadata columns (as factors) used for annotation.}
 \item{anno_col}{A named list of color mappings for the annotation variables.}
 }
