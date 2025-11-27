@@ -78,6 +78,8 @@ library(conflicted)
 conflict_prefer('exprs', 'Biobase')
 conflict_prefer('setdiff', 'base')
 conflict_prefer('filter', 'dplyr')
+#conflict_prefer('shinydashboard','box')
+conflicts_prefer(shinydashboard::box)
 
 message("✔ Package setup complete")
 

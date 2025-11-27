@@ -49,7 +49,20 @@ mod_heatmap_display_enhanced_ui <- function(id, debug = FALSE) {
 			),
 			tabPanel(
 				"Heatmap",
-				uiOutput(ns("heatmap_ui"))
+					tags$style(HTML("
+				    . shiny-spinner-output-container {
+				      position: sticky ! important;
+				      top: 20px !important;
+				      z-index: 1000 !important;
+				    }
+				  ")),
+				uiOutput(ns("zoom_control")), 
+				shinycssloaders::withSpinner(
+					uiOutput(ns("heatmap_ui")),
+					type = 4,
+					color = "darkblue"
+				)
+				#uiOutput(ns("heatmap_ui"))
 			)
 		)
 	)
@@ -149,7 +162,7 @@ mod_heatmap_display_enhanced_server <- function(id,
 				width <- 1000
 				fontsize <- 8
 			}
-			
+			#height = 100
 			# Get assay data
 			# assay <- if (is.reactive(assay_name)) assay_name() else assay_name
 			# m <- Biobase::assayDataElement(ExpSet_use, assay)
@@ -224,15 +237,108 @@ mod_heatmap_display_enhanced_server <- function(id,
 			list(plot = p, height = height, width = width)
 		})
 		
-		# Render heatmap UI
-		output$heatmap_ui <- renderUI({
-			req(heatmap_plot())
-			withSpinner(
-				plotOutput(ns("heatmap_plot"), height = heatmap_plot()$height, width = heatmap_plot()$width),
-				type = 4,
-				color = "darkblue"
+		
+		# Zoom control (separate from heatmap UI)
+		output$zoom_control <- renderUI({
+			div(
+				style = "margin-bottom: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px;",
+				sliderInput(
+					ns("zoom_level"),
+					"Zoom Level:",
+					min = 0,
+					max = 300,
+					value = 100,
+					step = 5,
+					post = "%",
+					width = "1200"
+				)
 			)
 		})
+		
+		# Heatmap UI (references zoom_level but doesn't re-render it)
+		output$heatmap_ui <- renderUI({
+			req(heatmap_plot())
+			
+			zoom <- input$zoom_level
+			if (is.null(zoom)) zoom <- 100
+			
+			div(
+				style = "overflow: auto; max-height: 900px; border: 2px solid #3c8dbc; border-radius: 4px; background: #fff;",
+				div(
+					style = sprintf("transform: scale(%s); transform-origin: top left; width: fit-content;",
+													zoom / 100),
+					plotOutput(ns("heatmap_plot"), 
+										 height = heatmap_plot()$height, 
+										 width = heatmap_plot()$width)
+				)
+			)
+		})
+		
+		# Render heatmap UI
+		
+		# output$heatmap_ui <- renderUI({
+		# 	req(heatmap_plot())
+		# 	
+		# 		plotOutput(ns("heatmap_plot"), height = heatmap_plot()$height, width = heatmap_plot()$width)
+		# })
+		
+		# output$heatmap_ui <- renderUI({
+		# 	req(heatmap_plot())
+		# 	
+		# 	tagList(
+		# 		# Zoom controls
+		# 		div(
+		# 			style = "margin-bottom: 10px; padding: 10px; background-color: #f5f5f5; border-radius: 4px;",
+		# 			sliderInput(
+		# 				ns("zoom_level"),
+		# 				"Zoom:",
+		# 				min = 50,
+		# 				max = 200,
+		# 				value = 100,
+		# 				step = 10,
+		# 				post = "%",
+		# 				width = "300px"
+		# 			)
+		# 		),
+		# 		
+		# 		# Scrollable container with zoom
+		# 		div(
+		# 			style = sprintf(
+		# 				"overflow: auto; max-height: 800px; max-width: 100%%; border: 1px solid #ddd; padding: 10px; background: white;"
+		# 			),
+		# 			div(
+		# 				style = sprintf("transform: scale(%s); transform-origin: top left; width: %s%%; height: %s%%;",
+		# 												input$zoom_level / 100,
+		# 												100 / (input$zoom_level / 100),
+		# 												100 / (input$zoom_level / 100)),
+		# 				plotOutput(ns("heatmap_plot"), 
+		# 									 height = heatmap_plot()$height, 
+		# 									 width = heatmap_plot()$width)
+		# 			)
+		# 		)
+		# 	)
+		# })
+		# output$heatmap_ui <- renderUI({
+		# 	req(heatmap_plot())
+		# 	withSpinner(
+		# 		plotOutput(ns("heatmap_plot"), height = heatmap_plot()$height, width = heatmap_plot()$width),
+		# 		type = 4,
+		# 		color = "darkblue"
+		# 	)
+		# })
+		
+		# output$heatmap_ui <- renderUI({
+		# 	req(heatmap_plot())
+		# 	shinycssloaders::withSpinner(
+		# 		div(
+		# 			style = "position: relative; width: 100%;",
+		# 			plotOutput(ns("heatmap_plot"), height = heatmap_plot()$height, width = heatmap_plot()$width)
+		# 		),
+		# 		type = 4,
+		# 		color = "darkblue",
+		# 		proxy.height = "200px"  # Shows spinner in a fixed height area at top
+		# 	)
+		# })
 		
 		output$heatmap_plot <- renderPlot({
 			req(heatmap_plot())

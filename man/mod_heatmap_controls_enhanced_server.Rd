@@ -9,10 +9,10 @@ mod_heatmap_controls_enhanced_server(
   eset,
   default_column_annotations = NULL,
   default_row_annotations = NULL,
-  default_cluster_column = FALSE,
-  default_cluster_row = FALSE,
+  default_cluster_column = TRUE,
+  default_cluster_row = TRUE,
   default_show_rownames = FALSE,
-  default_show_colnames = FALSE,
+  default_show_colnames = TRUE,
   default_size = "fit",
   debug = FALSE
 )
