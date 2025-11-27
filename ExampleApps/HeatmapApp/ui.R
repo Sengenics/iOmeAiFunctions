@@ -193,147 +193,205 @@ ui <- dashboardPage(
 			),
 			
 			### Configure tab ####
+			# tabItem(
+			# 	tabName = "configure",
+			# 	
+			# 	fluidRow(
+			# 		box(
+			# 			title = "Heatmap Configuration",
+			# 			width = 12,
+			# 			status = "primary",
+			# 			solidHeader = TRUE,
+			# 			
+			# 			p("Configure which data to display and how to annotate it"),
+			# 			
+			# 			fluidRow(
+			# 				column(
+			# 					width = 6,
+			# 					box(
+			# 						title = "Data Selection",
+			# 						width = NULL,
+			# 						status = "info",
+			# 						
+			# 						uiOutput("assay_selector"),
+			# 						
+			# 						hr(),
+			# 						
+			# 						p(strong("Current Selection:")),
+			# 						verbatimTextOutput("assay_info")
+			# 					)
+			# 				),
+			# 				column(
+			# 					width = 6,
+			# 					box(
+			# 						title = "Annotations",
+			# 						width = NULL,
+			# 						status = "warning",
+			# 						
+			# 						p("Select which metadata columns to display as annotations:"),
+			# 						
+			# 						uiOutput("sample_anno_selector"),
+			# 						
+			# 						hr(),
+			# 						
+			# 						uiOutput("feature_anno_selector")
+			# 					)
+			# 				)
+			# 			)
+			# 		)
+			# 	),
+			# 	
+			# 	fluidRow(
+			# 		column(
+			# 			width = 6,
+			# 			box(
+			# 				title = "Sample Filters",
+			# 				width = NULL,
+			# 				status = "primary",
+			# 				solidHeader = TRUE,
+			# 				collapsible = TRUE,
+			# 				
+			# 				p("Apply cascading filters to select which samples to display:"),
+			# 				
+			# 				mod_data_filter_ui("sample_filter", label = "Filter Samples", debug = run_debug)
+			# 			)
+			# 		),
+			# 		column(
+			# 			width = 6,
+			# 			box(
+			# 				title = "Feature Filters",
+			# 				width = NULL,
+			# 				status = "success",
+			# 				solidHeader = TRUE,
+			# 				collapsible = TRUE,
+			# 				
+			# 				p("Apply cascading filters to select which features to display:"),
+			# 				
+			# 				mod_data_filter_ui("feature_filter", label = "Filter Features", debug = run_debug)
+			# 			)
+			# 		)
+			# 	),
+			# 	
+			# 	fluidRow(
+			# 		box(
+			# 			title = "Ready to Visualize",
+			# 			width = 12,
+			# 			status = "success",
+			# 			
+			# 			actionButton(
+			# 				"goto_heatmap",
+			# 				"View Heatmap →",
+			# 				icon = icon("th"),
+			# 				class = "btn-success btn-lg"
+			# 			),
+			# 			
+			# 			hr(),
+			# 			
+			# 			uiOutput("config_summary")
+			# 		)
+			# 	)
+			# ),
+			
+			# ### Configure tab (ENHANCED) ####
+			# tabItem(
+			# 	tabName = "configure",
+			# 	fluidRow(
+			# 		box(
+			# 			title = "Data Selection",
+			# 			width = 6,
+			# 			uiOutput("assay_selector")  # THIS MUST EXIST
+			# 		),
+			# 		box(
+			# 			title = "Enhanced Heatmap Configuration",
+			# 			width = 12,
+			# 			mod_heatmap_controls_enhanced_ui("heatmap_controls", debug = run_debug)
+			# 		)
+			# 	)
+			# ),
+			
+			### Configure tab ####
 			tabItem(
 				tabName = "configure",
-				
 				fluidRow(
 					box(
-						title = "Heatmap Configuration",
+						title = "Enhanced Heatmap Configuration",
 						width = 12,
 						status = "primary",
 						solidHeader = TRUE,
-						
-						p("Configure which data to display and how to annotate it"),
-						
-						fluidRow(
-							column(
-								width = 6,
-								box(
-									title = "Data Selection",
-									width = NULL,
-									status = "info",
-									
-									uiOutput("assay_selector"),
-									
-									hr(),
-									
-									p(strong("Current Selection:")),
-									verbatimTextOutput("assay_info")
-								)
-							),
-							column(
-								width = 6,
-								box(
-									title = "Annotations",
-									width = NULL,
-									status = "warning",
-									
-									p("Select which metadata columns to display as annotations:"),
-									
-									uiOutput("sample_anno_selector"),
-									
-									hr(),
-									
-									uiOutput("feature_anno_selector")
-								)
-							)
-						)
+						mod_heatmap_controls_enhanced_ui("heatmap_controls", debug = run_debug)
 					)
 				),
-				
-				fluidRow(
-					column(
-						width = 6,
-						box(
-							title = "Sample Filters",
-							width = NULL,
-							status = "primary",
-							solidHeader = TRUE,
-							collapsible = TRUE,
-							
-							p("Apply cascading filters to select which samples to display:"),
-							
-							mod_data_filter_ui("sample_filter", label = "Filter Samples", debug = run_debug)
-						)
-					),
-					column(
-						width = 6,
-						box(
-							title = "Feature Filters",
-							width = NULL,
-							status = "success",
-							solidHeader = TRUE,
-							collapsible = TRUE,
-							
-							p("Apply cascading filters to select which features to display:"),
-							
-							mod_data_filter_ui("feature_filter", label = "Filter Features", debug = run_debug)
-						)
-					)
-				),
-				
 				fluidRow(
 					box(
 						title = "Ready to Visualize",
 						width = 12,
 						status = "success",
-						
 						actionButton(
 							"goto_heatmap",
 							"View Heatmap →",
 							icon = icon("th"),
 							class = "btn-success btn-lg"
-						),
-						
-						hr(),
-						
-						uiOutput("config_summary")
+						)
 					)
 				)
 			),
 			
-			### Heatmap tab ####
+			### Heatmap tab (ENHANCED) ####
 			tabItem(
 				tabName = "heatmap",
-				
 				fluidRow(
 					box(
 						title = "Heatmap Visualization",
 						width = 12,
 						status = "primary",
 						solidHeader = TRUE,
-						
-						heatmap_eset_module_ui("heatmap")
-					)
-				),
-				
-				fluidRow(
-					box(
-						title = "Export Options",
-						width = 12,
-						status = "info",
-						collapsible = TRUE,
-						collapsed = TRUE,
-						
-						p("Download the current heatmap or export the filtered data:"),
-						
-						fluidRow(
-							column(
-								width = 4,
-								downloadButton("download_plot", "Download Plot (PNG)", class = "btn-primary btn-block")
-							),
-							column(
-								width = 4,
-								downloadButton("download_data", "Download Data (CSV)", class = "btn-primary btn-block")
-							),
-							column(
-								width = 4,
-								downloadButton("download_eset", "Download Filtered ExpSet (RDS)", class = "btn-primary btn-block")
-							)
-						)
+						mod_heatmap_display_enhanced_ui("heatmap_display", debug = run_debug)
 					)
 				)
 			),
+			
+			### Heatmap tab ####
+			# tabItem(
+			# 	tabName = "heatmap",
+			# 	
+			# 	fluidRow(
+			# 		box(
+			# 			title = "Heatmap Visualization",
+			# 			width = 12,
+			# 			status = "primary",
+			# 			solidHeader = TRUE,
+			# 			
+			# 			heatmap_eset_module_ui("heatmap")
+			# 		)
+			# 	),
+			# 	
+			# 	fluidRow(
+			# 		box(
+			# 			title = "Export Options",
+			# 			width = 12,
+			# 			status = "info",
+			# 			collapsible = TRUE,
+			# 			collapsed = TRUE,
+			# 			
+			# 			p("Download the current heatmap or export the filtered data:"),
+			# 			
+			# 			fluidRow(
+			# 				column(
+			# 					width = 4,
+			# 					downloadButton("download_plot", "Download Plot (PNG)", class = "btn-primary btn-block")
+			# 				),
+			# 				column(
+			# 					width = 4,
+			# 					downloadButton("download_data", "Download Data (CSV)", class = "btn-primary btn-block")
+			# 				),
+			# 				column(
+			# 					width = 4,
+			# 					downloadButton("download_eset", "Download Filtered ExpSet (RDS)", class = "btn-primary btn-block")
+			# 				)
+			# 			)
+			# 		)
+			# 	)
+			# ),
 			
 			### Help tab ####
 			tabItem(

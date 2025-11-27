@@ -54,6 +54,7 @@ if (run_debug) {
 
 library(iOmeAiFunctions)
 
+
 # Verify key functions loaded
 required_functions <- c(
 	"mod_expset_import_ui",
@@ -84,6 +85,8 @@ library(Biobase)
 library(DT)
 library(ggplot2)
 library(pheatmap)
+library(shinyWidgets)
+library(shinycssloaders)
 
 # Run app
 message("\n═══════════════════════════════════════════════════════════")

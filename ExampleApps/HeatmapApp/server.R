@@ -258,18 +258,30 @@ server <- function(input, output, session) {
 	# ===================================================================
 	
 	# Assay selector
-	output$assay_selector <- renderUI({
-		req(eset_selected())
-		
-		assays <- Biobase::assayDataElementNames(eset_selected())
-		
-		selectInput(
-			"assay_name",
-			"Select Assay to Visualize:",
-			choices = assays,
-			selected = "exprs"
-		)
-	})
+	# output$assay_selector <- renderUI({
+	# 	req(eset_selected())
+	# 	
+	# 	assays <- Biobase::assayDataElementNames(eset_selected())
+	# 	
+	# 	selectInput(
+	# 		"assay_name",
+	# 		"Select Assay to Visualize:",
+	# 		choices = assays,
+	# 		selected = "exprs"
+	# 	)
+	# })
+	
+	# Assay selector (MUST EXIST)
+	# output$assay_selector <- renderUI({
+	# 	req(eset_selected())
+	# 	assays <- Biobase::assayDataElementNames(eset_selected())
+	# 	selectInput(
+	# 		"assay_name",
+	# 		"Select Assay to Visualize:",
+	# 		choices = assays,
+	# 		selected = assays[1]
+	# 	)
+	# })
 	
 	# Sample annotation selector
 	output$sample_anno_selector <- renderUI({
@@ -397,6 +409,25 @@ server <- function(input, output, session) {
 		mode = "basic",
 		features = list()
 	)
+	
+	# Enhanced heatmap controls
+	heatmap_controls <- mod_heatmap_controls_enhanced_server(
+		"heatmap_controls",
+		eset = eset_selected,
+		debug = run_debug
+	)
+	
+	# Enhanced heatmap display
+	heatmap_display <- mod_heatmap_display_enhanced_server(
+		"heatmap_display",
+		eset = eset_selected,
+		assay_name = eset_selected_module$name,
+		controls = heatmap_controls,
+		plot_path = "plots",  # or reactive(some_path)
+		debug = run_debug
+	)
+	
+	
 	
 	# ===================================================================
 	# EXPORT HANDLERS
