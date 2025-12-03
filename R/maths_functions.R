@@ -27,6 +27,87 @@ mode_function = function(values){
 	}
 	return(mode_x)
 }
+
+#' Row-Center Expression Matrix
+#'
+#' Centers each row (feature) of an expression matrix by subtracting the row mean.
+#' This removes baseline differences between features while preserving relative
+#' sample-to-sample variation.
+#'
+#' @param m Numeric matrix.  Expression data with features in rows and samples
+#'   in columns.  Typically from `Biobase::exprs(ExpressionSet)`. 
+#'
+#' @return Numeric matrix of the same dimensions as `m`, with each row centered
+#'   to have a mean of zero.  Column and row names are preserved.
+#'
+#' @details
+#' Row centering is performed by:
+#' \enumerate{
+#'   \item Transposing the matrix so rows become columns
+#'   \item Using `scale()` with `center = TRUE` and `scale = FALSE`
+#'   \item Transposing back to original orientation
+#' }
+#'
+#' This transformation:
+#' \itemize{
+#'   \item Removes baseline expression differences between features
+#'   \item Preserves relative expression patterns across samples
+#'   \item Does NOT scale by standard deviation (no normalization)
+#'   \item Maintains the original matrix dimensions and names
+#' }
+#'
+#' Row centering is commonly used before distance calculations in batch effect
+#' analysis, as it focuses on expression patterns rather than absolute levels.
+#'
+#' @seealso
+#' \code{\link{anova_betadine_function}} which uses this function
+#' \code{\link[base]{scale}} for the underlying centering operation
+#'
+#' @importFrom base scale
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Using ExpressionSet
+#' library(Biobase)
+#' data(sample_ExpressionSet)
+#' 
+#' m <- exprs(sample_ExpressionSet)
+#' 
+#' # Row-center the data
+#' m_centered <- row_scale_function(m)
+#' 
+#' # Verify centering: row means should be ~0
+#' rowMeans(m_centered)
+#' 
+#' # Compare original vs centered
+#' par(mfrow = c(1, 2))
+#' hist(rowMeans(m), main = "Original Row Means")
+#' hist(rowMeans(m_centered), main = "Centered Row Means")
+#' }
+#'
+#' @note maths_functions.R
+row_scale_function <- function(m) {
+	
+	# Validate input
+	if (! is.matrix(m) && !is.data.frame(m)) {
+		stop("Input 'm' must be a matrix or data frame")
+	}
+	
+	if (!is.numeric(as.matrix(m))) {
+		stop("Input 'm' must contain numeric values")
+	}
+	
+	# Center each row by subtracting row mean
+	# scale = FALSE: do not divide by standard deviation
+	# center = TRUE: subtract the mean
+	# Double transpose to center rows instead of columns
+	m_RC <- t(scale(t(m), scale = FALSE, center = TRUE))
+	
+	return(m_RC)
+}
+
 # 
 # hyperbolic_function <- function(x, 
 # 																x_min = 250, y_min = 10,

@@ -1,4 +1,4 @@
-# GLOBAL : Batch Correction App #####
+#' Base App
 #'
 #' @export
 
@@ -63,8 +63,6 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(data.table)
-library(broom)
-library(purrr)
 
 
 
