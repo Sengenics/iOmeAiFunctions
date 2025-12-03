@@ -257,32 +257,6 @@ server <- function(input, output, session) {
 	# CONFIGURE TAB
 	# ===================================================================
 	
-	# Assay selector
-	# output$assay_selector <- renderUI({
-	# 	req(eset_selected())
-	# 	
-	# 	assays <- Biobase::assayDataElementNames(eset_selected())
-	# 	
-	# 	selectInput(
-	# 		"assay_name",
-	# 		"Select Assay to Visualize:",
-	# 		choices = assays,
-	# 		selected = "exprs"
-	# 	)
-	# })
-	
-	# Assay selector (MUST EXIST)
-	# output$assay_selector <- renderUI({
-	# 	req(eset_selected())
-	# 	assays <- Biobase::assayDataElementNames(eset_selected())
-	# 	selectInput(
-	# 		"assay_name",
-	# 		"Select Assay to Visualize:",
-	# 		choices = assays,
-	# 		selected = assays[1]
-	# 	)
-	# })
-	
 	# Sample annotation selector
 	output$sample_anno_selector <- renderUI({
 		req(eset_selected())
@@ -398,17 +372,17 @@ server <- function(input, output, session) {
 	# HEATMAP MODULE
 	# ===================================================================
 	
-	heatmap_results <- heatmap_eset_module_server(
-		"heatmap",
-		eset = eset_selected,
-		assay_name = reactive(input$assay_name),
-		sample_filter = sample_filter,
-		feature_filter = feature_filter,
-		sample_anno_cols = reactive(input$sample_anno_cols),
-		feature_anno_cols = reactive(input$feature_anno_cols),
-		mode = "basic",
-		features = list()
-	)
+	# heatmap_results <- heatmap_eset_module_server(
+	# 	"heatmap",
+	# 	eset = eset_selected,
+	# 	assay_name = reactive(input$assay_name),
+	# 	sample_filter = sample_filter,
+	# 	feature_filter = feature_filter,
+	# 	sample_anno_cols = reactive(input$sample_anno_cols),
+	# 	feature_anno_cols = reactive(input$feature_anno_cols),
+	# 	mode = "basic",
+	# 	features = list()
+	# )
 	
 	# Enhanced heatmap controls
 	heatmap_controls <- mod_heatmap_controls_enhanced_server(

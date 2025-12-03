@@ -65,6 +65,7 @@ mod_heatmap_controls_enhanced_ui <- function(id, debug = FALSE) {
 				uiOutput(ns("size_numeric_ui")),
 				uiOutput(ns("font_size_ui")),
 				uiOutput(ns("range_ui")),
+				uiOutput(ns("rounding_ui")), 
 				uiOutput(ns("generate_heatmap_switch_ui")),
 				uiOutput(ns("heatmap_plot_name_ui"))
 			)
@@ -364,6 +365,28 @@ mod_heatmap_controls_enhanced_server <- function(id,
 			)
 		})
 		
+		output$rounding_ui <- renderUI({
+			tagList(
+				checkboxInput(
+					ns("round_matrix"),
+					"Round Matrix Values",
+					value = FALSE
+				),
+				conditionalPanel(
+					condition = "input.round_matrix == true",
+					ns = ns,
+					numericInput(
+						ns("round_digits"),
+						"Decimal Places",
+						value = 6,
+						min = 0,
+						max = 10,
+						step = 1
+					)
+				)
+			)
+		})
+		
 		# Generate Switch UI
 		output$generate_heatmap_switch_ui <- renderUI({
 			switchInput(
@@ -410,6 +433,8 @@ mod_heatmap_controls_enhanced_server <- function(id,
 			font_size = reactive(input$font_size %||% 8),
 			minimum_range = reactive(if (! is.null(input$range)) input$range[1] else NULL),
 			maximum_range = reactive(if (!is.null(input$range)) input$range[2] else NULL),
+			round_matrix = reactive(isTRUE(input$round_matrix)),
+			round_digits = reactive(input$round_digits %||% 2),
 			generate_heatmap = reactive(isTRUE(input$generate_heatmap)),
 			heatmap_plot_name = reactive(input$heatmap_plot_name %||% "Heatmap")
 		))

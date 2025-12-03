@@ -34,7 +34,7 @@ if (run_debug) {
 		
 		renv::remove("iOmeAiFunctions")
 		renv::purge("iOmeAiFunctions")
-		iOmeAiFunction_version = 'v0.1.3'
+		iOmeAiFunction_version = 'master'
 		remotes::install_github(
 			paste0("Sengenics/iOmeAiFunctions@", iOmeAiFunction_version),
 			upgrade = "never",
@@ -87,6 +87,8 @@ library(ggplot2)
 library(pheatmap)
 library(shinyWidgets)
 library(shinycssloaders)
+library(data.table)  # for fwrite
+library(openxlsx) 
 
 # Run app
 message("\n═══════════════════════════════════════════════════════════")

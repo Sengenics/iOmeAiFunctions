@@ -38,19 +38,84 @@ mod_heatmap_display_enhanced_ui <- function(id, debug = FALSE) {
 		tabsetPanel(
 			id = ns("display_tabs"),
 			selected = "Heatmap",
+			# tabPanel(
+			# 	"Data",
+			# 	tabsetPanel(
+			# 		selected = "Expression Matrix",
+			# 		tabPanel("featureData", DTOutput(ns("heatmap_fData"))),
+			# 		tabPanel("phenoData", DTOutput(ns("heatmap_pData"))),
+			# 		tabPanel("Expression Matrix", DTOutput(ns("heatmap_exprs")))
+			# 	)
+			# ),
+			
 			tabPanel(
 				"Data",
+				downloadButton(ns("download_excel"), "All Data (Excel)", class = "btn-success btn-sm"),
 				tabsetPanel(
 					selected = "Expression Matrix",
-					tabPanel("featureData", DTOutput(ns("heatmap_fData"))),
-					tabPanel("phenoData", DTOutput(ns("heatmap_pData"))),
-					tabPanel("Expression Matrix", DTOutput(ns("heatmap_exprs")))
+					tabPanel("featureData", 
+									 downloadButton(ns("download_tsv_fdata"), "featureData (.tsv)", class = "btn-primary btn-sm"),
+									 DTOutput(ns("heatmap_fData"))),
+					tabPanel("phenoData", 
+									 downloadButton(ns("download_tsv_pdata"), "phenoData (.tsv)", class = "btn-primary btn-sm"),
+									 DTOutput(ns("heatmap_pData"))),
+					tabPanel("Expression Matrix", 
+									 downloadButton(ns("download_tsv_exprs"), "Expression Matrix (.tsv)", class = "btn-primary btn-sm"),
+									 DTOutput(ns("heatmap_exprs"))),
+					tabPanel('Matrix Comparison',
+									 fluidRow(
+									 	column(12,
+									 				 box(
+									 				 	title = "Compare Matrix with Uploaded File",
+									 				 	width = 12,
+									 				 	status = "warning",
+									 				 	#collapsible = TRUE,
+									 				 	#collapsed = TRUE,
+									 				 	fluidRow(
+									 				 		column(6,
+									 				 					 fileInput(
+									 				 					 	ns("upload_compare_matrix"),
+									 				 					 	"Upload Matrix File (CSV/TSV)",
+									 				 					 	accept = c(".csv", ".tsv", ".txt")
+									 				 					 ),
+									 				 					 radioButtons(
+									 				 					 	ns("compare_format"),
+									 				 					 	"File Format:",
+									 				 					 	choices = c("CSV" = "csv", "TSV" = "tsv"),
+									 				 					 	selected = "tsv",
+									 				 					 	inline = TRUE
+									 				 					 )
+									 				 		),
+									 				 		column(6,
+									 				 					 actionButton(
+									 				 					 	ns("run_comparison"),
+									 				 					 	"Run Comparison",
+									 				 					 	icon = icon("balance-scale"),
+									 				 					 	class = "btn-warning"
+									 				 					 ),
+									 				 					 br(), br(),
+									 				 					 uiOutput(ns("comparison_summary"))
+									 				 		)
+									 				 	),
+									 				 	conditionalPanel(
+									 				 		condition = "output.uploaded_matrix_available",
+									 				 		ns = ns,
+									 				 		hr(),
+									 				 		h4("Uploaded Matrix Preview"),
+									 				 		DTOutput(ns("uploaded_matrix_table"))
+									 				 	),
+									 				 	hr(),
+									 				 	verbatimTextOutput(ns("comparison_results")),
+									 				 	uiOutput(ns("comparison_plots_ui"))
+									 				 )
+									 	)
+									 ))
 				)
 			),
 			tabPanel(
 				"Heatmap",
 					tags$style(HTML("
-				    . shiny-spinner-output-container {
+				    .shiny-spinner-output-container {
 				      position: sticky ! important;
 				      top: 20px !important;
 				      z-index: 1000 !important;
@@ -71,7 +136,7 @@ mod_heatmap_display_enhanced_ui <- function(id, debug = FALSE) {
 
 #' Enhanced Heatmap Display Module Server
 #'
-#' Server logic for rendering and downloading heatmap. 
+#' Server logic for rendering and downloading heatmap.
 #'
 #' @param id Character; module namespace ID
 #' @param eset Reactive ExpressionSet
@@ -142,8 +207,427 @@ mod_heatmap_display_enhanced_server <- function(id,
 			}
 			
 			message("Filtered ExpSet: ", nrow(ExpSet_filtered), " features × ", ncol(ExpSet_filtered), " samples")
+			
+			if (isTRUE(controls$round_matrix())) {
+				digits <- controls$round_digits()
+				
+				# Round the expression matrix
+				expr_matrix <- Biobase::exprs(ExpSet_filtered)
+				expr_matrix_rounded <- round(expr_matrix, digits = digits)
+				
+				# Update the ExpSet with rounded values
+				Biobase::exprs(ExpSet_filtered) <- expr_matrix_rounded
+				
+				message("Applied rounding: ", digits, " decimal places")
+			}
+			
 			ExpSet_filtered
 		})
+		
+		# Individual TSV downloads
+		output$download_tsv_exprs <- downloadHandler(
+			filename = function() paste0(controls$heatmap_plot_name(), "_expression_matrix.tsv"),
+			content = function(file) {
+				req(filtered_eset())
+				exprs_data <- Biobase::exprs(filtered_eset()) %>%
+					as.data.frame() %>%
+					rownames_to_column("Protein")
+				data.table::fwrite(exprs_data, file, sep = "\t")
+			}
+		)
+		
+		output$download_tsv_pdata <- downloadHandler(
+			filename = function() paste0(controls$heatmap_plot_name(), "_phenoData.tsv"),
+			content = function(file) {
+				req(filtered_eset())
+				req(controls$column_annotations())
+				pdata <- Biobase::pData(filtered_eset()) %>%
+					as.data.frame() %>%
+					select(all_of(controls$column_annotations())) %>%
+					rownames_to_column("Sample")
+				data.table::fwrite(pdata, file, sep = "\t")
+			}
+		)
+		
+		output$download_tsv_fdata <- downloadHandler(
+			filename = function() paste0(controls$heatmap_plot_name(), "_featureData.tsv"),
+			content = function(file) {
+				req(filtered_eset())
+				req(controls$row_annotations())
+				tryCatch({
+					fdata <- Biobase::fData(filtered_eset()) %>%
+						as.data.frame() %>%
+						select(all_of(controls$row_annotations())) %>%
+						rownames_to_column("Protein")
+					data.table::fwrite(fdata, file, sep = "\t")
+				}, error = function(e) {
+					# If no fData, create empty file
+					data.table::fwrite(data.frame(Message = "No feature data available"), file, sep = "\t")
+				})
+			}
+		)
+		
+		# Excel workbook with all sheets
+		output$download_excel <- downloadHandler(
+			filename = function() paste0(controls$heatmap_plot_name(), "_all_data.xlsx"),
+			content = function(file) {
+				req(filtered_eset())
+				
+				# Prepare expression matrix
+				exprs_data <- Biobase::exprs(filtered_eset()) %>%
+					as.data.frame() %>%
+					rownames_to_column("Protein")
+				
+				# Prepare phenoData
+				pdata <- Biobase::pData(filtered_eset()) %>%
+					as.data.frame() %>%
+					rownames_to_column("Sample")
+				
+				# Only include selected annotation columns if any
+				if (!is.null(controls$column_annotations()) && length(controls$column_annotations()) > 0) {
+					cols_to_keep <- c("Sample", controls$column_annotations())
+					cols_to_keep <- cols_to_keep[cols_to_keep %in% colnames(pdata)]
+					pdata <- pdata %>% select(all_of(cols_to_keep))
+				}
+				
+				# Prepare featureData
+				fdata <- tryCatch({
+					fd <- Biobase::fData(filtered_eset()) %>%
+						as.data.frame() %>%
+						rownames_to_column("Protein")
+					
+					# Only include selected annotation columns if any
+					if (!is.null(controls$row_annotations()) && length(controls$row_annotations()) > 0) {
+						cols_to_keep <- c("Protein", controls$row_annotations())
+						cols_to_keep <- cols_to_keep[cols_to_keep %in% colnames(fd)]
+						fd <- fd %>% select(all_of(cols_to_keep))
+					}
+					fd
+				}, error = function(e) {
+					data.frame(Message = "No feature data available")
+				})
+				
+				# Create workbook
+				wb <- openxlsx::createWorkbook()
+				
+				# Add sheets
+				openxlsx::addWorksheet(wb, "Expression Matrix")
+				openxlsx::writeData(wb, "Expression Matrix", exprs_data)
+				
+				openxlsx::addWorksheet(wb, "phenoData")
+				openxlsx::writeData(wb, "phenoData", pdata)
+				
+				openxlsx::addWorksheet(wb, "featureData")
+				openxlsx::writeData(wb, "featureData", fdata)
+				
+				# Save workbook
+				openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+			}
+		)
+		
+		# Matrix comparison feature
+		uploaded_matrix <- reactive({
+			req(input$upload_compare_matrix)
+			
+			file_path <- input$upload_compare_matrix$datapath
+			format <- input$compare_format
+			
+			tryCatch({
+				if (format == "csv") {
+					data <- data.table::fread(file_path, sep = ",")
+				} else {
+					data <- data.table::fread(file_path, sep = "\t")
+				}
+				
+				# Convert to matrix (assuming first column is row names)
+				if (ncol(data) > 1) {
+					row_names <- data[[1]]
+					mat <- as.matrix(data[, -1])
+					rownames(mat) <- row_names
+					
+					message("Uploaded matrix: ", nrow(mat), " x ", ncol(mat))
+					return(mat)
+				} else {
+					stop("File must have at least 2 columns")
+				}
+			}, error = function(e) {
+				showNotification(
+					paste("Error reading file:", e$message),
+					type = "error",
+					duration = 10
+				)
+				return(NULL)
+			})
+		})
+		
+		# Flag for conditionalPanel
+		output$uploaded_matrix_available <- reactive({
+			! is.null(uploaded_matrix())
+		})
+		outputOptions(output, "uploaded_matrix_available", suspendWhenHidden = FALSE)
+		
+		# Display uploaded matrix as table
+		output$uploaded_matrix_table <- renderDT({
+			req(uploaded_matrix())
+			
+			mat <- uploaded_matrix()
+			
+			# Convert to data frame with row names as first column
+			df <- as.data.frame(mat) %>%
+				rownames_to_column("Protein")
+			
+			datatable(
+				df,
+				options = list(
+					scrollX = TRUE,
+					scrollY = "400px",
+					pageLength = 10,
+					dom = 'Bfrtip',
+					buttons = c('copy', 'csv')
+				),
+				rownames = FALSE,
+				caption = paste0("Uploaded Matrix: ", nrow(mat), " rows × ", ncol(mat), " columns")
+			)
+		})
+		
+		comparison_result <- eventReactive(input$run_comparison, {
+			req(uploaded_matrix())
+			req(filtered_eset())
+			
+			# Get current heatmap matrix
+			current_matrix <- Biobase::exprs(filtered_eset())
+			uploaded_mat <- uploaded_matrix()
+			
+			# Comparison analysis
+			result <- list()
+			
+			# Dimension check
+			result$dims_match <- identical(dim(current_matrix), dim(uploaded_mat))
+			result$current_dims <- dim(current_matrix)
+			result$uploaded_dims <- dim(uploaded_mat)
+			
+			# If dimensions match, do detailed comparison
+			if (result$dims_match) {
+				# Check row/col names
+				result$rownames_match <- identical(rownames(current_matrix), rownames(uploaded_mat))
+				result$colnames_match <- identical(colnames(current_matrix), colnames(uploaded_mat))
+				
+				# Align matrices if names don't match but overlap exists
+				common_rows <- intersect(rownames(current_matrix), rownames(uploaded_mat))
+				common_cols <- intersect(colnames(current_matrix), colnames(uploaded_mat))
+				
+				result$common_rows <- length(common_rows)
+				result$common_cols <- length(common_cols)
+				
+				if (length(common_rows) > 0 && length(common_cols) > 0) {
+					# Subset to common elements
+					m1 <- current_matrix[common_rows, common_cols]
+					m2 <- uploaded_mat[common_rows, common_cols]
+					
+					# Calculate differences
+					diff_matrix <- m1 - m2
+					
+					result$identical <- identical(m1, m2)
+					result$all_equal <- all.equal(m1, m2)
+					result$max_abs_diff <- max(abs(diff_matrix), na.rm = TRUE)
+					result$mean_abs_diff <- mean(abs(diff_matrix), na.rm = TRUE)
+					result$median_abs_diff <- median(abs(diff_matrix), na.rm = TRUE)
+					
+					# Count significant differences
+					result$n_diff_0.001 <- sum(abs(diff_matrix) > 0.001, na.rm = TRUE)
+					result$n_diff_0.01 <- sum(abs(diff_matrix) > 0.01, na.rm = TRUE)
+					result$n_diff_0.1 <- sum(abs(diff_matrix) > 0.1, na.rm = TRUE)
+					result$n_diff_1 <- sum(abs(diff_matrix) > 1, na.rm = TRUE)
+					
+					# Store difference matrix for plotting
+					result$diff_matrix <- diff_matrix
+					result$m1 <- m1
+					result$m2 <- m2
+					
+					# Find top differences
+					abs_diff <- abs(diff_matrix)
+					top_idx <- order(abs_diff, decreasing = TRUE, na.last = TRUE)[1:min(20, length(abs_diff))]
+					top_diff <- data.frame(
+						Row = rownames(diff_matrix)[row(diff_matrix)[top_idx]],
+						Col = colnames(diff_matrix)[col(diff_matrix)[top_idx]],
+						Current = m1[top_idx],
+						Uploaded = m2[top_idx],
+						Difference = diff_matrix[top_idx],
+						Abs_Diff = abs_diff[top_idx]
+					)
+					result$top_differences <- top_diff[! is.na(top_diff$Abs_Diff), ]
+					
+				} else {
+					result$no_overlap <- TRUE
+				}
+			}
+			
+			return(result)
+		})
+		
+		output$comparison_summary <- renderUI({
+			req(comparison_result())
+			res <- comparison_result()
+			
+			if (!res$dims_match) {
+				div(
+					class = "alert alert-danger",
+					icon("times-circle"),
+					strong(" Dimension Mismatch"),
+					p(paste("Current:", paste(res$current_dims, collapse = " x "))),
+					p(paste("Uploaded:", paste(res$uploaded_dims, collapse = " x ")))
+				)
+			} else if (isTRUE(res$no_overlap)) {
+				div(
+					class = "alert alert-warning",
+					icon("exclamation-triangle"),
+					strong(" No Overlapping Row/Column Names")
+				)
+			} else if (res$identical) {
+				div(
+					class = "alert alert-success",
+					icon("check-circle"),
+					strong(" Matrices are IDENTICAL")
+				)
+			} else if (isTRUE(res$all_equal)) {
+				div(
+					class = "alert alert-info",
+					icon("info-circle"),
+					strong(" Matrices are Equal"),
+					p("(within floating-point tolerance)")
+				)
+			} else {
+				div(
+					class = "alert alert-warning",
+					icon("exclamation-triangle"),
+					strong(" Matrices DIFFER"),
+					p(sprintf("Max difference: %.6e", res$max_abs_diff))
+				)
+			}
+		})
+		
+		output$comparison_results <- renderPrint({
+			req(comparison_result())
+			res <- comparison_result()
+			
+			cat("═══════════════════════════════════════════════════════════\n")
+			cat("MATRIX COMPARISON RESULTS\n")
+			cat("═══════════════════════════════════════════════════════════\n\n")
+			
+			cat("DIMENSIONS:\n")
+			cat("  Current Matrix:  ", paste(res$current_dims, collapse = " x "), "\n")
+			cat("  Uploaded Matrix: ", paste(res$uploaded_dims, collapse = " x "), "\n")
+			cat("  Dimensions Match:", res$dims_match, "\n\n")
+			
+			if (!res$dims_match) {
+				cat("❌ Cannot compare - dimensions differ\n")
+				return()
+			}
+			
+			if (isTRUE(res$no_overlap)) {
+				cat("❌ Cannot compare - no overlapping row/column names\n")
+				return()
+			}
+			
+			cat("ALIGNMENT:\n")
+			cat("  Row Names Match:   ", res$rownames_match, "\n")
+			cat("  Column Names Match:", res$colnames_match, "\n")
+			cat("  Common Rows:       ", res$common_rows, "\n")
+			cat("  Common Columns:    ", res$common_cols, "\n\n")
+			
+			cat("COMPARISON:\n")
+			cat("  Identical:         ", res$identical, "\n")
+			cat("  All Equal:         ", isTRUE(res$all_equal), "\n")
+			if (! isTRUE(res$all_equal)) {
+				cat("  Equality Result:   ", as.character(res$all_equal), "\n")
+			}
+			cat("\n")
+			
+			cat("DIFFERENCE STATISTICS:\n")
+			cat("  Max Absolute Diff:    ", sprintf("%.6e", res$max_abs_diff), "\n")
+			cat("  Mean Absolute Diff:   ", sprintf("%.6e", res$mean_abs_diff), "\n")
+			cat("  Median Absolute Diff: ", sprintf("%.6e", res$median_abs_diff), "\n\n")
+			
+			cat("DIFFERENCE COUNTS:\n")
+			cat("  |diff| > 0.001:  ", res$n_diff_0.001, "\n")
+			cat("  |diff| > 0.01:   ", res$n_diff_0.01, "\n")
+			cat("  |diff| > 0.1:    ", res$n_diff_0.1, "\n")
+			cat("  |diff| > 1.0:    ", res$n_diff_1, "\n\n")
+			
+			if (!is.null(res$top_differences) && nrow(res$top_differences) > 0) {
+				cat("TOP DIFFERENCES:\n")
+				print(head(res$top_differences, 10))
+			}
+			
+			cat("\n═══════════════════════════════════════════════════════════\n")
+		})
+		
+		output$comparison_plots_ui <- renderUI({
+			req(comparison_result())
+			res <- comparison_result()
+			
+			if (is.null(res$diff_matrix)) {
+				return(NULL)
+			}
+			
+			tagList(
+				h4("Difference Visualizations"),
+				fluidRow(
+					column(6, plotOutput(ns("diff_histogram"))),
+					column(6, plotOutput(ns("diff_scatter")))
+				),
+				fluidRow(
+					column(12, 
+								 downloadButton(ns("download_diff_matrix"), "Download Difference Matrix (.tsv)", 
+								 							 class = "btn-warning btn-sm")
+					)
+				)
+			)
+		})
+		
+		output$diff_histogram <- renderPlot({
+			req(comparison_result())
+			res <- comparison_result()
+			req(res$diff_matrix)
+			
+			diff_vec <- as.vector(res$diff_matrix)
+			
+			hist(diff_vec, 
+					 breaks = 50,
+					 main = "Distribution of Differences",
+					 xlab = "Current - Uploaded",
+					 col = "steelblue",
+					 border = "white")
+			abline(v = 0, col = "red", lwd = 2, lty = 2)
+		})
+		
+		output$diff_scatter <- renderPlot({
+			req(comparison_result())
+			res <- comparison_result()
+			req(res$m1)
+			req(res$m2)
+			
+			plot(as.vector(res$m2), as.vector(res$m1),
+					 xlab = "Uploaded Matrix",
+					 ylab = "Current Matrix",
+					 main = "Value Comparison",
+					 pch = 20,
+					 col = rgb(0, 0, 1, 0.3))
+			abline(0, 1, col = "red", lwd = 2)
+		})
+		
+		output$download_diff_matrix <- downloadHandler(
+			filename = function() paste0(controls$heatmap_plot_name(), "_differences.tsv"),
+			content = function(file) {
+				req(comparison_result())
+				res <- comparison_result()
+				req(res$diff_matrix)
+				
+				diff_data <- as.data.frame(res$diff_matrix) %>%
+					rownames_to_column("Protein")
+				data.table::fwrite(diff_data, file, sep = "\t")
+			}
+		)
 		
 		# Generate heatmap plot
 		heatmap_plot <- reactive({
@@ -191,6 +675,11 @@ mod_heatmap_display_enhanced_server <- function(id,
 				m[m < min_range] <- min_range
 				m[m > max_range] <- max_range
 			}
+			
+			# if (isTRUE(controls$round_matrix())) {
+			# 	digits <- controls$round_digits()
+			# 	m <- round(m, digits = digits)
+			# }
 			
 			# Build annotation columns
 			annot_col <- NULL
