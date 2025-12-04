@@ -15,19 +15,12 @@ mod_batch_testing_ui <- function(id, debug = FALSE) {
 				width = 12,
 				status = "warning",
 				solidHeader = TRUE,
+				collapsible = TRUE,
+				collapsed = TRUE,
 				
 				p("Tests for batch effects using ANOVA on selected phenoData columns."),
 				p("Results show which columns have significant effects on protein expression."),
 				
-				# if (debug) {
-				# 	actionButton(
-				# 		ns("debug"),
-				# 		"Debug",
-				# 		icon = icon("bug"),
-				# 		class = "btn-warning btn-sm"
-				# 	)
-				# 	hr()
-				# },
 				
 				uiOutput(ns("debug_ui")),
 				
@@ -36,19 +29,21 @@ mod_batch_testing_ui <- function(id, debug = FALSE) {
 				hr(),
 				
 				h4("ANOVA Results"),
-				DTOutput(ns("anova_table"))
-			)
-		),
+				DTOutput(ns("anova_table")),
+		# 	)
+		# ),
 		
-		fluidRow(
-			box(
-				title = "Visualization",
-				width = 12,
-				status = "info",
-				solidHeader = TRUE,
-				collapsible = TRUE,
-				
-				plotOutput(ns("anova_plot"), height = "600px")
+				fluidRow(
+					box(
+						title = "Visualization",
+						width = 12,
+						status = "info",
+						solidHeader = TRUE,
+						collapsible = TRUE,
+						
+						plotOutput(ns("anova_plot"), height = "600px")
+					)
+				)
 			)
 		)
 	)

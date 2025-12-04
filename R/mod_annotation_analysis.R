@@ -15,6 +15,8 @@ mod_annotation_analysis_ui <- function(id, debug = FALSE) {
 				width = 12,
 				status = "info",
 				solidHeader = TRUE,
+				collapsible = TRUE,
+				collapsed = TRUE,  # Starts folded
 				
 				p("This analysis identifies which phenoData columns are useful for grouping samples."),
 				p("Filters out columns that are: all unique, all the same, or have only 1 sample per group."),
