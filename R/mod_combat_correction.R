@@ -125,16 +125,40 @@ mod_combat_correction_server <- function(id,
 			})
 		}
 		
+		# Identify safe batch factors ####
+		# safe_batch_factors <- reactive({
+		# 	req(combined_results())
+		# 	
+		# 	df <- combined_results()
+		# 	
+		# 	# Filter for: ANOVA p < 0.05 (batch effect) AND Fisher p > 0.05 (not confounded)
+		# 	safe <- df %>%
+		# 		filter(ANOVA_p_value < 0.05, Fisher_p_value > 0.05) %>%
+		# 		arrange(ANOVA_p_value) %>%  # Sort by strongest batch effect
+		# 		pull(Batch_Column)
+		# 	
+		# 	as.character(safe)
+		# })
+		
 		# Identify safe batch factors
 		safe_batch_factors <- reactive({
 			req(combined_results())
 			
 			df <- combined_results()
 			
-			# Filter for: ANOVA p < 0.05 (batch effect) AND Fisher p > 0.05 (not confounded)
+			# Dynamically get the batch effect column name
+			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+			
+			if (is.na(batch_col_name)) {
+				warning("Could not find batch effect p-value column")
+				return(character(0))
+			}
+			
+			# Filter for: Batch p < 0.05 (batch effect) AND Fisher p > 0.05 (not confounded)
 			safe <- df %>%
-				filter(ANOVA_p_value < 0.05, Fisher_p_value > 0.05) %>%
-				arrange(ANOVA_p_value) %>%  # Sort by strongest batch effect
+				rename(batch_p = !!sym(batch_col_name)) %>%  # Rename to generic name
+				filter(batch_p < 0.05, Fisher_p_value > 0.05) %>%
+				arrange(batch_p) %>%  # Sort by strongest batch effect
 				pull(Batch_Column)
 			
 			as.character(safe)

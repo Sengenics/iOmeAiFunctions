@@ -66,6 +66,7 @@ library(data.table)
 library(broom)
 library(purrr)
 library(sva)  # For ComBat
+library(vegan)
 
 
 

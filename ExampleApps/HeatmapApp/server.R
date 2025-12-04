@@ -1,4 +1,4 @@
-# Server ####
+# Server : HeatMap ####
 server <- function(input, output, session) {
 	
 	options(shiny.maxRequestSize = 100*1024^2)

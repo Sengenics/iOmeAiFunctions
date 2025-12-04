@@ -21,7 +21,9 @@ ui <- dashboardPage(
 		tabItems(
 			tabItem(
 				tabName = "data_tab",
-				mod_app_data_selection_ui("data_select", debug = run_debug)
+				mod_app_data_selection_ui("data_select", debug = run_debug),
+				mod_eset_subset_ui("subset", debug = run_debug),
+				mod_eset_transform_ui("transform", debug = run_debug)
 			),
 			# tabItem(
 			# 	tabName = "annotation_tab",

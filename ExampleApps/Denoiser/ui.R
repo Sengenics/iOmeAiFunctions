@@ -1,4 +1,4 @@
-# UI ####
+# UI : Denoiser ####
 ui <- dashboardPage(
 	skin = "blue",
 	

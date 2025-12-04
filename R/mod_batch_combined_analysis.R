@@ -9,6 +9,7 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
+		
 		fluidRow(
 			box(
 				title = "Combined Batch Effect & Confounding Analysis",
@@ -18,14 +19,37 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 				collapsible = TRUE,
 				collapsed = FALSE,
 				
+				selectInput(
+					ns("test_method"),
+					"Statistical Test Method:",
+					choices = c(
+						"PERMANOVA (adonis2) - Tests group differences" = "permanova",
+						"Beta Dispersion (betadisper) - Tests variance differences" = "betadisper"
+					),
+					selected = "permanova"
+					#selected = "betadisper"
+				),
+				
 				fluidRow(
+			
+					
+				
 					box(
 						title = "Combined Results Table",
 						width = 12,
-						status = "warning",
-						solidHeader = TRUE,
+						#status = "warning",
+						#solidHeader = TRUE,
 						collapsible = TRUE,
 						collapsed = TRUE,
+						
+						helpText(
+							strong("PERMANOVA (recommended):"), "Tests if groups have different expression profiles (location test) ",
+							"This is what most batch correction studies use.",
+							br(),
+							strong("Beta Dispersion:"), "Tests if groups have different variances (dispersion test)",
+							"Useful for detecting heteroscedasticity."
+						),
+						
 						p(strong("This analysis answers two questions:")),
 						tags$ul(
 							tags$li(strong("Batch Effect:"), "Does this column affect protein expression?  (ANOVA)"),
@@ -33,6 +57,9 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 						),
 						
 						uiOutput(ns("debug_ui")),
+					
+						
+						
 						uiOutput(ns("analysis_status")),
 						
 						hr(),
@@ -77,11 +104,11 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 				h4("Quadrant Interpretation:"),
 				tags$ul(
 					tags$li(strong("Top-Right (High Batch Effect + High Confounding):"), 
-									"⚠️ CRITICAL - Strong batch effect AND confounded with sample groups.  Correction may remove real biology! "),
+									"⚠️ CRITICAL - Strong batch effect AND confounded with sample groups Correction may remove real biology! "),
 					tags$li(strong("Top-Left (High Batch Effect + Low Confounding):"), 
-									"✅ SAFE TO CORRECT - Strong batch effect but evenly distributed. Correction recommended."),
+									"✅ SAFE TO CORRECT - Strong batch effect but evenly distributedCorrection recommended."),
 					tags$li(strong("Bottom-Right (Low Batch Effect + High Confounding):"), 
-									"⚠️ CAUTION - Uneven distribution but weak effect. May indicate biological correlation."),
+									"⚠️ CAUTION - Uneven distribution but weak effectMay indicate biological correlation."),
 					tags$li(strong("Bottom-Left (Low Batch Effect + Low Confounding):"), 
 									"✅ NO ACTION NEEDED - No significant batch effect or confounding.")
 				))
@@ -96,8 +123,8 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 #'
 #' @param id Module namespace ID
 #' @param eset Reactive ExpressionSet
-#' @param sample_group_column Reactive character.  Sample grouping column name
-#' @param batch_columns Reactive character vector.  Batch columns to test
+#' @param sample_group_column Reactive character Sample grouping column name
+#' @param batch_columns Reactive character vector Batch columns to test
 #' @param debug Enable debug mode
 #' @export
 mod_batch_combined_analysis_server <- function(id,
@@ -141,6 +168,87 @@ mod_batch_combined_analysis_server <- function(id,
 		}
 		
 		# Run combined analysis
+		# combined_results <- reactive({
+		# 	req(eset())
+		# 	req(sample_group_column())
+		# 	req(batch_columns())
+		# 	
+		# 	ExpSet <- eset()
+		# 	m <- Biobase::exprs(ExpSet)
+		# 	meta <- Biobase::pData(ExpSet)
+		# 	sample_group <- sample_group_column()
+		# 	batch_cols <- batch_columns()
+		# 	
+		# 	if (length(batch_cols) == 0) {
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# Validate columns
+		# 	if (! sample_group %in% colnames(meta)) {
+		# 		warning("Sample group column not found")
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	batch_cols <- intersect(batch_cols, colnames(meta))
+		# 	if (length(batch_cols) == 0) {
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# Run both analyses
+		# 	results_list <- list()
+		# 	
+		# 	for (batch_col in batch_cols) {
+		# 		result <- tryCatch({
+		# 			# 1ANOVA for batch effect
+		# 			anova_result <- anova_betadine_function(m, meta, batch_col)
+		# 			anova_tidy <- broom::tidy(anova_result)
+		# 			anova_p <- anova_tidy$p.value[1]
+		# 			
+		# 			# 2Fisher's test for confounding
+		# 			tab <- table(meta[[sample_group]], meta[[batch_col]])
+		# 			fisher_result <- fisher.test(tab, simulate.p.value = TRUE, B = 10000)
+		# 			fisher_p <- fisher_result$p.value
+		# 			
+		# 			# 3 Additional info
+		# 			n_batch_groups <- length(unique(meta[[batch_col]]))
+		# 			n_sample_groups <- length(unique(meta[[sample_group]]))
+		# 			
+		# 			list(
+		# 				batch_column = batch_col,
+		# 				anova_p = anova_p,
+		# 				fisher_p = fisher_p,
+		# 				n_batch_groups = n_batch_groups,
+		# 				n_sample_groups = n_sample_groups,
+		# 				interpretation = interpret_combined(anova_p, fisher_p)
+		# 			)
+		# 		}, error = function(e) {
+		# 			warning(sprintf("Analysis failed for '%s': %s", batch_col, e$message))
+		# 			NULL
+		# 		})
+		# 		
+		# 		if (!is.null(result)) {
+		# 			results_list[[batch_col]] <- result
+		# 		}
+		# 	}
+		# 	
+		# 	if (length(results_list) == 0) {
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# Convert to data frame
+		# 	df <- data.frame(
+		# 		Batch_Column = sapply(results_list, function(x) x$batch_column),
+		# 		ANOVA_p_value = signif(sapply(results_list, function(x) x$anova_p), 3),
+		# 		Fisher_p_value = signif(sapply(results_list, function(x) x$fisher_p), 3),
+		# 		Batch_Groups = sapply(results_list, function(x) x$n_batch_groups),
+		# 		Interpretation = sapply(results_list, function(x) x$interpretation),
+		# 		stringsAsFactors = FALSE
+		# 	)
+		# 	
+		# 	df
+		# })
+		
+		# Run combined analysis ####
 		combined_results <- reactive({
 			req(eset())
 			req(sample_group_column())
@@ -151,13 +259,14 @@ mod_batch_combined_analysis_server <- function(id,
 			meta <- Biobase::pData(ExpSet)
 			sample_group <- sample_group_column()
 			batch_cols <- batch_columns()
+			test_method <- input$test_method  # Get selected method
 			
 			if (length(batch_cols) == 0) {
 				return(NULL)
 			}
 			
 			# Validate columns
-			if (! sample_group %in% colnames(meta)) {
+			if (!sample_group %in% colnames(meta)) {
 				warning("Sample group column not found")
 				return(NULL)
 			}
@@ -167,32 +276,40 @@ mod_batch_combined_analysis_server <- function(id,
 				return(NULL)
 			}
 			
-			# Run both analyses
+			# Run analyses based on selected method
 			results_list <- list()
 			
 			for (batch_col in batch_cols) {
 				result <- tryCatch({
-					# 1. ANOVA for batch effect
-					anova_result <- anova_betadine_function(m, meta, batch_col)
-					anova_tidy <- broom::tidy(anova_result)
-					anova_p <- anova_tidy$p.value[1]
+					# 1 Batch effect test (method-dependent)
+					if (test_method == "permanova") {
+						# Use PERMANOVA
+						perm_result <- permanova_function(m, meta, batch_col)
+						result_df <- as.data.frame(perm_result)
+						batch_p <- result_df$`Pr(>F)`[1]
+					} else {
+						# Use betadisper + ANOVA
+						anova_result <- anova_betadine_function(m, meta, batch_col)
+						anova_tidy <- broom::tidy(anova_result)
+						batch_p <- anova_tidy$p.value[1]
+					}
 					
-					# 2. Fisher's test for confounding
+					# 2Fisher's test for confounding (same for both methods)
 					tab <- table(meta[[sample_group]], meta[[batch_col]])
 					fisher_result <- fisher.test(tab, simulate.p.value = TRUE, B = 10000)
 					fisher_p <- fisher_result$p.value
 					
-					# 3.  Additional info
+					# 3 Additional info
 					n_batch_groups <- length(unique(meta[[batch_col]]))
 					n_sample_groups <- length(unique(meta[[sample_group]]))
 					
 					list(
 						batch_column = batch_col,
-						anova_p = anova_p,
+						batch_p = batch_p,
 						fisher_p = fisher_p,
 						n_batch_groups = n_batch_groups,
 						n_sample_groups = n_sample_groups,
-						interpretation = interpret_combined(anova_p, fisher_p)
+						interpretation = interpret_combined(batch_p, fisher_p)
 					)
 				}, error = function(e) {
 					warning(sprintf("Analysis failed for '%s': %s", batch_col, e$message))
@@ -209,19 +326,24 @@ mod_batch_combined_analysis_server <- function(id,
 			}
 			
 			# Convert to data frame
+			method_label <- ifelse(test_method == "permanova", "PERMANOVA_p_value", "ANOVA_p_value")
+			
 			df <- data.frame(
 				Batch_Column = sapply(results_list, function(x) x$batch_column),
-				ANOVA_p_value = signif(sapply(results_list, function(x) x$anova_p), 3),
+				Batch_p_value = signif(sapply(results_list, function(x) x$batch_p), 3),
 				Fisher_p_value = signif(sapply(results_list, function(x) x$fisher_p), 3),
 				Batch_Groups = sapply(results_list, function(x) x$n_batch_groups),
 				Interpretation = sapply(results_list, function(x) x$interpretation),
 				stringsAsFactors = FALSE
 			)
 			
+			# Rename column based on method
+			colnames(df)[2] <- method_label
+			
 			df
 		})
 		
-		# Interpretation helper function
+		# Interpretation helper function ####
 		interpret_combined <- function(anova_p, fisher_p) {
 			batch_sig <- anova_p < 0.05
 			confound_sig <- fisher_p < 0.05
@@ -237,7 +359,7 @@ mod_batch_combined_analysis_server <- function(id,
 			}
 		}
 		
-		# Status message
+		# Status message ####
 		output$analysis_status <- renderUI({
 			req(sample_group_column())
 			req(batch_columns())
@@ -272,11 +394,15 @@ mod_batch_combined_analysis_server <- function(id,
 			)
 		})
 		
+		# Combined table ####
 		# Combined table
 		output$combined_table <- renderDT({
 			req(combined_results())
 			
 			df <- combined_results()
+			
+			# Get the batch effect column name dynamically
+			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
 			
 			datatable(
 				df,
@@ -290,7 +416,7 @@ mod_batch_combined_analysis_server <- function(id,
 				caption = "Combined batch effect and confounding analysis"
 			) %>%
 				formatStyle(
-					'ANOVA_p_value',
+					batch_col_name,  # Use dynamic column name
 					backgroundColor = styleInterval(
 						c(0.001, 0.01, 0.05),
 						c('#ffcccc', '#ffddcc', '#ffffcc', '#ffffff')
@@ -305,9 +431,42 @@ mod_batch_combined_analysis_server <- function(id,
 				)
 		})
 		
-		# Combined visualization
+		# output$combined_table <- renderDT({
+		# 	req(combined_results())
+		# 	
+		# 	df <- combined_results()
+		# 	
+		# 	datatable(
+		# 		df,
+		# 		options = list(
+		# 			pageLength = 20,
+		# 			scrollX = TRUE,
+		# 			dom = 'Bfrtip',
+		# 			buttons = c('copy', 'csv', 'excel')
+		# 		),
+		# 		rownames = FALSE,
+		# 		caption = "Combined batch effect and confounding analysis"
+		# 	) %>%
+		# 		formatStyle(
+		# 			'ANOVA_p_value',
+		# 			backgroundColor = styleInterval(
+		# 				c(0.001, 0.01, 0.05),
+		# 				c('#ffcccc', '#ffddcc', '#ffffcc', '#ffffff')
+		# 			)
+		# 		) %>%
+		# 		formatStyle(
+		# 			'Fisher_p_value',
+		# 			backgroundColor = styleInterval(
+		# 				c(0.001, 0.01, 0.05),
+		# 				c('#ffcccc', '#ffddcc', '#ffffcc', '#ffffff')
+		# 			)
+		# 		)
+		# })
+		
+		
+		# Combined visualization ####
 		output$combined_plot <- renderPlot({
-			req(combined_results()) 
+			req(combined_results())
 			
 			df <- combined_results()
 			
@@ -315,35 +474,42 @@ mod_batch_combined_analysis_server <- function(id,
 				return(NULL)
 			}
 			
+			# Dynamically get the batch effect column name
+			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+			method_type <- input$test_method
+			
 			# Prepare plot data
 			df_plot <- df %>%
+				rename(batch_p = !!sym(batch_col_name)) %>%  # Rename to generic name
 				mutate(
-					neg_log_anova = -log10(ANOVA_p_value),
+					neg_log_batch = -log10(batch_p),
 					neg_log_fisher = -log10(Fisher_p_value),
-					batch_sig = ANOVA_p_value < 0.05,
+					batch_sig = batch_p < 0.05,
 					confound_sig = Fisher_p_value < 0.05,
 					category = case_when(
 						batch_sig & confound_sig ~ "Critical: Both significant",
-						batch_sig & ! confound_sig ~ "Safe: Batch effect only",
+						batch_sig & !confound_sig ~ "Safe: Batch effect only",
 						!batch_sig & confound_sig ~ "Caution: Confounding only",
 						TRUE ~ "OK: Neither significant"
 					)
 				)
 			
-			(ymax = max(c(max(df_plot$neg_log_anova),-log10(0.05)*2)))
-			(xmax = max(c(max(df_plot$neg_log_fisher),-log10(0.05)*2)))
-			(a = -log10(0.05))
-			(low = a/2)
-			(high = a + low)
-			(xhigh = ((xmax - a)/2) + a)
-			(yhigh = ((ymax - a)/2) + a)
+			# Calculate dynamic positions for annotations
+			ymax <- max(c(max(df_plot$neg_log_batch), -log10(0.05) * 2))
+			xmax <- max(c(max(df_plot$neg_log_fisher), -log10(0.05) * 2))
+			a <- -log10(0.05)
+			low <- a / 2
+			high <- a + low
+			xhigh <- ((xmax - a) / 2) + a
+			yhigh <- ((ymax - a) / 2) + a
+			
 			# Create scatter plot
-			ggplot(df_plot, aes(x = neg_log_fisher, y = neg_log_anova)) +
+			ggplot(df_plot, aes(x = neg_log_fisher, y = neg_log_batch)) +
 				# Quadrant lines
 				geom_vline(xintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
 				geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
-			
-				# Quadrant labels
+				
+				# Quadrant labels with dynamic positioning
 				annotate("text", x = low, y = yhigh, 
 								 label = "Low Confounding\nHigh Batch Effect\n✅ SAFE TO CORRECT", 
 								 hjust = 0, vjust = 1, color = "darkgreen", size = 3.5, fontface = "bold") +
@@ -383,10 +549,13 @@ mod_batch_combined_analysis_server <- function(id,
 				
 				# Labels
 				labs(
-					title = sprintf("Batch Effect vs Confounding Analysis: Sample Group '%s'", sample_group_column()),
+					title = sprintf("Batch Effect (%s) vs Confounding: '%s'", 
+													ifelse(method_type == "permanova", "PERMANOVA", "Beta Dispersion"),
+													sample_group_column()),
 					subtitle = "Dashed lines indicate p = 0.05 threshold",
 					x = "Confounding with Sample Groups\n-log10(Fisher's p-value) →",
-					y = "← Batch Effect on Expression\n-log10(ANOVA p-value)",
+					y = sprintf("← Batch Effect on Expression\n-log10(%s p-value)", 
+											ifelse(method_type == "permanova", "PERMANOVA", "ANOVA")),
 					color = "Category",
 					size = "Number of\nBatch Groups"
 				) +
@@ -399,8 +568,203 @@ mod_batch_combined_analysis_server <- function(id,
 					plot.title = element_text(face = "bold"),
 					axis.title = element_text(face = "bold")
 				) + 
-				coord_cartesian(xlim = c(0,xmax), ylim = c(0,ymax))
+				coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax))
 		})
+		
+		# output$combined_plot <- renderPlot({
+		# 	req(combined_results()) 
+		# 	
+		# 	df <- combined_results()
+		# 	
+		# 	if (nrow(df) == 0) {
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# Prepare plot data
+		# 	df_plot <- df %>%
+		# 		mutate(
+		# 			neg_log_anova = -log10(ANOVA_p_value),
+		# 			neg_log_fisher = -log10(Fisher_p_value),
+		# 			batch_sig = ANOVA_p_value < 0.05,
+		# 			confound_sig = Fisher_p_value < 0.05,
+		# 			category = case_when(
+		# 				batch_sig & confound_sig ~ "Critical: Both significant",
+		# 				batch_sig & ! confound_sig ~ "Safe: Batch effect only",
+		# 				!batch_sig & confound_sig ~ "Caution: Confounding only",
+		# 				TRUE ~ "OK: Neither significant"
+		# 			)
+		# 		)
+		# 	
+		# 	(ymax = max(c(max(df_plot$neg_log_anova),-log10(0.05)*2)))
+		# 	(xmax = max(c(max(df_plot$neg_log_fisher),-log10(0.05)*2)))
+		# 	(a = -log10(0.05))
+		# 	(low = a/2)
+		# 	(high = a + low)
+		# 	(xhigh = ((xmax - a)/2) + a)
+		# 	(yhigh = ((ymax - a)/2) + a)
+		# 	# Create scatter plot
+		# 	ggplot(df_plot, aes(x = neg_log_fisher, y = neg_log_anova)) +
+		# 		# Quadrant lines
+		# 		geom_vline(xintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
+		# 		geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
+		# 	
+		# 		# Quadrant labels
+		# 		annotate("text", x = low, y = yhigh, 
+		# 						 label = "Low Confounding\nHigh Batch Effect\n✅ SAFE TO CORRECT", 
+		# 						 hjust = 0, vjust = 1, color = "darkgreen", size = 3.5, fontface = "bold") +
+		# 		annotate("text", x = xhigh, y = yhigh, 
+		# 						 label = "High Confounding\nHigh Batch Effect\n⚠️ CRITICAL", 
+		# 						 hjust = 1, vjust = 1, color = "darkred", size = 3.5, fontface = "bold") +
+		# 		annotate("text", x = low, y = low, 
+		# 						 label = "✅ NO ACTION\nNEEDED", 
+		# 						 hjust = 0, vjust = 0, color = "gray50", size = 3.5) +
+		# 		annotate("text", x = xhigh, y = low, 
+		# 						 label = "⚠️ CAUTION\nPossible biological\ncorrelation", 
+		# 						 hjust = 1, vjust = 0, color = "darkorange", size = 3.5) +
+		# 		
+		# 		# Points
+		# 		geom_point(aes(color = category, size = Batch_Groups), alpha = 0.7) +
+		# 		
+		# 		# Labels
+		# 		ggrepel::geom_text_repel(
+		# 			aes(label = Batch_Column),
+		# 			size = 3.5,
+		# 			max.overlaps = 20,
+		# 			box.padding = 0.5
+		# 		) +
+		# 		
+		# 		# Colors
+		# 		scale_color_manual(
+		# 			values = c(
+		# 				"Critical: Both significant" = "#d32f2f",
+		# 				"Safe: Batch effect only" = "#388e3c",
+		# 				"Caution: Confounding only" = "#f57c00",
+		# 				"OK: Neither significant" = "#757575"
+		# 			)
+		# 		) +
+		# 		
+		# 		# Size
+		# 		scale_size_continuous(range = c(3, 10)) +
+		# 		
+		# 		# Labels
+		# 		labs(
+		# 			#title = sprintf("Batch Effect vs Confounding Analysis: Sample Group '%s'", sample_group_column()),
+		# 			title = sprintf("Batch Effect (%s) vs Confounding: '%s'", 
+		# 											ifelse(input$test_method == "permanova", "PERMANOVA", "Beta Dispersion"),
+		# 											sample_group_column()),
+		# 			subtitle = "Dashed lines indicate p = 0.05 threshold",
+		# 			x = "Confounding with Sample Groups\n-log10(Fisher's p-value) →",
+		# 			y = "← Batch Effect on Expression\n-log10(ANOVA p-value)",
+		# 			color = "Category",
+		# 			size = "Number of\nBatch Groups"
+		# 		) +
+		# 		
+		# 		theme_minimal(base_size = 14) +
+		# 		theme(
+		# 			legend.position = "bottom",
+		# 			legend.box = "vertical",
+		# 			panel.grid.minor = element_blank(),
+		# 			plot.title = element_text(face = "bold"),
+		# 			axis.title = element_text(face = "bold")
+		# 		) + 
+		# 		coord_cartesian(xlim = c(0,xmax), ylim = c(0,ymax))
+		# })
+		# Combined visualization
+		# output$combined_plot <- renderPlot({
+		# 	req(combined_results())
+		# 	
+		# 	df <- combined_results()
+		# 	
+		# 	if (nrow(df) == 0) {
+		# 		return(NULL)
+		# 	}
+		# 	
+		# 	# Dynamically get the batch effect column name
+		# 	batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+		# 	method_type <- input$test_method
+		# 	
+		# 	# Prepare plot data
+		# 	df_plot <- df %>%
+		# 		rename(batch_p = !!sym(batch_col_name)) %>%  # Rename to generic name
+		# 		mutate(
+		# 			neg_log_batch = -log10(batch_p),
+		# 			neg_log_fisher = -log10(Fisher_p_value),
+		# 			batch_sig = batch_p < 0.05,
+		# 			confound_sig = Fisher_p_value < 0.05,
+		# 			category = case_when(
+		# 				batch_sig & confound_sig ~ "Critical: Both significant",
+		# 				batch_sig & !confound_sig ~ "Safe: Batch effect only",
+		# 				!batch_sig & confound_sig ~ "Caution: Confounding only",
+		# 				TRUE ~ "OK: Neither significant"
+		# 			)
+		# 		)
+		# 	
+		# 	# Create scatter plot
+		# 	ggplot(df_plot, aes(x = neg_log_fisher, y = neg_log_batch)) +
+		# 		# Quadrant lines
+		# 		geom_vline(xintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
+		# 		geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
+		# 		
+		# 		# Quadrant labels
+		# 		annotate("text", x = 0.5, y = max(df_plot$neg_log_batch) * 0.95, 
+		# 						 label = "Low Confounding\nHigh Batch Effect\n✅ SAFE TO CORRECT", 
+		# 						 hjust = 0, vjust = 1, color = "darkgreen", size = 3.5, fontface = "bold") +
+		# 		annotate("text", x = max(df_plot$neg_log_fisher) * 0.95, y = max(df_plot$neg_log_batch) * 0.95, 
+		# 						 label = "High Confounding\nHigh Batch Effect\n⚠️ CRITICAL", 
+		# 						 hjust = 1, vjust = 1, color = "darkred", size = 3.5, fontface = "bold") +
+		# 		annotate("text", x = 0.5, y = 0.5, 
+		# 						 label = "✅ NO ACTION\nNEEDED", 
+		# 						 hjust = 0, vjust = 0, color = "gray50", size = 3.5) +
+		# 		annotate("text", x = max(df_plot$neg_log_fisher) * 0.95, y = 0.5, 
+		# 						 label = "⚠️ CAUTION\nPossible biological\ncorrelation", 
+		# 						 hjust = 1, vjust = 0, color = "darkorange", size = 3.5) +
+		# 		
+		# 		# Points
+		# 		geom_point(aes(color = category, size = Batch_Groups), alpha = 0.7) +
+		# 		
+		# 		# Labels
+		# 		ggrepel::geom_text_repel(
+		# 			aes(label = Batch_Column),
+		# 			size = 3.5,
+		# 			max.overlaps = 20,
+		# 			box.padding = 0.5
+		# 		) +
+		# 		
+		# 		# Colors
+		# 		scale_color_manual(
+		# 			values = c(
+		# 				"Critical: Both significant" = "#d32f2f",
+		# 				"Safe: Batch effect only" = "#388e3c",
+		# 				"Caution: Confounding only" = "#f57c00",
+		# 				"OK: Neither significant" = "#757575"
+		# 			)
+		# 		) +
+		# 		
+		# 		# Size
+		# 		scale_size_continuous(range = c(3, 10)) +
+		# 		
+		# 		# Labels
+		# 		labs(
+		# 			title = sprintf("Batch Effect (%s) vs Confounding: '%s'", 
+		# 											ifelse(method_type == "permanova", "PERMANOVA", "Beta Dispersion"),
+		# 											sample_group_column()),
+		# 			subtitle = "Dashed lines indicate p = 0.05 threshold",
+		# 			x = "Confounding with Sample Groups\n-log10(Fisher's p-value) →",
+		# 			y = sprintf("← Batch Effect on Expression\n-log10(%s p-value)", 
+		# 									ifelse(method_type == "permanova", "PERMANOVA", "ANOVA")),
+		# 			color = "Category",
+		# 			size = "Number of\nBatch Groups"
+		# 		) +
+		# 		
+		# 		theme_minimal(base_size = 14) +
+		# 		theme(
+		# 			legend.position = "bottom",
+		# 			legend.box = "vertical",
+		# 			panel.grid.minor = element_blank(),
+		# 			plot.title = element_text(face = "bold"),
+		# 			axis.title = element_text(face = "bold")
+		# 		)
+		# })
 		
 		# Return results
 		return(list(

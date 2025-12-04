@@ -22,12 +22,49 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# Annotation analysis module
-	annotation_module <- mod_annotation_analysis_server(
-		"annotation_analysis",
+	# Subset module
+	subset_module <- mod_eset_subset_server(
+		"subset",
 		eset = data_module$eset,
 		debug = run_debug
 	)
+	
+	# Reset subset when new data is loaded
+	observeEvent(data_module$eset(), {
+		req(data_module$eset())
+		# Trigger reset by calling the reset button programmatically
+		subset_module$subset_eset(data_module$eset())
+	})
+	
+	# Transform module (uses subset output)
+	transform_module <- mod_eset_transform_server(
+		"transform",
+		eset = subset_module$subset_eset,
+		debug = run_debug
+	)
+	
+	# Reset transform when subset changes
+	observeEvent(subset_module$subset_eset(), {
+		req(subset_module$subset_eset())
+		transform_module$transformed_eset(subset_module$subset_eset())
+	})
+	
+
+	# Update annotation module to use transformed data:
+	annotation_module <- mod_annotation_analysis_server(
+		"annotation_analysis",
+		eset = transform_module$transformed_eset,  # <-- Changed from data_module$eset
+		debug = run_debug
+	)
+	
+	# # And all other modules that use eset should use transform_module$transformed_eset
+	# 
+	# # Annotation analysis module
+	# annotation_module <- mod_annotation_analysis_server(
+	# 	"annotation_analysis",
+	# 	eset = data_module$eset,
+	# 	debug = run_debug
+	# )
 	
 	# Extract filtered columns with better error handling
 	filtered_columns <- reactive({
@@ -61,7 +98,7 @@ server <- function(input, output, session) {
 	# Sample group selector module
 	sample_group_module <- mod_sample_group_selector_server(
 		"sample_group",
-		eset = data_module$eset,
+		eset = transform_module$transformed_eset,
 		default_column = "Labels",
 		debug = run_debug
 	)
@@ -69,7 +106,7 @@ server <- function(input, output, session) {
 	# Batch column selector module
 	batch_column_module <- mod_batch_column_selector_server(
 		"column_selector",
-		eset = data_module$eset,
+		eset = transform_module$transformed_eset,
 		filtered_columns = filtered_columns,
 		default_columns = c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)"),
 		debug = run_debug
@@ -78,7 +115,7 @@ server <- function(input, output, session) {
 	# Batch testing module
 	batch_testing <- mod_batch_testing_server(
 		"batch_testing",
-		eset = data_module$eset,
+		eset = transform_module$transformed_eset,
 		selected_columns = batch_column_module$selected_columns,
 		debug = run_debug
 	)
@@ -86,7 +123,7 @@ server <- function(input, output, session) {
 	# Distribution testing module
 	distribution_test <- mod_batch_distribution_test_server(
 		"distribution_test",
-		eset = data_module$eset,
+		eset = transform_module$transformed_eset,
 		sample_group_column = sample_group_module$selected_column,
 		batch_columns = batch_column_module$selected_columns,
 		debug = run_debug
@@ -95,7 +132,7 @@ server <- function(input, output, session) {
 	# Combined batch analysis module
 	batch_combined <- mod_batch_combined_analysis_server(
 		"batch_combined",
-		eset = data_module$eset,
+		eset = transform_module$transformed_eset,
 		sample_group_column = sample_group_module$selected_column,
 		batch_columns = batch_column_module$selected_columns,
 		debug = run_debug
@@ -104,7 +141,7 @@ server <- function(input, output, session) {
 	# ComBat correction module
 	combat_module <- mod_combat_correction_server(
 		"combat",
-		eset = data_module$eset,
+		eset = ,
 		sample_group_column = sample_group_module$selected_column,
 		combined_results = batch_combined$results,
 		debug = run_debug
