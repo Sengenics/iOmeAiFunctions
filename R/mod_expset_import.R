@@ -43,17 +43,18 @@ mod_expset_import_ui <- function(id, debug = FALSE) {
 					width = "100%"
 				)
 			),
-			column(
-				width = 3,
-				br(),
-				actionButton(
-					ns("load_expset"),
-					"Load ExpSet File",
-					icon = icon("file-upload"),
-					class = "btn-success btn-lg",
-					style = "margin-top: 5px;"
-				)
-			),
+			# column(
+			# 	width = 3,
+			# 	br(),
+			# 	actionButton(
+			# 		ns("load_expset"),
+			# 		"Load ExpSet File",
+			# 		icon = icon("file-upload"),
+			# 		class = "btn-success btn-lg",
+			# 		style = "margin-top: 5px;"
+			# 	)
+			# ),
+			column(3),
 			column(
 				width = 5,
 				br(),
@@ -149,7 +150,13 @@ mod_expset_import_server <- function(id, debug = FALSE) {
 		data_source <- reactiveVal("none")
 		
 		# Load ExpSet when button is clicked
-		observeEvent(input$load_expset, {
+		# observeEvent(input$load_expset, {
+		# 	req(input$expset_file)
+		# 	
+		# 	upload_status("Loading...")
+		# 	upload_success(FALSE)
+			
+		observeEvent(input$expset_file, {
 			req(input$expset_file)
 			
 			upload_status("Loading...")

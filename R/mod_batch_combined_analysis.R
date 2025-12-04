@@ -307,7 +307,7 @@ mod_batch_combined_analysis_server <- function(id,
 		
 		# Combined visualization
 		output$combined_plot <- renderPlot({
-			req(combined_results())
+			req(combined_results()) 
 			
 			df <- combined_results()
 			
@@ -330,23 +330,30 @@ mod_batch_combined_analysis_server <- function(id,
 					)
 				)
 			
+			(ymax = max(c(max(df_plot$neg_log_anova),-log10(0.05)*2)))
+			(xmax = max(c(max(df_plot$neg_log_fisher),-log10(0.05)*2)))
+			(a = -log10(0.05))
+			(low = a/2)
+			(high = a + low)
+			(xhigh = ((xmax - a)/2) + a)
+			(yhigh = ((ymax - a)/2) + a)
 			# Create scatter plot
 			ggplot(df_plot, aes(x = neg_log_fisher, y = neg_log_anova)) +
 				# Quadrant lines
 				geom_vline(xintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
 				geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
-				
+			
 				# Quadrant labels
-				annotate("text", x = 0.5, y = max(df_plot$neg_log_anova) * 0.95, 
+				annotate("text", x = low, y = yhigh, 
 								 label = "Low Confounding\nHigh Batch Effect\n✅ SAFE TO CORRECT", 
 								 hjust = 0, vjust = 1, color = "darkgreen", size = 3.5, fontface = "bold") +
-				annotate("text", x = max(df_plot$neg_log_fisher) * 0.95, y = max(df_plot$neg_log_anova) * 0.95, 
+				annotate("text", x = xhigh, y = yhigh, 
 								 label = "High Confounding\nHigh Batch Effect\n⚠️ CRITICAL", 
 								 hjust = 1, vjust = 1, color = "darkred", size = 3.5, fontface = "bold") +
-				annotate("text", x = 0.5, y = 0.5, 
+				annotate("text", x = low, y = low, 
 								 label = "✅ NO ACTION\nNEEDED", 
 								 hjust = 0, vjust = 0, color = "gray50", size = 3.5) +
-				annotate("text", x = max(df_plot$neg_log_fisher) * 0.95, y = 0.5, 
+				annotate("text", x = xhigh, y = low, 
 								 label = "⚠️ CAUTION\nPossible biological\ncorrelation", 
 								 hjust = 1, vjust = 0, color = "darkorange", size = 3.5) +
 				
@@ -391,7 +398,8 @@ mod_batch_combined_analysis_server <- function(id,
 					panel.grid.minor = element_blank(),
 					plot.title = element_text(face = "bold"),
 					axis.title = element_text(face = "bold")
-				)
+				) + 
+				coord_cartesian(xlim = c(0,xmax), ylim = c(0,ymax))
 		})
 		
 		# Return results

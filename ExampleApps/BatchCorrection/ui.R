@@ -9,6 +9,8 @@ ui <- dashboardPage(
 			#menuItem("Annotation Analysis", tabName = "annotation_tab", icon = icon("table")),
 			
 			menuItem("Batch Analysis", tabName = "batch_tab", icon = icon("flask")),
+			menuItem("ComBat Correction", tabName = "combat_tab", icon = icon("magic")),
+			
 			menuItem("Results", tabName = "results_tab", icon = icon("chart-bar"))
 			
 			
@@ -42,6 +44,10 @@ ui <- dashboardPage(
 				)
 				
 				#h2("Batch Analysis - Coming Soon")
+			),
+			tabItem(
+				tabName = "combat_tab",
+				mod_combat_correction_ui("combat", debug = run_debug)
 			),
 			tabItem(
 				tabName = "results_tab",

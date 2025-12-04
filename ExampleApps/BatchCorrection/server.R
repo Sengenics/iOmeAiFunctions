@@ -100,4 +100,13 @@ server <- function(input, output, session) {
 		batch_columns = batch_column_module$selected_columns,
 		debug = run_debug
 	)
+	
+	# ComBat correction module
+	combat_module <- mod_combat_correction_server(
+		"combat",
+		eset = data_module$eset,
+		sample_group_column = sample_group_module$selected_column,
+		combined_results = batch_combined$results,
+		debug = run_debug
+	)
 }
