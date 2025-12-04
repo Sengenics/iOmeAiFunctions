@@ -13,9 +13,10 @@ mod_eset_subset_ui <- function(id, debug = FALSE) {
 			box(
 				title = "Subset ExpressionSet",
 				width = 12,
-				status = "primary",
-				solidHeader = TRUE,
+				#status = "primary",
+				#solidHeader = TRUE,
 				collapsible = TRUE,
+				collapsed = T,
 				
 				p("Filter samples or features based on metadata columns. "),
 				

@@ -67,6 +67,9 @@ library(broom)
 library(purrr)
 library(sva)  # For ComBat
 library(vegan)
+library(Rtsne)
+library(dendextend)
+library(pheatmap)
 
 
 

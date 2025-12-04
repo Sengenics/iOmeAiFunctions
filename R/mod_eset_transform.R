@@ -13,9 +13,10 @@ mod_eset_transform_ui <- function(id, debug = FALSE) {
 			box(
 				title = "Expression Data Transformation",
 				width = 12,
-				status = "warning",
-				solidHeader = TRUE,
+				#status = "warning",
+				#solidHeader = TRUE,
 				collapsible = TRUE,
+				collapsed = T,
 				
 				p("Apply transformations to expression data matrix."),
 				

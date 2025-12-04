@@ -1,4 +1,4 @@
-#' Base App
+# GLOBAL : Base App #####
 #'
 #' @export
 

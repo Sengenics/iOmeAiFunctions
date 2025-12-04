@@ -15,45 +15,84 @@ server <- function(input, output, session) {
 		browser()
 	})
 	
-	# Data selection module
-	data_module <- mod_app_data_selection_server(
-		"data_select",
+	# ============================================
+	# SHARED: ExpSet List Import (used by all)
+	# ============================================
+	expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
+	
+	ExpSet_list <- reactive({
+		expset_data$ExpSet_list()
+	})
+	
+	# ============================================
+	# TAB 1: Initial Data Selection
+	# ============================================
+	# data_module <- mod_eset_selector_standalone_server(
+	# 	"initial_select",
+	# 	ExpSet_list = ExpSet_list,
+	# 	default_selection = "clinical_loess_normalised_PN",
+	# 	source = expset_data$source
+	# )
+	
+	data_module <- mod_eset_selector_standalone_server(
+		"initial_select",
+		ExpSet_list = ExpSet_list,
 		default_selection = "clinical_loess_normalised_PN",
+		source = expset_data$source,
+		enable_subset = TRUE,
+		enable_transform = TRUE,
 		debug = run_debug
 	)
 	
-	# Subset module
-	subset_module <- mod_eset_subset_server(
-		"subset",
-		eset = data_module$eset,
+	combat_data <- mod_eset_selector_standalone_server(
+		"combat_data",
+		ExpSet_list = ExpSet_list,
+		default_selection = "sample_loess_normalised",
+		source = expset_data$source,
+		enable_subset = TRUE,
+		enable_transform = TRUE,
 		debug = run_debug
 	)
 	
-	# Reset subset when new data is loaded
-	observeEvent(data_module$eset(), {
-		req(data_module$eset())
-		# Trigger reset by calling the reset button programmatically
-		subset_module$subset_eset(data_module$eset())
-	})
+	# # Data selection module
+	# data_module <- mod_app_data_selection_server(
+	# 	"data_select",
+	# 	default_selection = "clinical_loess_normalised_PN",
+	# 	debug = run_debug
+	# )
 	
-	# Transform module (uses subset output)
-	transform_module <- mod_eset_transform_server(
-		"transform",
-		eset = subset_module$subset_eset,
-		debug = run_debug
-	)
+	# # Subset module
+	# subset_module <- mod_eset_subset_server(
+	# 	"subset",
+	# 	eset = data_module$eset,
+	# 	debug = run_debug
+	# )
+	# 
+	# # Reset subset when new data is loaded
+	# observeEvent(data_module$eset(), {
+	# 	req(data_module$eset())
+	# 	# Trigger reset by calling the reset button programmatically
+	# 	subset_module$subset_eset(data_module$eset())
+	# })
 	
-	# Reset transform when subset changes
-	observeEvent(subset_module$subset_eset(), {
-		req(subset_module$subset_eset())
-		transform_module$transformed_eset(subset_module$subset_eset())
-	})
+	# # Transform module (uses subset output)
+	# transform_module <- mod_eset_transform_server(
+	# 	"transform",
+	# 	eset = subset_module$subset_eset,
+	# 	debug = run_debug
+	# )
+	# 
+	# # Reset transform when subset changes
+	# observeEvent(subset_module$subset_eset(), {
+	# 	req(subset_module$subset_eset())
+	# 	transform_module$transformed_eset(subset_module$subset_eset())
+	# })
 	
 
 	# Update annotation module to use transformed data:
 	annotation_module <- mod_annotation_analysis_server(
 		"annotation_analysis",
-		eset = transform_module$transformed_eset,  # <-- Changed from data_module$eset
+		eset = data_module$eset,  # <-- Changed from data_module$eset
 		debug = run_debug
 	)
 	
@@ -98,7 +137,7 @@ server <- function(input, output, session) {
 	# Sample group selector module
 	sample_group_module <- mod_sample_group_selector_server(
 		"sample_group",
-		eset = transform_module$transformed_eset,
+		eset = data_module$eset,
 		default_column = "Labels",
 		debug = run_debug
 	)
@@ -106,7 +145,7 @@ server <- function(input, output, session) {
 	# Batch column selector module
 	batch_column_module <- mod_batch_column_selector_server(
 		"column_selector",
-		eset = transform_module$transformed_eset,
+		eset = data_module$eset,
 		filtered_columns = filtered_columns,
 		default_columns = c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)"),
 		debug = run_debug
@@ -115,7 +154,7 @@ server <- function(input, output, session) {
 	# Batch testing module
 	batch_testing <- mod_batch_testing_server(
 		"batch_testing",
-		eset = transform_module$transformed_eset,
+		eset = data_module$eset,
 		selected_columns = batch_column_module$selected_columns,
 		debug = run_debug
 	)
@@ -123,7 +162,7 @@ server <- function(input, output, session) {
 	# Distribution testing module
 	distribution_test <- mod_batch_distribution_test_server(
 		"distribution_test",
-		eset = transform_module$transformed_eset,
+		eset = data_module$eset,
 		sample_group_column = sample_group_module$selected_column,
 		batch_columns = batch_column_module$selected_columns,
 		debug = run_debug
@@ -132,7 +171,7 @@ server <- function(input, output, session) {
 	# Combined batch analysis module
 	batch_combined <- mod_batch_combined_analysis_server(
 		"batch_combined",
-		eset = transform_module$transformed_eset,
+		eset = data_module$eset,
 		sample_group_column = sample_group_module$selected_column,
 		batch_columns = batch_column_module$selected_columns,
 		debug = run_debug
@@ -141,9 +180,17 @@ server <- function(input, output, session) {
 	# ComBat correction module
 	combat_module <- mod_combat_correction_server(
 		"combat",
-		eset = ,
+		eset = combat_data$eset,
 		sample_group_column = sample_group_module$selected_column,
 		combined_results = batch_combined$results,
+		debug = run_debug
+	)
+	
+	# Batch visualization
+	batch_viz <- mod_batch_visualization_server(
+		"batch_viz",
+		eset_original = combat_data$eset,
+		eset_corrected = combat_module$corrected_eset,
 		debug = run_debug
 	)
 }

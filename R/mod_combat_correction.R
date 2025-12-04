@@ -128,100 +128,207 @@ mod_combat_correction_server <- function(id,
 		# Identify safe batch factors ####
 		# safe_batch_factors <- reactive({
 		# 	req(combined_results())
-		# 	
+		# 
 		# 	df <- combined_results()
-		# 	
+		# 
 		# 	# Filter for: ANOVA p < 0.05 (batch effect) AND Fisher p > 0.05 (not confounded)
 		# 	safe <- df %>%
 		# 		filter(ANOVA_p_value < 0.05, Fisher_p_value > 0.05) %>%
 		# 		arrange(ANOVA_p_value) %>%  # Sort by strongest batch effect
 		# 		pull(Batch_Column)
-		# 	
+		# 
 		# 	as.character(safe)
 		# })
 		
 		# Identify safe batch factors
 		safe_batch_factors <- reactive({
 			req(combined_results())
-			
+
 			df <- combined_results()
-			
+
 			# Dynamically get the batch effect column name
 			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
-			
+
 			if (is.na(batch_col_name)) {
 				warning("Could not find batch effect p-value column")
 				return(character(0))
 			}
-			
+
 			# Filter for: Batch p < 0.05 (batch effect) AND Fisher p > 0.05 (not confounded)
 			safe <- df %>%
 				rename(batch_p = !!sym(batch_col_name)) %>%  # Rename to generic name
 				filter(batch_p < 0.05, Fisher_p_value > 0.05) %>%
 				arrange(batch_p) %>%  # Sort by strongest batch effect
 				pull(Batch_Column)
-			
+
 			as.character(safe)
 		})
 		
-		# Render batch factor selector
+		# Render batch factor selector ####
+		
+		
+		# output$combat_selector_ui <- renderUI({
+		# 	ns <- session$ns
+		# 	
+		# 	safe_factors <- safe_batch_factors()
+		# 	
+		# 	if (is.null(safe_factors) || length(safe_factors) == 0) {
+		# 		return(
+		# 			div(
+		# 				class = "alert alert-warning",
+		# 				icon("exclamation-triangle"),
+		# 				strong(" No safe batch factors identified"),
+		# 				p("All tested batch factors are either:"),
+		# 				tags$ul(
+		# 					tags$li("Not significant (no batch effect), or"),
+		# 					tags$li("Confounded with sample groups (unsafe to correct)")
+		# 				),
+		# 				p("Run the Combined Batch Analysis first, or adjust your batch column selection.")
+		# 			)
+		# 		)
+		# 	}
+		# 	
+		# 	tagList(
+		# 		div(
+		# 			class = "alert alert-success",
+		# 			icon("check-circle"),
+		# 			strong(sprintf(" %d safe batch factor(s) identified", length(safe_factors)))
+		# 		),
+		# 		
+		# 		selectInput(
+		# 			ns("batch_factor"),
+		# 			"Select Batch Factor to Correct:",
+		# 			choices = safe_factors,
+		# 			selected = safe_factors[1],  # Default to strongest effect
+		# 		),
+		# 		
+		# 		helpText(
+		# 			"Listed in order of batch effect strength (strongest first).   ",
+		# 			"ComBat will correct for this factor while preserving biological variation."
+		# 		)
+		# 	)
+		# })
+		
 		output$combat_selector_ui <- renderUI({
 			ns <- session$ns
+			req(eset())
 			
+			# Get all available pData columns
+			all_columns <- colnames(Biobase::pData(eset()))
+			
+			# Get safe factors (pre-selected)
 			safe_factors <- safe_batch_factors()
 			
-			if (is.null(safe_factors) || length(safe_factors) == 0) {
-				return(
-					div(
-						class = "alert alert-warning",
-						icon("exclamation-triangle"),
-						strong(" No safe batch factors identified"),
-						p("All tested batch factors are either:"),
-						tags$ul(
-							tags$li("Not significant (no batch effect), or"),
-							tags$li("Confounded with sample groups (unsafe to correct)")
-						),
-						p("Run the Combined Batch Analysis first, or adjust your batch column selection.")
-					)
-				)
+			# Determine default selection
+			default_selection <- if (! is.null(safe_factors) && length(safe_factors) > 0) {
+				safe_factors  # Pre-select safe factors
+			} else {
+				NULL  # No pre-selection
 			}
 			
 			tagList(
-				div(
-					class = "alert alert-success",
-					icon("check-circle"),
-					strong(sprintf(" %d safe batch factor(s) identified", length(safe_factors)))
+				# Status message
+				if (! is.null(safe_factors) && length(safe_factors) > 0) {
+					div(
+						class = "alert alert-success",
+						icon("check-circle"),
+						strong(sprintf(" %d safe batch factor(s) identified and pre-selected", length(safe_factors))),
+						p("These factors have significant batch effects and are NOT confounded with sample groups.")
+					)
+				} else {
+					div(
+						class = "alert alert-info",
+						icon("info-circle"),
+						strong(" No safe batch factors identified"),
+						p("You can still select factors manually, but be cautious of confounding with biological groups.")
+					)
+				},
+				
+				# Batch factor selector (supports multiple)
+				selectInput(
+					ns("batch_factors"),
+					"Select Batch Factor(s) to Correct:",
+					choices = all_columns,
+					selected = default_selection,
+					multiple = TRUE
 				),
 				
-				selectInput(
-					ns("batch_factor"),
-					"Select Batch Factor to Correct:",
-					choices = safe_factors,
-					selected = safe_factors[1]  # Default to strongest effect
-				),
+				# Show which are safe vs unsafe
+				uiOutput(ns("factor_safety_info")),
 				
 				helpText(
-					"Listed in order of batch effect strength (strongest first).   ",
-					"ComBat will correct for this factor while preserving biological variation."
+					icon("lightbulb"),
+					strong("Multiple factors:"),
+					"ComBat can correct for multiple batch factors simultaneously.",
+					br(),
+					strong("Order matters:"),
+					"Factors are corrected in the order selected (most important first)."
 				)
+			)
+		})
+		
+		# Add safety information display
+		output$factor_safety_info <- renderUI({
+			req(input$batch_factors)
+			
+			selected <- input$batch_factors
+			safe <- safe_batch_factors()
+			
+			if (length(selected) == 0) return(NULL)
+			
+			# Categorize selected factors
+			safe_selected <- intersect(selected, safe)
+			unsafe_selected <- setdiff(selected, safe)
+			
+			tagList(
+				if (length(safe_selected) > 0) {
+					div(
+						style = "background-color: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 10px;",
+						strong(icon("check-circle", class = "text-success"), " Safe factors:"),
+						tags$ul(
+							lapply(safe_selected, function(x) tags$li(x))
+						)
+					)
+				},
+				
+				if (length(unsafe_selected) > 0) {
+					div(
+						style = "background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;",
+						strong(icon("exclamation-triangle", class = "text-warning"), " Caution - Unverified factors:"),
+						tags$ul(
+							lapply(unsafe_selected, function(x) tags$li(x))
+						),
+						p(
+							style = "margin-bottom: 0;",
+							em("These factors were not identified as 'safe'.   They may be confounded with sample groups or have no significant batch effect.")
+						)
+					)
+				}
 			)
 		})
 		
 		# Store corrected ExpressionSet
 		corrected_eset <- reactiveVal(NULL)
 		
+		# Run ComBat correction ####
 		# Run ComBat correction
 		observeEvent(input$run_combat, {
 			req(eset())
-			req(input$batch_factor)
+			req(input$batch_factors)
 			req(sample_group_column())
 			
+			batch_factors <- input$batch_factors
+			
+			if (length(batch_factors) == 0) {
+				showNotification("⚠️ Please select at least one batch factor", type = "warning", duration = 5)
+				return()
+			}
+			
 			# Show progress
-			showNotification("Running ComBat correction.. .", type = "message", duration = NULL, id = "combat_progress")
+			showNotification("Running ComBat correction...", type = "message", duration = NULL, id = "combat_progress")
 			
 			tryCatch({
 				ExpSet <- eset()
-				batch_factor <- input$batch_factor
 				sample_group <- sample_group_column()
 				par_prior <- as.logical(input$par_prior)
 				
@@ -230,30 +337,41 @@ mod_combat_correction_server <- function(id,
 				meta <- Biobase::pData(ExpSet)
 				
 				# Validate
-				if (! batch_factor %in% colnames(meta)) {
-					stop("Batch factor not found in metadata")
+				missing_factors <- setdiff(batch_factors, colnames(meta))
+				if (length(missing_factors) > 0) {
+					stop("Batch factors not found in metadata: ", paste(missing_factors, collapse = ", "))
 				}
 				
-				if (! sample_group %in% colnames(meta)) {
+				if (!  sample_group %in% colnames(meta)) {
 					stop("Sample group column not found in metadata")
 				}
 				
-				# Prepare batch and mod
-				batch <- meta[[batch_factor]]
-				mod <- model.matrix(~ as.factor(meta[[sample_group]]))
+				# Sequential correction for multiple factors
+				corrected_data <- expr_data
+				correction_log <- list()
 				
-				# Run ComBat
-				message("Running ComBat correction...")
-				message("  Batch factor: ", batch_factor)
-				message("  Preserving: ", sample_group)
-				message("  Parametric prior: ", par_prior)
-				
-				corrected_data <- sva::ComBat(
-					dat = expr_data,
-					batch = batch,
-					mod = mod,
-					par.prior = par_prior
-				)
+				for (i in seq_along(batch_factors)) {
+					batch_factor <- batch_factors[i]
+					
+					message(sprintf("ComBat correction %d/%d: %s", i, length(batch_factors), batch_factor))
+					
+					# Prepare batch and mod
+					batch <- meta[[batch_factor]]
+					mod <- model.matrix(~ as.factor(meta[[sample_group]]))
+					
+					# Run ComBat
+					corrected_data <- sva::ComBat(
+						dat = corrected_data,
+						batch = batch,
+						mod = mod,
+						par.prior = par_prior
+					)
+					
+					correction_log[[batch_factor]] <- list(
+						order = i,
+						n_groups = length(unique(batch))
+					)
+				}
 				
 				# Create new ExpressionSet with corrected data
 				corrected_ExpSet <- ExpSet
@@ -264,10 +382,11 @@ mod_combat_correction_server <- function(id,
 					Biobase::notes(corrected_ExpSet),
 					list(
 						combat_correction = list(
-							batch_factor = batch_factor,
+							batch_factors = batch_factors,
 							preserved_group = sample_group,
 							par_prior = par_prior,
-							correction_date = Sys.time()
+							correction_date = Sys.time(),
+							correction_log = correction_log
 						)
 					)
 				)
@@ -276,7 +395,13 @@ mod_combat_correction_server <- function(id,
 				corrected_eset(corrected_ExpSet)
 				
 				removeNotification("combat_progress")
-				showNotification("✅ ComBat correction complete!", type = "message", duration = 5)
+				showNotification(
+					sprintf("✅ ComBat correction complete! Corrected for %d factor(s): %s", 
+									length(batch_factors), 
+									paste(batch_factors, collapse = ", ")),
+					type = "message", 
+					duration = 8
+				)
 				
 			}, error = function(e) {
 				removeNotification("combat_progress")
@@ -284,6 +409,81 @@ mod_combat_correction_server <- function(id,
 				message("ComBat error: ", e$message)
 			})
 		})
+		
+		
+		# observeEvent(input$run_combat, {
+		# 	req(eset())
+		# 	req(input$batch_factor)
+		# 	req(sample_group_column())
+		# 	
+		# 	# Show progress
+		# 	showNotification("Running ComBat correction.. .", type = "message", duration = NULL, id = "combat_progress")
+		# 	
+		# 	tryCatch({
+		# 		ExpSet <- eset()
+		# 		batch_factor <- input$batch_factor
+		# 		sample_group <- sample_group_column()
+		# 		par_prior <- as.logical(input$par_prior)
+		# 		
+		# 		# Get data
+		# 		expr_data <- Biobase::exprs(ExpSet)
+		# 		meta <- Biobase::pData(ExpSet)
+		# 		
+		# 		# Validate
+		# 		if (! batch_factor %in% colnames(meta)) {
+		# 			stop("Batch factor not found in metadata")
+		# 		}
+		# 		
+		# 		if (! sample_group %in% colnames(meta)) {
+		# 			stop("Sample group column not found in metadata")
+		# 		}
+		# 		
+		# 		# Prepare batch and mod
+		# 		batch <- meta[[batch_factor]]
+		# 		mod <- model.matrix(~ as.factor(meta[[sample_group]]))
+		# 		
+		# 		# Run ComBat
+		# 		message("Running ComBat correction...")
+		# 		message("  Batch factor: ", batch_factor)
+		# 		message("  Preserving: ", sample_group)
+		# 		message("  Parametric prior: ", par_prior)
+		# 		
+		# 		corrected_data <- sva::ComBat(
+		# 			dat = expr_data,
+		# 			batch = batch,
+		# 			mod = mod,
+		# 			par.prior = par_prior
+		# 		)
+		# 		
+		# 		# Create new ExpressionSet with corrected data
+		# 		corrected_ExpSet <- ExpSet
+		# 		Biobase::exprs(corrected_ExpSet) <- corrected_data
+		# 		
+		# 		# Add note to experimentData
+		# 		Biobase::notes(corrected_ExpSet) <- c(
+		# 			Biobase::notes(corrected_ExpSet),
+		# 			list(
+		# 				combat_correction = list(
+		# 					batch_factor = batch_factor,
+		# 					preserved_group = sample_group,
+		# 					par_prior = par_prior,
+		# 					correction_date = Sys.time()
+		# 				)
+		# 			)
+		# 		)
+		# 		
+		# 		# Store result
+		# 		corrected_eset(corrected_ExpSet)
+		# 		
+		# 		removeNotification("combat_progress")
+		# 		showNotification("✅ ComBat correction complete!", type = "message", duration = 5)
+		# 		
+		# 	}, error = function(e) {
+		# 		removeNotification("combat_progress")
+		# 		showNotification(paste("❌ ComBat failed:", e$message), type = "error", duration = 10)
+		# 		message("ComBat error: ", e$message)
+		# 	})
+		# })
 		
 		# Correction status
 		output$correction_status <- renderUI({
@@ -297,7 +497,7 @@ mod_combat_correction_server <- function(id,
 			}
 		})
 		
-		# Correction summary
+		# Correction summary ####
 		output$correction_summary <- renderPrint({
 			req(corrected_eset())
 			
@@ -308,7 +508,13 @@ mod_combat_correction_server <- function(id,
 			cat("COMBAT CORRECTION SUMMARY\n")
 			cat("═══════════════════════════════════════════════\n\n")
 			
-			cat("Corrected for batch factor:", input$batch_factor, "\n")
+			batch_factors <- input$batch_factors
+			cat("Corrected for", length(batch_factors), "batch factor(s):\n")
+			for (i in seq_along(batch_factors)) {
+				cat(sprintf("  %d.  %s\n", i, batch_factors[i]))
+			}
+			cat("\n")
+			
 			cat("Preserved biological group:", sample_group_column(), "\n")
 			cat("Parametric prior:", input$par_prior, "\n\n")
 			
@@ -324,6 +530,32 @@ mod_combat_correction_server <- function(id,
 			
 			cat("\n═══════════════════════════════════════════════\n")
 		})
+		# output$correction_summary <- renderPrint({
+		# 	req(corrected_eset())
+		# 	
+		# 	ExpSet_orig <- eset()
+		# 	ExpSet_corrected <- corrected_eset()
+		# 	
+		# 	cat("═══════════════════════════════════════════════\n")
+		# 	cat("COMBAT CORRECTION SUMMARY\n")
+		# 	cat("═══════════════════════════════════════════════\n\n")
+		# 	
+		# 	cat("Corrected for batch factor:", input$batch_factor, "\n")
+		# 	cat("Preserved biological group:", sample_group_column(), "\n")
+		# 	cat("Parametric prior:", input$par_prior, "\n\n")
+		# 	
+		# 	cat("Original data range:", 
+		# 			round(min(Biobase::exprs(ExpSet_orig), na.rm = TRUE), 2), "to",
+		# 			round(max(Biobase::exprs(ExpSet_orig), na.rm = TRUE), 2), "\n")
+		# 	
+		# 	cat("Corrected data range:", 
+		# 			round(min(Biobase::exprs(ExpSet_corrected), na.rm = TRUE), 2), "to",
+		# 			round(max(Biobase::exprs(ExpSet_corrected), na.rm = TRUE), 2), "\n\n")
+		# 	
+		# 	cat("Dimensions:", nrow(ExpSet_corrected), "features ×", ncol(ExpSet_corrected), "samples\n")
+		# 	
+		# 	cat("\n═══════════════════════════════════════════════\n")
+		# })
 		
 		# Download corrected ExpressionSet
 		output$download_corrected_eset <- downloadHandler(

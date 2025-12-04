@@ -15,18 +15,18 @@ mod_app_data_selection_ui <- function(id, debug = FALSE) {
 				icon = icon("bug"),
 				class = "btn-warning"
 			),
-			box(
-				title = "Import New ExpSet Data",
-				width = 12,
-				status = "success",
-				solidHeader = TRUE,
-				collapsible = TRUE,
-				collapsed = FALSE,
-				
-				p(icon("upload"), strong("Upload a new ExpSet. rds file"), "to import custom expression data"),
-				
-				mod_expset_import_ui(ns("expset_import"), debug = debug)
-			)
+			# box(
+			# 	title = "Import New ExpSet Data",
+			# 	width = 12,
+			# 	status = "success",
+			# 	solidHeader = TRUE,
+			# 	collapsible = TRUE,
+			# 	collapsed = FALSE,
+			# 	
+			# 	p(icon("upload"), strong("Upload a new ExpSet. rds file"), "to import custom expression data"),
+			# 	
+			# 	mod_expset_import_ui(ns("expset_import"), debug = debug)
+			# )
 		),
 		
 		# ExpressionSet Selection

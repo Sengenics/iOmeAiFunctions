@@ -5,11 +5,12 @@ ui <- dashboardPage(
 	dashboardSidebar(
 		
 		sidebarMenu(
-			menuItem("Data Selection", tabName = "data_tab", icon = icon("database")),
+			menuItem("Upload", tabName = "data_tab", icon = icon("database")),
 			#menuItem("Annotation Analysis", tabName = "annotation_tab", icon = icon("table")),
 			
 			menuItem("Batch Analysis", tabName = "batch_tab", icon = icon("flask")),
 			menuItem("ComBat Correction", tabName = "combat_tab", icon = icon("magic")),
+			menuItem("Batch Visualization", tabName = "viz_tab", icon = icon("chart-area")),
 			
 			menuItem("Results", tabName = "results_tab", icon = icon("chart-bar"))
 			
@@ -21,9 +22,19 @@ ui <- dashboardPage(
 		tabItems(
 			tabItem(
 				tabName = "data_tab",
-				mod_app_data_selection_ui("data_select", debug = run_debug),
-				mod_eset_subset_ui("subset", debug = run_debug),
-				mod_eset_transform_ui("transform", debug = run_debug)
+				fluidRow(
+					box(
+						title = "Upload ExpSet_list. rds",
+						width = 12,
+						status = "success",
+						solidHeader = TRUE,
+						mod_expset_import_ui("expset_import", debug = run_debug)
+					)
+				)
+				
+				#mod_app_data_selection_ui("data_select", debug = run_debug),
+				#mod_eset_subset_ui("subset", debug = run_debug),
+				#mod_eset_transform_ui("transform", debug = run_debug)
 			),
 			# tabItem(
 			# 	tabName = "annotation_tab",
@@ -31,6 +42,7 @@ ui <- dashboardPage(
 			# ),
 			tabItem(
 				tabName = "batch_tab",
+				mod_eset_selector_standalone_ui("initial_select",T,T,T,T),
 				mod_annotation_analysis_ui("annotation_analysis", debug = run_debug),
 				column(6,
 					mod_sample_group_selector_ui("sample_group", debug = run_debug)
@@ -49,7 +61,12 @@ ui <- dashboardPage(
 			),
 			tabItem(
 				tabName = "combat_tab",
+				mod_eset_selector_standalone_ui("combat_data",T,T,T,T),
 				mod_combat_correction_ui("combat", debug = run_debug)
+			),
+			tabItem(
+				tabName = "viz_tab",
+				mod_batch_visualization_ui("batch_viz", debug = run_debug)
 			),
 			tabItem(
 				tabName = "results_tab",
