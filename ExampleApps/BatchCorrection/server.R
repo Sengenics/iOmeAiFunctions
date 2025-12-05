@@ -195,17 +195,30 @@ server <- function(input, output, session) {
 	# ComBat Correction Module
 	
 	# ComBat Correction Module
+	# combat_module <- mod_combat_correction_server(
+	# 	"combat",
+	# 	eset = data_module$eset,
+	# 	sample_group_column = sample_group_module$selected_column,
+	# 	combined_results = combined_analysis$results_table,
+	# 	ExpSet_list = ExpSet_list,
+	# 	selected_expset_name = data_module$selected_name,
+	# 	update_expset_list = function(new_list) {
+	# 		ExpSet_list(new_list)  # Assuming ExpSet_list is a reactiveVal
+	# 	},
+	# 	debug = run_debug  # Pass your debug flag
+	# )
+	
 	combat_module <- mod_combat_correction_server(
-		"combat",
-		eset = data_module$eset,
-		sample_group_column = sample_group_module$selected_column,
-		combined_results = combined_analysis$results_table,
+			"combat",
+			eset = combat_data$eset,
+			sample_group_column = sample_group_module$selected_column,
+			combined_results = batch_combined$results,
 		ExpSet_list = ExpSet_list,
 		selected_expset_name = data_module$selected_name,
 		update_expset_list = function(new_list) {
-			ExpSet_list(new_list)  # Assuming ExpSet_list is a reactiveVal
+			ExpSet_list(new_list)  # Update the reactiveVal
 		},
-		debug = run_debug  # Pass your debug flag
+		debug = run_debug
 	)
 	# combat_module <- mod_combat_correction_server(
 	# 	"combat",
