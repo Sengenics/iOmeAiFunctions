@@ -24,6 +24,12 @@ server <- function(input, output, session) {
 		expset_data$ExpSet_list()
 	})
 	
+	# ExpressionSet Viewer Module
+	expset_viewer <- mod_expset_viewer_server(
+		"expset_viewer",
+		ExpSet_list = ExpSet_list  # Use the same ExpSet_list from expset_import
+	)
+	
 	# ============================================
 	# TAB 1: Initial Data Selection
 	# ============================================
@@ -168,7 +174,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# Combined batch analysis module
+	# Combined batch analysis module ####
 	batch_combined <- mod_batch_combined_analysis_server(
 		"batch_combined",
 		eset = data_module$eset,
@@ -177,20 +183,68 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# ComBat correction module
+	# ComBat correction module ####
+	# combat_module <- mod_combat_correction_server(
+	# 	"combat",
+	# 	eset = combat_data$eset,
+	# 	sample_group_column = sample_group_module$selected_column,
+	# 	combined_results = batch_combined$results,
+	# 	debug = run_debug
+	# )
+	
+	# ComBat Correction Module
+	
+	# ComBat Correction Module
 	combat_module <- mod_combat_correction_server(
 		"combat",
-		eset = combat_data$eset,
+		eset = data_module$eset,
 		sample_group_column = sample_group_module$selected_column,
-		combined_results = batch_combined$results,
-		debug = run_debug
+		combined_results = combined_analysis$results_table,
+		ExpSet_list = ExpSet_list,
+		selected_expset_name = data_module$selected_name,
+		update_expset_list = function(new_list) {
+			ExpSet_list(new_list)  # Assuming ExpSet_list is a reactiveVal
+		},
+		debug = run_debug  # Pass your debug flag
 	)
+	# combat_module <- mod_combat_correction_server(
+	# 	"combat",
+	# 	eset = data_module$eset,
+	# 	sample_group_column = sample_group_module$selected_column,
+	# 	combined_results = combined_analysis$results_table,
+	# 	ExpSet_list = ExpSet_list,
+	# 	selected_expset_name = data_module$selected_name,
+	# 	update_expset_list = function(new_list) {
+	# 		# Update the main ExpSet_list reactiveVal
+	# 		# This depends on how you've structured your ExpSet_list
+	# 		# If it's a reactiveVal, you'd do:
+	# 		ExpSet_list_val(new_list)
+	# 	}
+	# )
 	
 	# Batch visualization
+	# batch_viz <- mod_batch_visualization_server(
+	# 	"batch_viz",
+	# 	eset_original = combat_data$eset,
+	# 	eset_corrected = combat_module$corrected_eset,
+	# 	debug = run_debug
+	# )
+	
+	# Batch visualization ####
 	batch_viz <- mod_batch_visualization_server(
 		"batch_viz",
 		eset_original = combat_data$eset,
 		eset_corrected = combat_module$corrected_eset,
+		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
+		batch_factors = combat_module$selected_batch_factors,            # ✅ From ComBat Correction tab
 		debug = run_debug
+	)
+	
+	# Export ####
+	
+	# Export module
+	expset_export <- mod_expset_export_server(
+		"expset_export",
+		ExpSet_list = ExpSet_list
 	)
 }

@@ -7,7 +7,7 @@
 mod_batch_column_selector_server(
   id,
   eset,
-  useful_columns,
+  filtered_columns,
   default_columns = NULL,
   debug = FALSE
 )
@@ -17,7 +17,7 @@ mod_batch_column_selector_server(
 
 \item{eset}{Reactive ExpressionSet}
 
-\item{useful_columns}{Reactive vector of useful column names from annotation analysis}
+\item{filtered_columns}{Reactive vector of filtered column names from annotation analysis}
 
 \item{default_columns}{Reactive or static vector of default selections}
 

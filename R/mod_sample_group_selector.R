@@ -11,14 +11,14 @@ mod_sample_group_selector_ui <- function(id, debug = FALSE) {
 	tagList(
 		fluidRow(
 			box(
-				title = "Sample Grouping Column",
+				#title = "Sample Grouping Column",
 				width = 12,
-				status = "primary",
-				solidHeader = TRUE,
+				#status = "primary",
+				#solidHeader = TRUE,
 				#p("Select the primary grouping variable for your samples (e.g., biological groups, conditions, treatments). "),
 				uiOutput(ns("sample_group_selector_ui")),
 				box(
-					title = '',
+					#title = '',
 					width = 12,
 					#status = "info",
 					#solidHeader = TRUE,

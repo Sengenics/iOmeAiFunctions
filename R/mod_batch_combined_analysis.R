@@ -31,6 +31,55 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 				),
 				
 				fluidRow(
+					box(
+						title = "Combined Visualization",
+						width = 12,
+						status = "primary",
+						solidHeader = TRUE,
+						collapsible = TRUE,
+						collapsed = FALSE,
+						
+			
+						shinycssloaders::withSpinner(
+							plotOutput(ns("combined_plot"), height = "700px"),
+							type = 4,  # Spinner style (1-8 available)
+							color = "darkblue"  # Customize color
+						),
+						# ),
+						# 
+						fluidRow(
+							box(
+								title = "Interpretation Guide",
+								width = 12,
+								status = "info",
+								solidHeader = TRUE,
+								collapsible = TRUE,
+								collapsed = TRUE,
+								
+								p("Each batch column is plotted showing:"),
+								tags$ul(
+									tags$li(strong("Y-axis (Batch Effect):"), "-log10(ANOVA p-value) - higher = stronger batch effect"),
+									tags$li(strong("X-axis (Confounding):"), "-log10(Fisher p-value) - higher = more confounded with sample groups"),
+									tags$li(strong("Color:"), "Significance level"),
+									tags$li(strong("Size:"), "Number of groups in batch column")
+								),
+								
+								h4("Quadrant Interpretation:"),
+								tags$ul(
+									tags$li(strong("Top-Right (High Batch Effect + High Confounding):"), 
+													"⚠️ CRITICAL - Strong batch effect AND confounded with sample groups Correction may remove real biology! "),
+									tags$li(strong("Top-Left (High Batch Effect + Low Confounding):"), 
+													"✅ SAFE TO CORRECT - Strong batch effect but evenly distributedCorrection recommended."),
+									tags$li(strong("Bottom-Right (Low Batch Effect + High Confounding):"), 
+													"⚠️ CAUTION - Uneven distribution but weak effectMay indicate biological correlation."),
+									tags$li(strong("Bottom-Left (Low Batch Effect + Low Confounding):"), 
+													"✅ NO ACTION NEEDED - No significant batch effect or confounding.")
+								))
+						))
+				),
+				
+				
+				fluidRow(
 			
 					
 				
@@ -67,53 +116,10 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 						#h4("Combined Results Table"),
 						DTOutput(ns("combined_table")),
 					)
-				),
+				)
 		# 	)
 		# ),
 		# 
-		 fluidRow(
-			box(
-				title = "Combined Visualization",
-				width = 12,
-				status = "primary",
-				solidHeader = TRUE,
-				collapsible = TRUE,
-				collapsed = FALSE,
-				
-				p("Each batch column is plotted showing:"),
-				tags$ul(
-					tags$li(strong("Y-axis (Batch Effect):"), "-log10(ANOVA p-value) - higher = stronger batch effect"),
-					tags$li(strong("X-axis (Confounding):"), "-log10(Fisher p-value) - higher = more confounded with sample groups"),
-					tags$li(strong("Color:"), "Significance level"),
-					tags$li(strong("Size:"), "Number of groups in batch column")
-				),
-				
-				plotOutput(ns("combined_plot"), height = "700px"),
-			
-		# ),
-		# 
-		 fluidRow(
-			box(
-				title = "Interpretation Guide",
-				width = 12,
-				status = "info",
-				solidHeader = TRUE,
-				collapsible = TRUE,
-				collapsed = TRUE,
-				
-				h4("Quadrant Interpretation:"),
-				tags$ul(
-					tags$li(strong("Top-Right (High Batch Effect + High Confounding):"), 
-									"⚠️ CRITICAL - Strong batch effect AND confounded with sample groups Correction may remove real biology! "),
-					tags$li(strong("Top-Left (High Batch Effect + Low Confounding):"), 
-									"✅ SAFE TO CORRECT - Strong batch effect but evenly distributedCorrection recommended."),
-					tags$li(strong("Bottom-Right (Low Batch Effect + High Confounding):"), 
-									"⚠️ CAUTION - Uneven distribution but weak effectMay indicate biological correlation."),
-					tags$li(strong("Bottom-Left (Low Batch Effect + Low Confounding):"), 
-									"✅ NO ACTION NEEDED - No significant batch effect or confounding.")
-				))
-		 ))
-			)
 		)
 	)
 	)

@@ -333,17 +333,23 @@ mod_expset_import_server <- function(id, debug = FALSE) {
 			}
 			
 			# Priority 2: Load from package data
-			tryCatch({
-				data(ExpSet, package = "iOmeAiFunctions", envir = environment())
-				if (exists("ExpSet", inherits = FALSE)) {
-					message("✓ Using ExpSet from iOmeAiFunctions package")
-					data_source("package")
-					upload_status("Using default ExpSet from package")
-					return(ExpSet)
-				}
-			}, error = function(e) {
-				message("ℹ️ ExpSet not found in package: ", e$message)
-			})
+			cust_exp_file = '~/SBI/Krex datascience - 2024/SV-0088-1224-OME (PAD4) -SV2-001 - BMS - FBARIB/3. BI WORKING/Combined/Analysis/Shaun/IgA/ExpSet_list.rds'
+			if(file.exists(cust_exp_file)){
+				ExpSet = readRDS(cust_exp_file)
+				return(ExpSet)
+			}else{
+				tryCatch({
+					data(ExpSet, package = "iOmeAiFunctions", envir = environment())
+					if (exists("ExpSet", inherits = FALSE)) {
+						message("✓ Using ExpSet from iOmeAiFunctions package")
+						data_source("package")
+						upload_status("Using default ExpSet from package")
+						return(ExpSet)
+					}
+				}, error = function(e) {
+					message("ℹ️ ExpSet not found in package: ", e$message)
+				})
+			}
 			
 			# No data available
 			data_source("none")

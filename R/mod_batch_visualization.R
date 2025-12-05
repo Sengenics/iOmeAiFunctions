@@ -39,20 +39,22 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 					column(
 						width = 3,
 						selectInput(
-							ns("replicate_column"),
-							"Technical Replicate ID:",
-							choices = c("None" = "", "Select column...")
+							ns("qc_column"),
+							"QC Column (for TR identification):",
+							choices = NULL,
+							selected = "QC"
 						),
-						helpText("Replicates will be highlighted on dendrogram")
+						helpText("Used to identify technical replicates on dendrogram")
 					),
 					column(
 						width = 3,
-						checkboxInput(
-							ns("show_corrected"),
-							"Show Corrected Data",
-							value = FALSE
+						selectInput(
+							ns("label_column"),
+							"Label Column (for TR grouping):",
+							choices = NULL,
+							selected = "Labels"
 						),
-						helpText("Compare before/after ComBat")
+						helpText("TR samples with same Label will be colored together")
 					)
 				),
 				
@@ -60,7 +62,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				
 				fluidRow(
 					column(
-						width = 4,
+						width = 3,
 						numericInput(
 							ns("tsne_perplexity"),
 							"t-SNE Perplexity:",
@@ -70,7 +72,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 						)
 					),
 					column(
-						width = 4,
+						width = 3,
 						numericInput(
 							ns("tsne_iterations"),
 							"t-SNE Iterations:",
@@ -81,7 +83,16 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 						)
 					),
 					column(
-						width = 4,
+						width = 3,
+						checkboxInput(
+							ns("show_corrected"),
+							"Show Corrected Data",
+							value = TRUE
+						),
+						helpText("Enable to compare before/after ComBat correction")
+					),
+					column(
+						width = 3,
 						actionButton(
 							ns("run_analysis"),
 							"Generate Visualizations",
@@ -94,7 +105,147 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 			)
 		),
 		
-		# Dendrogram
+		# PN Correlations ####
+		
+		fluidRow(
+			box(
+				title = "Technical Replicate Correlation Analysis",
+				width = 12,
+				status = "warning",
+				solidHeader = TRUE,
+				collapsible = TRUE,
+				
+				p("Correlation between technical replicates should be high (>0.9).  ComBat correction should improve correlation."),
+				
+				tabsetPanel(
+					id = ns("correlation_tabs"),
+					
+					tabPanel(
+						"Correlation Matrix",
+						br(),
+						fluidRow(
+							column(
+								width = 6,
+								h4("Original Data"),
+								htmlOutput(ns("correlation_stats_original")),
+								plotOutput(ns("correlation_matrix_original"), height = "600px")
+							),
+							column(
+								width = 6,
+								h4("Corrected Data"),
+								htmlOutput(ns("correlation_stats_corrected")),
+								plotOutput(ns("correlation_matrix_corrected"), height = "600px")
+							)
+						)
+					),
+					
+					tabPanel(
+						"Correlation Distribution",
+						br(),
+						plotOutput(ns("correlation_histogram"), height = "500px")
+					),
+					
+					tabPanel(
+						"By Batch",
+						br(),
+						plotOutput(ns("correlation_by_batch"), height = "600px")
+					),
+					
+					tabPanel(
+						"Intra vs Inter Batch",
+						br(),
+						DT::dataTableOutput(ns("correlation_summary_table")),
+						br(),
+						plotOutput(ns("correlation_intra_inter"), height = "600px")
+					)
+				)
+			)
+		),
+		
+		# Sample Correlation Analysis (Non-TR) #####
+		fluidRow(
+			box(
+				title = "Sample Correlation Analysis (Non-Technical Replicates)",
+				width = 12,
+				status = "info",
+				solidHeader = TRUE,
+				collapsible = TRUE,
+				collapsed = TRUE,
+				
+				p("Summary statistics for all pairwise correlations between non-TR samples. "),
+				tabsetPanel(
+					id = ns("sample_correlation_tabs"),
+					
+					tabPanel(
+						"Summary Statistics",
+							fluidRow(
+								column(
+									width = 6,
+									h4("Original Data"),
+									htmlOutput(ns("sample_correlation_stats_original"))
+								),
+								column(
+									width = 6,
+									h4("Corrected Data"),
+									htmlOutput(ns("sample_correlation_stats_corrected"))
+								)
+							),
+							
+							hr(),
+							
+							fluidRow(
+								column(
+									width = 12,
+									h4("Comparison Table"),
+									DT::dataTableOutput(ns("sample_correlation_comparison"))
+								)
+							)
+					),
+					tabPanel(
+						"Distribution",
+						br(),
+							fluidRow(
+								column(
+									width = 6,
+									h4("Distribution - Original"),
+									plotOutput(ns("sample_correlation_hist_original"), height = "400px")
+								),
+								column(
+									width = 6,
+									h4("Distribution - Corrected"),
+									plotOutput(ns("sample_correlation_hist_corrected"), height = "400px")
+								)
+							)
+					),
+					
+					tabPanel(
+						"By Batch",
+						br(),
+						p("Mean correlation for each sample, grouped by batch.  Samples should have consistent correlations across batches."),
+						shinycssloaders::withSpinner(
+							plotOutput(ns("sample_correlation_by_batch"), height = "600px"),
+							type = 4,
+							color = "#3c8dbc"
+						)
+					),
+					
+					tabPanel(
+						"Intra vs Inter Batch",
+						br(),
+						p("Compare correlations within batches vs between batches.  ComBat should reduce differences. "),
+						DT::dataTableOutput(ns("sample_correlation_intra_inter_table")),
+						br(),
+						shinycssloaders::withSpinner(
+							plotOutput(ns("sample_correlation_intra_inter"), height = "600px"),
+							type = 4,
+							color = "#3c8dbc"
+						)
+					)
+				)
+			)
+		),
+		
+		# Dendrogram #####
 		fluidRow(
 			box(
 				title = "Hierarchical Clustering Dendrogram",
@@ -105,7 +256,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				
 				p("Technical replicates should cluster together if batch effects are minimal."),
 				
-				tabsetPanel(
+				tabsetPanel(selected = 'Side-by-Side',
 					id = ns("dendro_tabs"),
 					tabPanel(
 						"Original Data",
@@ -114,12 +265,16 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 					tabPanel(
 						"Corrected Data",
 						plotOutput(ns("dendrogram_corrected"), height = "600px")
-					)
+					),
+					tabPanel('Side-by-Side',
+									 plotOutput(ns("dendrogram_original_2"), height = "300px"),
+									 plotOutput(ns("dendrogram_corrected_2"), height = "300px")
+									 )
 				)
 			)
 		),
 		
-		# t-SNE
+		# t-SNE #####
 		fluidRow(
 			box(
 				title = "t-SNE Dimensionality Reduction",
@@ -130,7 +285,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				
 				p("Samples should separate by biological groups, not batch factors."),
 				
-				tabsetPanel(
+				tabsetPanel(selected = "Side-by-Side",
 					id = ns("tsne_tabs"),
 					tabPanel(
 						"Original Data",
@@ -212,6 +367,8 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 mod_batch_visualization_server <- function(id,
 																					 eset_original,
 																					 eset_corrected = reactive(NULL),
+																					 sample_group_column = reactive(NULL),
+																					 batch_factors = reactive(NULL),
 																					 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		
@@ -251,10 +408,96 @@ mod_batch_visualization_server <- function(id,
 			req(eset_original())
 			
 			cols <- colnames(Biobase::pData(eset_original()))
+			sample_group <- sample_group_column()
+			batch_cols <- batch_factors()
 			
-			updateSelectInput(session, "color_by", choices = cols, selected = cols[1])
-			updateSelectInput(session, "shape_by", choices = c("None" = "", cols), selected = "")
-			updateSelectInput(session, "replicate_column", choices = c("None" = "", cols), selected = "")
+			color_default <- if (! is.null(batch_cols) && length(batch_cols) > 0) {
+				# Use first batch factor that was corrected
+				batch_cols[1]
+			} else if ("Batch_ID" %in% cols) {
+				"Batch_ID"
+			} else if ("Batch" %in% cols) {
+				"Batch"
+			} else {
+				cols[1]
+			}
+			
+			# Determine default for shape_by
+			shape_default <- if (!is.null(sample_group) && length(sample_group) > 1) {
+				# If multiple batch factors, use second for shape
+				sample_group[1]
+			} else if ("Sample_Group" %in% cols) {
+				"Sample_Group"
+			} else if ("Labels" %in% cols) {
+				"Labels"
+			} else {
+				""
+			}
+			
+			updateSelectInput(session, "color_by", choices = cols, selected = color_default)
+			updateSelectInput(session, "shape_by", choices = c("None" = "", cols), selected = shape_default)
+			
+			# Auto-select QC and Labels
+			qc_default <- if ("QC" %in% cols) "QC" else cols[1]
+			label_default <- if ("Labels" %in% cols) "Labels" else cols[1]
+			
+			updateSelectInput(session, "qc_column", 
+												choices = cols, 
+												selected = qc_default)
+			
+			updateSelectInput(session, "label_column", 
+												choices = cols, 
+												selected = shape_default)
+			# updateSelectInput(session, "replicate_column", choices = c("None" = "", cols), selected = "QC")
+		})
+		
+		# Display what's being visualized
+		output$correction_info <- renderUI({
+			sample_group <- sample_group_column()
+			batch_cols <- batch_factors()
+			
+			if (is.null(batch_cols) || length(batch_cols) == 0) {
+				return(
+					div(
+						class = "alert alert-info",
+						icon("info-circle"),
+						strong(" Batch Analysis Configuration:"),
+						p(
+							"Sample Group: ", 
+							if (! is.null(sample_group)) tags$code(sample_group) else tags$em("Not selected")
+						),
+						p("No batch correction applied yet.")
+					)
+				)
+			}
+			
+			tagList(
+				div(
+					class = "alert alert-success",
+					icon("check-circle"),
+					strong(" Batch Correction Applied"),
+					p(
+						"Sample Group Preserved: ", 
+						if (!is.null(sample_group)) tags$code(sample_group) else tags$em("None")
+					),
+					p(
+						strong(sprintf("Corrected for %d batch factor(s):", length(batch_cols)))
+					),
+					tags$ul(
+						style = "margin-bottom: 0;",
+						lapply(batch_cols, function(x) tags$li(tags$code(x)))
+					)
+				),
+				div(
+					class = "alert alert-info",
+					icon("palette"),
+					strong(" Current Visualization Settings:"),
+					p(
+						"Color by: ", tags$code(input$color_by %||% "Not set"), " | ",
+						"Shape by: ", tags$code(if (is.null(input$shape_by) || input$shape_by == "") "None" else input$shape_by)
+					)
+				)
+			)
 		})
 		
 		# Storage for analysis results
@@ -333,37 +576,577 @@ mod_batch_visualization_server <- function(id,
 			)
 		}
 		
-		# Dendrogram - Original
-		output$dendrogram_original <- renderPlot({
+		# # Dendrogram - Original
+		# output$dendrogram_original <- renderPlot({
+		# 	req(analysis_results())
+		# 	req(input$color_by)
+		# 	
+		# 	results <- analysis_results()$original
+		# 	plot_dendrogram(
+		# 		results$hclust,
+		# 		results$meta,
+		# 		color_by = input$color_by,
+		# 		replicate_col = input$replicate_column,
+		# 		title = "Original Data"
+		# 	)
+		# 	
+		# 	results_meta_plot = results$meta %>% 
+		# 		mutate(TR = ifelse( input$replicate_column == 'TR',input$color_by,input$replicate_column))
+		# 	
+		# 	plot_dendrogram(
+		# 		results$hclust,
+		# 		results_meta_plot,
+		# 		color_by = "TR",
+		# 		title = "Original Data"
+		# 	)
+		# })
+		# 
+		# # Dendrogram - Corrected
+		# output$dendrogram_corrected <- renderPlot({
+		# 	req(analysis_results())
+		# 	req(analysis_results()$corrected)
+		# 	req(input$color_by)
+		# 	
+		# 	results <- analysis_results()$corrected
+		# 	plot_dendrogram(
+		# 		results$hclust,
+		# 		results$meta,
+		# 		color_by = input$color_by,
+		# 		replicate_col = input$replicate_column,
+		# 		title = "ComBat Corrected Data"
+		# 	)
+		# })
+		
+		# PN Correlations ####
+		# Add these outputs to the server function:
+		
+		# Correlation analysis for technical replicates
+		tr_data <- reactive({
 			req(analysis_results())
-			req(input$color_by)
+			req(input$qc_column)
 			
 			results <- analysis_results()$original
-			plot_dendrogram(
-				results$hclust,
-				results$meta,
-				color_by = input$color_by,
-				replicate_col = input$replicate_column,
-				title = "Original Data"
+			meta <- results$meta
+			
+			# Identify TR samples
+			is_tr <- grepl("TR", meta[[input$qc_column]], ignore.case = TRUE)
+			print(rownames(meta[is_tr,]))
+			
+			if (sum(is_tr) == 0) {
+				return(NULL)
+			}
+			
+			list(
+				is_tr = is_tr,
+				tr_samples = rownames(meta)[is_tr],
+				meta = meta
 			)
 		})
 		
-		# Dendrogram - Corrected
+		# Calculate correlations
+		correlation_results <- reactive({ 
+			req(tr_data())
+			req(analysis_results())
+			
+			tr_info <- tr_data()
+			tr_samples <- tr_info$tr_samples
+			
+			if (length(tr_samples) < 2) {
+				return(NULL)
+			}
+			
+			# Original data correlations
+			expr_orig <- analysis_results()$original$expr[, tr_samples]
+			dim(expr_orig)
+			cor_orig <- cor(expr_orig, method = "pearson")
+			
+			results <- list(
+				original = list(
+					expr_orig = expr_orig,
+					cor_matrix = cor_orig,
+					mean = mean(cor_orig[upper.tri(cor_orig)], na.rm = TRUE),
+					median = median(cor_orig[upper.tri(cor_orig)], na.rm = TRUE),
+					min = min(cor_orig[upper.tri(cor_orig)], na.rm = TRUE)
+				)
+			)
+			
+			# Corrected data correlations (if available)
+			if (!is.null(analysis_results()$corrected)) {
+				expr_corr <- analysis_results()$corrected$expr[, tr_samples]
+				cor_corr <- cor(expr_corr, method = "pearson")
+				
+				results$corrected <- list(
+					expr_corr = expr_corr,
+					cor_matrix = cor_corr,
+					mean = mean(cor_corr[upper.tri(cor_corr)], na.rm = TRUE),
+					median = median(cor_corr[upper.tri(cor_corr)], na.rm = TRUE),
+					min = min(cor_corr[upper.tri(cor_corr)], na.rm = TRUE)
+				)
+			}
+			
+			results
+		})
+		
+		# Correlation statistics display
+		output$correlation_stats_original <- renderUI({
+			req(correlation_results())
+			
+			stats <- correlation_results()$original
+			threshold <- 0.9
+			
+			mean_color <- if (stats$mean < threshold) "red" else "black"
+			median_color <- if (stats$median < threshold) "red" else "black"
+			min_color <- if (stats$min < threshold) "red" else "black"
+			
+			HTML(paste0(
+				"<strong>Correlation Statistics:</strong><br>",
+				"Mean = <span style='color: ", mean_color, ";'>", round(stats$mean, 3), "</span><br>",
+				"Median = <span style='color: ", median_color, ";'>", round(stats$median, 3), "</span><br>",
+				"Minimum = <span style='color: ", min_color, ";'>", round(stats$min, 3), "</span>"
+			))
+		})
+		
+		output$correlation_stats_corrected <- renderUI({
+			req(correlation_results())
+			req(correlation_results()$corrected)
+			
+			stats <- correlation_results()$corrected
+			threshold <- 0.9
+			
+			mean_color <- if (stats$mean < threshold) "red" else "green"
+			median_color <- if (stats$median < threshold) "red" else "green"
+			min_color <- if (stats$min < threshold) "red" else "green"
+			
+			HTML(paste0(
+				"<strong>Correlation Statistics:</strong><br>",
+				"Mean = <span style='color: ", mean_color, ";'>", round(stats$mean, 3), "</span><br>",
+				"Median = <span style='color: ", median_color, ";'>", round(stats$median, 3), "</span><br>",
+				"Minimum = <span style='color: ", min_color, ";'>", round(stats$min, 3), "</span>"
+			))
+		})
+		
+		# Correlation matrix plots
+		output$correlation_matrix_original <- renderPlot({
+			req(correlation_results())
+			
+			expr_orig <- correlation_results()$original$expr_orig
+			plot_correlation_matrix(expr_orig, "Original Data")
+		})
+		
+		output$correlation_matrix_corrected <- renderPlot({
+			req(correlation_results())
+			req(correlation_results()$corrected)
+			
+			expr_corr <- correlation_results()$corrected$expr_corr
+			plot_correlation_matrix(expr_corr, "ComBat Corrected Data")
+		})
+		
+		# Correlation histogram
+		output$correlation_histogram <- renderPlot({
+			req(correlation_results())
+			
+			plot_correlation_histogram(correlation_results())
+		})
+		
+		# Correlation by batch
+		output$correlation_by_batch <- renderPlot({
+			req(correlation_results())  
+			req(tr_data())
+			req(input$color_by)
+			
+			#correlation_results, meta, batch_column, tr_samples
+			
+			plot_correlation_by_batch(
+				correlation_results = correlation_results(),
+				meta = tr_data()$meta,
+				batch_column = input$color_by,
+				tr_samples = tr_data()$tr_samples
+			)
+		})
+		
+		# Intra vs Inter batch correlation
+		output$correlation_intra_inter <- renderPlot({
+			req(correlation_results())
+			req(tr_data())
+			req(input$color_by)
+			
+			plot_correlation_intra_inter(
+				correlation_results(),
+				tr_data()$meta,
+				batch_column = input$color_by,
+				tr_samples = tr_data()$tr_samples
+			)
+		})
+		
+		output$correlation_summary_table <- DT::renderDataTable({
+			req(correlation_results())
+			req(tr_data())
+			req(input$color_by)
+			
+			create_correlation_summary_table(
+				correlation_results(),
+				tr_data()$meta,
+				batch_column = input$color_by,
+				tr_samples = tr_data()$tr_samples
+			)
+		})
+		
+		
+		# Sample correlation analysis (non-TR samples) ####
+		sample_correlation_results <- reactive({
+			req(analysis_results())
+			req(tr_data())
+			
+			tr_info <- tr_data()
+			all_samples <- colnames(analysis_results()$original$expr)
+			
+			# Get non-TR samples
+			non_tr_samples <- setdiff(all_samples, tr_info$tr_samples)
+			
+			if (length(non_tr_samples) < 2) {
+				return(NULL)
+			}
+			
+			# Original data correlations
+			expr_orig <- analysis_results()$original$expr[, non_tr_samples]
+			dim(expr_orig)
+			cor_orig <- cor(expr_orig, method = "pearson")
+			mean(cor_orig)
+			
+			# Extract upper triangle (to avoid duplicates and diagonal)
+			upper_tri_orig <- cor_orig[upper.tri(cor_orig)]
+			
+			results <- list(
+				n_samples = length(non_tr_samples),
+				original = list(
+					cor_matrix = cor_orig,
+					mean = mean(upper_tri_orig, na.rm = TRUE),
+					median = median(upper_tri_orig, na.rm = TRUE),
+					min = min(upper_tri_orig, na.rm = TRUE),
+					max = max(upper_tri_orig, na.rm = TRUE),
+					sd = sd(upper_tri_orig, na.rm = TRUE),
+					values = upper_tri_orig
+				)
+			)
+			
+			# Corrected data correlations (if available)
+			if (!is.null(analysis_results()$corrected)) {
+				expr_corr <- analysis_results()$corrected$expr[, non_tr_samples]
+				cor_corr <- cor(expr_corr, method = "pearson")
+				upper_tri_corr <- cor_corr[upper.tri(cor_corr)]
+				
+				results$corrected <- list(
+					cor_matrix = cor_corr,
+					mean = mean(upper_tri_corr, na.rm = TRUE),
+					median = median(upper_tri_corr, na.rm = TRUE),
+					min = min(upper_tri_corr, na.rm = TRUE),
+					max = max(upper_tri_corr, na.rm = TRUE),
+					sd = sd(upper_tri_corr, na.rm = TRUE),
+					values = upper_tri_corr
+				)
+			}
+			
+			results
+		})
+		
+		# Sample correlation statistics - Original
+		output$sample_correlation_stats_original <- renderUI({
+			req(sample_correlation_results())
+			
+			results <- sample_correlation_results()
+			stats <- results$original
+			n_samples <- results$n_samples
+			n_comparisons <- length(stats$values)
+			
+			HTML(paste0(
+				"<div style='padding: 15px; background-color: #f8f9fa; border-radius: 5px;'>",
+				"<strong>Number of Samples:</strong> ", n_samples, "<br>",
+				"<strong>Number of Comparisons:</strong> ", format(n_comparisons, big.mark = ","), "<br><br>",
+				"<strong>Correlation Statistics:</strong><br>",
+				"<table style='margin-left: 20px;'>",
+				"<tr><td>Mean:</td><td style='padding-left: 10px;'><strong>", round(stats$mean, 4), "</strong></td></tr>",
+				"<tr><td>Median:</td><td style='padding-left: 10px;'><strong>", round(stats$median, 4), "</strong></td></tr>",
+				"<tr><td>Minimum:</td><td style='padding-left: 10px;'><strong>", round(stats$min, 4), "</strong></td></tr>",
+				"<tr><td>Maximum:</td><td style='padding-left: 10px;'><strong>", round(stats$max, 4), "</strong></td></tr>",
+				"<tr><td>Std Dev:</td><td style='padding-left: 10px;'><strong>", round(stats$sd, 4), "</strong></td></tr>",
+				"</table>",
+				"</div>"
+			))
+		})
+		
+		# Sample correlation statistics - Corrected
+		output$sample_correlation_stats_corrected <- renderUI({
+			req(sample_correlation_results())
+			req(sample_correlation_results()$corrected)
+			
+			results <- sample_correlation_results()
+			stats <- results$corrected
+			n_samples <- results$n_samples
+			n_comparisons <- length(stats$values)
+			
+			# Calculate improvement
+			orig_stats <- results$original
+			mean_change <- stats$mean - orig_stats$mean
+			median_change <- stats$median - orig_stats$median
+			min_change <- stats$min - orig_stats$min
+			
+			mean_arrow <- if (mean_change > 0.01) "↑" else if (mean_change < -0.01) "↓" else "→"
+			median_arrow <- if (median_change > 0.01) "↑" else if (median_change < -0.01) "↓" else "→"
+			min_arrow <- if (min_change > 0.01) "↑" else if (min_change < -0.01) "↓" else "→"
+			
+			HTML(paste0(
+				"<div style='padding: 15px; background-color: #d4edda; border-radius: 5px;'>",
+				"<strong>Number of Samples:</strong> ", n_samples, "<br>",
+				"<strong>Number of Comparisons:</strong> ", format(n_comparisons, big.mark = ","), "<br><br>",
+				"<strong>Correlation Statistics:</strong><br>",
+				"<table style='margin-left: 20px;'>",
+				"<tr><td>Mean:</td><td style='padding-left: 10px;'><strong>", round(stats$mean, 4), 
+				"</strong> <span style='color: ", if (mean_change > 0) "green" else if (mean_change < 0) "red" else "gray", ";'>", 
+				mean_arrow, " ", sprintf("%+.4f", mean_change), "</span></td></tr>",
+				"<tr><td>Median:</td><td style='padding-left: 10px;'><strong>", round(stats$median, 4), 
+				"</strong> <span style='color: ", if (median_change > 0) "green" else if (median_change < 0) "red" else "gray", ";'>", 
+				median_arrow, " ", sprintf("%+.4f", median_change), "</span></td></tr>",
+				"<tr><td>Minimum:</td><td style='padding-left: 10px;'><strong>", round(stats$min, 4), 
+				"</strong> <span style='color: ", if (min_change > 0) "green" else if (min_change < 0) "red" else "gray", ";'>", 
+				min_arrow, " ", sprintf("%+.4f", min_change), "</span></td></tr>",
+				"<tr><td>Maximum:</td><td style='padding-left: 10px;'><strong>", round(stats$max, 4), "</strong></td></tr>",
+				"<tr><td>Std Dev:</td><td style='padding-left: 10px;'><strong>", round(stats$sd, 4), "</strong></td></tr>",
+				"</table>",
+				"</div>"
+			))
+		})
+		
+		# Comparison table
+		output$sample_correlation_comparison <- DT::renderDataTable({
+			req(sample_correlation_results())
+			
+			results <- sample_correlation_results()
+			orig <- results$original
+			
+			comparison_df <- data.frame(
+				Statistic = c("Mean", "Median", "Minimum", "Maximum", "Std Dev"),
+				Original = c(orig$mean, orig$median, orig$min, orig$max, orig$sd)
+			)
+			
+			if (! is.null(results$corrected)) {
+				corr <- results$corrected
+				comparison_df$Corrected <- c(corr$mean, corr$median, corr$min, corr$max, corr$sd)
+				comparison_df$Change <- comparison_df$Corrected - comparison_df$Original
+				comparison_df$Percent_Change <- (comparison_df$Change / comparison_df$Original) * 100
+			}
+			
+			DT::datatable(
+				comparison_df,
+				options = list(
+					dom = 't',
+					pageLength = 10
+				),
+				rownames = FALSE
+			) %>%
+				DT::formatRound(columns = c('Original', 'Corrected', 'Change'), digits = 4) %>%
+				DT::formatRound(columns = 'Percent_Change', digits = 2) %>%
+				{
+					if ('Change' %in% colnames(comparison_df)) {
+						DT::formatStyle(
+							.,
+							'Change',
+							backgroundColor = DT::styleInterval(c(-0.01, 0.01), c('lightcoral', 'lightyellow', 'lightgreen'))
+						)
+					} else {
+						. 
+					}
+				}
+		})
+		
+		# Histograms
+		output$sample_correlation_hist_original <- renderPlot({
+			req(sample_correlation_results())
+			
+			stats <- sample_correlation_results()$original
+			
+			hist(
+				stats$values,
+				breaks = 50,
+				main = "Original Data",
+				xlab = "Pearson Correlation",
+				ylab = "Frequency",
+				col = "coral",
+				border = "white",
+				xlim = c(min(stats$values, 0), 1)
+			)
+			abline(v = stats$mean, col = "red", lwd = 2, lty = 2)
+			abline(v = stats$median, col = "blue", lwd = 2, lty = 2)
+			legend("topleft", 
+						 legend = c("Mean", "Median"),
+						 col = c("red", "blue"),
+						 lty = 2,
+						 lwd = 2,
+						 bty = "n")
+		})
+		
+		output$sample_correlation_hist_corrected <- renderPlot({
+			req(sample_correlation_results())
+			req(sample_correlation_results()$corrected)
+			
+			stats <- sample_correlation_results()$corrected
+			
+			hist(
+				stats$values,
+				breaks = 50,
+				main = "Corrected Data",
+				xlab = "Pearson Correlation",
+				ylab = "Frequency",
+				col = "steelblue",
+				border = "white",
+				xlim = c(min(stats$values, 0), 1)
+			)
+			abline(v = stats$mean, col = "red", lwd = 2, lty = 2)
+			abline(v = stats$median, col = "blue", lwd = 2, lty = 2)
+			legend("topleft", 
+						 legend = c("Mean", "Median"),
+						 col = c("red", "blue"),
+						 lty = 2,
+						 lwd = 2,
+						 bty = "n")
+		})
+		
+		##  Sample correlation by batch ####
+		output$sample_correlation_by_batch <- renderPlot({
+			req(sample_correlation_results())
+			req(input$color_by)
+			
+			results <- sample_correlation_results()
+			meta <- analysis_results()$original$meta
+			
+			# Get non-TR samples
+			tr_info <- tr_data()
+			all_samples <- colnames(analysis_results()$original$expr)
+			non_tr_samples <- setdiff(all_samples, tr_info$tr_samples)
+			
+			plot_sample_correlation_by_batch(
+				results,
+				meta,
+				batch_column = input$color_by,
+				samples = non_tr_samples
+			)
+		})
+		
+		# Sample correlation intra vs inter batch
+		output$sample_correlation_intra_inter <- renderPlot({
+			req(sample_correlation_results())
+			req(input$color_by)
+			
+			results <- sample_correlation_results()
+			meta <- analysis_results()$original$meta
+			
+			# Get non-TR samples
+			tr_info <- tr_data()
+			all_samples <- colnames(analysis_results()$original$expr)
+			non_tr_samples <- setdiff(all_samples, tr_info$tr_samples)
+			
+			plot_sample_correlation_intra_inter(
+				results,
+				meta,
+				batch_column = input$color_by,
+				samples = non_tr_samples
+			)
+		})
+		
+		output$sample_correlation_intra_inter_table <- DT::renderDataTable({
+			req(sample_correlation_results())
+			req(input$color_by)
+			
+			results <- sample_correlation_results()
+			meta <- analysis_results()$original$meta
+			
+			# Get non-TR samples
+			tr_info <- tr_data()
+			all_samples <- colnames(analysis_results()$original$expr)
+			non_tr_samples <- setdiff(all_samples, tr_info$tr_samples)
+			
+			create_sample_correlation_intra_inter_table(
+				results,
+				meta,
+				batch_column = input$color_by,
+				samples = non_tr_samples
+			)
+		})
+		
+		# Dendrogram - Original ####
+		output$dendrogram_original <- renderPlot({
+			req(analysis_results()) 
+			req(input$color_by)
+			req(input$qc_column)
+			
+			results <- analysis_results()$original
+			
+			
+		
+			plot_dendrogram(
+				hclust_obj = results$hclust,
+				meta = results$meta,
+				color_by = input$label_column,
+				qc_column = input$qc_column,
+				title = "Original Data - Hierarchical Clustering"
+			)
+		})
+		
+		# Dendrogram - Corrected ####
 		output$dendrogram_corrected <- renderPlot({
 			req(analysis_results())
 			req(analysis_results()$corrected)
 			req(input$color_by)
+			req(input$qc_column)
 			
 			results <- analysis_results()$corrected
+			
 			plot_dendrogram(
 				results$hclust,
 				results$meta,
-				color_by = input$color_by,
-				replicate_col = input$replicate_column,
-				title = "ComBat Corrected Data"
+				color_by = input$label_column,
+				qc_column = input$qc_column,
+				title = "ComBat Corrected Data - Hierarchical Clustering"
 			)
 		})
 		
+		# Dendrogram - Original ####
+		output$dendrogram_original_2 <- renderPlot({
+			req(analysis_results()) 
+			req(input$color_by)
+			req(input$qc_column)
+			
+			results <- analysis_results()$original
+			
+			
+			
+			plot_dendrogram(
+				hclust_obj = results$hclust,
+				meta = results$meta,
+				color_by = input$label_column,
+				qc_column = input$qc_column,
+				title = "Original Data - Hierarchical Clustering"
+			)
+		})
+		
+		# Dendrogram - Corrected ####
+		output$dendrogram_corrected_2 <- renderPlot({
+			req(analysis_results())
+			req(analysis_results()$corrected)
+			req(input$color_by)
+			req(input$qc_column)
+			
+			results <- analysis_results()$corrected
+			
+			plot_dendrogram(
+				results$hclust,
+				results$meta,
+				color_by = input$label_column,
+				qc_column = input$qc_column,
+				title = "ComBat Corrected Data - Hierarchical Clustering"
+			)
+		})
+		
+		# t-SNE #####
 		# t-SNE - Original
 		output$tsne_original <- renderPlot({
 			req(analysis_results())

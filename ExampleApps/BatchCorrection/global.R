@@ -70,6 +70,7 @@ library(vegan)
 library(Rtsne)
 library(dendextend)
 library(pheatmap)
+library(shinyBS)
 
 
 

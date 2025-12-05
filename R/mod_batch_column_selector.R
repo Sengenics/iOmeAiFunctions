@@ -11,17 +11,17 @@ mod_batch_column_selector_ui <- function(id, debug = FALSE) {
 	tagList(
 		fluidRow(
 			box(
-				title = "Batch Testing Columns",
+				#title = "Batch Testing Columns",
 				width = 12,
-				status = "warning",
-				solidHeader = TRUE,
+				#status = "warning",
+				#solidHeader = TRUE,
 				
 				#p("Select which phenoData columns to test for batch effects."),
 				#p("Only columns with useful grouping patterns (from Annotation Analysis) are shown."),
 				
 				uiOutput(ns("batch_column_selector_ui")),
 				box(
-					title = '',
+					#title = '',
 					width = 12,
 					#status = "info",
 					#solidHeader = TRUE,
