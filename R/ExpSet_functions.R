@@ -1036,3 +1036,32 @@ ExpSet_add_matrix_function <- function(ExpSet, matrix, name) {
 	# Return the updated ExpressionSet
 	ExpSet
 }
+
+#' Extract ExpressionSet Names and AssayData Elements
+#'
+#' Creates a named list of all assayData elements for each ExpressionSet in the list
+#'
+#' @param ExpSet_list A list of ExpressionSet objects
+#' @return A named list where names are ExpressionSet names and values are vectors of assayData element names
+#' @export
+#' @examples
+#' \dontrun{
+#' ExpSet_names <- get_expset_assay_names(ExpSet_list)
+#' }
+get_expset_assay_names <- function(ExpSet_list) {
+	
+	if (is.null(ExpSet_list) || length(ExpSet_list) == 0) {
+		return(list())
+	}
+	
+	ExpSet_names <- names(ExpSet_list)
+	name_list <- list()
+	
+	for (entry in ExpSet_names) {
+		# Use Biobase function for safer access
+		entries <- Biobase::assayDataElementNames(ExpSet_list[[entry]])
+		name_list[[entry]] <- entries
+	}
+	
+	return(name_list)
+}

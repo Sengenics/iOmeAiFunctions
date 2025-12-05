@@ -27,16 +27,17 @@ mod_eset_selector_server <- function(id, ExpSet_list, default_selection = "clini
 		
 		# Generate list of available ExpressionSets and their assays
 		ExpSet_names <- reactive({
+			get_expset_assay_names
 			req(ExpSet_list())
-			
-			ExpSets <- names(ExpSet_list())
-			name_list <- list()
-			
-			for (entry in ExpSets) {
-				entries <- names(ExpSet_list()[[entry]]@assayData)
-				name_list[[entry]] <- entries
-			}
-			
+			name_list = get_expset_assay_names(ExpSet_list())
+			# ExpSets <- names(ExpSet_list())
+			# name_list <- list()
+			# 
+			# for (entry in ExpSets) {
+			# 	entries <- names(ExpSet_list()[[entry]]@assayData)
+			# 	name_list[[entry]] <- entries
+			# }
+			# 
 			return(name_list)
 		})
 		
@@ -76,6 +77,7 @@ mod_eset_selector_server <- function(id, ExpSet_list, default_selection = "clini
 		
 		return(list(
 			eset = selected_eset,
+			assay_names = ExpSet_names,
 			name = selected_name
 		))
 	})

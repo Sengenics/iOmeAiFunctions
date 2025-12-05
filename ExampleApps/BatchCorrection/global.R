@@ -71,6 +71,7 @@ library(Rtsne)
 library(dendextend)
 library(pheatmap)
 library(shinyBS)
+library(shinyWidgets)
 
 
 

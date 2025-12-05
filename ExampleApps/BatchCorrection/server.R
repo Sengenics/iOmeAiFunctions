@@ -254,9 +254,21 @@ server <- function(input, output, session) {
 	expset_manager <- mod_expset_manager_server(
 		"expset_manager",
 		ExpSet_list = ExpSet_list,
-		corrected_eset = combat_module$corrected_eset,
+		selected_batch_factors = combat_module$selected_batch_factors,
+		#corrected_eset = combat_module$corrected_eset,
 		debug = run_debug
 	)
+	# ExpressionSet Manager Module
+	# expset_manager_2 <- mod_expset_manager_server_2(
+	# 	"expset_manager",
+	# 	ExpSet_list = ExpSet_list,
+	# 	
+	# 	assay_choices = data_module$assay_choices,  # Use the existing assay choices
+	# 	selected_batch_factors = combat_module$selected_batch_factors,
+	# 	corrected_eset = combat_module$corrected_eset,
+	# 	sample_group_column = sample_group_module$selected_column,
+	# 	debug = run_debug
+	# )
 	
 	# Export module
 	expset_export <- mod_expset_export_server(

@@ -275,7 +275,9 @@ mod_eset_selector_standalone_server <- function(id,
 		# Return Values
 		# ============================================
 		return(list(
+			assay_names = eset_selected_module$assay_names,
 			# Final processed data
+			
 			eset = final_eset,
 			eset_name = eset_selected_module$name,
 			

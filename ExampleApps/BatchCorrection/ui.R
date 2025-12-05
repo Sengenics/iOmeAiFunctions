@@ -81,7 +81,7 @@ ui <- dashboardPage(
 				tabName = "export_tab",
 				h2("Export ExpressionSet List"),
 				p("Save your ExpressionSet list including all ComBat corrections"),
-				mod_expset_manager_ui("expset_manager"),
+				mod_expset_manager_ui("expset_manager", debug = TRUE),
 				mod_expset_export_ui("expset_export")
 			)
 			# tabItem(
