@@ -213,11 +213,6 @@ server <- function(input, output, session) {
 			eset = combat_data$eset,
 			sample_group_column = sample_group_module$selected_column,
 			combined_results = batch_combined$results,
-		ExpSet_list = ExpSet_list,
-		selected_expset_name = data_module$selected_name,
-		update_expset_list = function(new_list) {
-			ExpSet_list(new_list)  # Update the reactiveVal
-		},
 		debug = run_debug
 	)
 	# combat_module <- mod_combat_correction_server(
@@ -254,6 +249,14 @@ server <- function(input, output, session) {
 	)
 	
 	# Export ####
+	
+	# ExpressionSet Manager Module
+	expset_manager <- mod_expset_manager_server(
+		"expset_manager",
+		ExpSet_list = ExpSet_list,
+		corrected_eset = combat_module$corrected_eset,
+		debug = run_debug
+	)
 	
 	# Export module
 	expset_export <- mod_expset_export_server(
