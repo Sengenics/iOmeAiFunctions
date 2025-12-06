@@ -8,7 +8,7 @@ ui <- dashboardPage(
 			menuItem("Upload", tabName = "data_tab", icon = icon("database")),
 			#menuItem("Annotation Analysis", tabName = "annotation_tab", icon = icon("table")),
 			
-			menuItem("Batch Analysis", tabName = "batch_tab", icon = icon("flask")),
+			#menuItem("Batch Analysis", tabName = "batch_tab", icon = icon("flask")),
 			menuItem("ComBat Correction", tabName = "combat_tab", icon = icon("magic")),
 			menuItem("Batch Visualization", tabName = "viz_tab", icon = icon("chart-area")),
 			menuItem("Export Data", tabName = "export_tab", icon = icon("download"))#,
@@ -44,32 +44,42 @@ ui <- dashboardPage(
 			# 	mod_annotation_analysis_ui("annotation_analysis", debug = run_debug)
 			# ),
 			## Batch Tab #####
-			tabItem(
-				tabName = "batch_tab",
-				mod_eset_selector_standalone_ui("initial_select",T,T,T,T),
-				
-				column(6,
-					mod_sample_group_selector_ui("sample_group", debug = run_debug)
-				),
-				column(6,
-					mod_batch_column_selector_ui("column_selector", debug = run_debug)
-				),
-				column(12,
-					mod_batch_combined_analysis_ui("batch_combined", debug = run_debug),
-					#tags$h3('Batch Testing Module'),
-					mod_batch_testing_ui("batch_testing", debug = run_debug),
-					mod_batch_distribution_test_ui("distribution_test", debug = run_debug),
-					mod_annotation_analysis_ui("annotation_analysis", debug = run_debug),
-					#mod_batch_combined_analysis_ui("batch_combined", debug = run_debug)
-				)
-				
-				#h2("Batch Analysis - Coming Soon")
-			),
+			# tabItem(
+			# 	tabName = "batch_tab",
+			# 
+			# 	
+			# 	#h2("Batch Analysis - Coming Soon")
+			# ),
 			## ComBat ####
 			tabItem(
 				tabName = "combat_tab",
-				mod_eset_selector_standalone_ui("combat_data",T,T,T,T),
-				mod_combat_correction_ui("combat", debug = run_debug)
+				fluidRow(
+					tabsetPanel(
+						tabPanel('Batch Analysis',
+										 mod_eset_selector_standalone_ui("initial_select",T,T,T,T),
+										 
+										 column(6,
+										 			 mod_sample_group_selector_ui("sample_group", debug = run_debug)
+										 ),
+										 column(6,
+										 			 mod_batch_column_selector_ui("column_selector", debug = run_debug)
+										 ),
+										 column(12,
+										 			 mod_batch_combined_analysis_ui("batch_combined", debug = run_debug),
+										 			 #tags$h3('Batch Testing Module'),
+										 			 mod_batch_testing_ui("batch_testing", debug = run_debug),
+										 			 mod_batch_distribution_test_ui("distribution_test", debug = run_debug),
+										 			 mod_annotation_analysis_ui("annotation_analysis", debug = run_debug),
+										 			 #mod_batch_combined_analysis_ui("batch_combined", debug = run_debug)
+										 )
+										 
+										 ),
+						tabPanel("Run ComBat",
+							mod_eset_selector_standalone_ui("combat_data",T,T,T,T),
+							mod_combat_correction_ui("combat", debug = run_debug)
+						)
+					)
+				)
 			),
 			## Viz ####
 			tabItem(

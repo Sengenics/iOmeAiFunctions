@@ -271,6 +271,7 @@ server <- function(input, output, session) {
 		eset_corrected = combat_module$corrected_eset,
 		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
 		batch_factors = combat_module$selected_batch_factors,            # ✅ From ComBat Correction tab
+		ExpSet_list = ExpSet_list,
 		debug = run_debug
 	)
 	
