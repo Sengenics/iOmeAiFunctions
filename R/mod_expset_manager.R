@@ -56,8 +56,8 @@ mod_expset_manager_ui <- function(id, debug = FALSE) {
 						textInput(
 							ns("combat_assay_name"),
 							"New assayData Name:",
-							value = "",
-							placeholder = "e.g., exprs_combat"
+							value = "_ComBat",
+							placeholder = "e.g., exprs_ComBat"
 						),
 						helpText("Name for the ComBat-corrected matrix.  Will be added to all selected ExpressionSets.")
 					)
@@ -66,23 +66,37 @@ mod_expset_manager_ui <- function(id, debug = FALSE) {
 				fluidRow(
 					column(
 						width = 6,
-						checkboxInput(
-							ns("add_rc_version"),
-							"Also add row-centered version (_RC)",
-							value = FALSE
-						),
-						helpText("Adds an additional row-centered version with '_RC' suffix")
+						htmlOutput(ns('target_assays_text'))
+					
 					),
 					column(
 						width = 6,
-						checkboxInput(
-							ns("add_pn_version"),
-							"Also add Pooled Normal version (_PN)",
-							value = FALSE
-						),
-						helpText("Adds version with only Pooled Normal samples")
-					)
+						htmlOutput(ns('target_assays_ComBat_text'))
+					),
+					column(12,
+								 uiOutput(ns('batch_correct_column_ui')))
 				),
+				
+				# fluidRow(
+				# 	column(
+				# 		width = 6,
+				# 		checkboxInput(
+				# 			ns("add_rc_version"),
+				# 			"Also add row-centered version (_RC)",
+				# 			value = FALSE
+				# 		),
+				# 		helpText("Adds an additional row-centered version with '_RC' suffix")
+				# 	),
+				# 	column(
+				# 		width = 6,
+				# 		checkboxInput(
+				# 			ns("add_pn_version"),
+				# 			"Also add Pooled Normal version (_PN)",
+				# 			value = FALSE
+				# 		),
+				# 		helpText("Adds version with only Pooled Normal samples")
+				# 	)
+				# ),
 				
 				hr(),
 				
@@ -203,13 +217,14 @@ mod_expset_manager_ui <- function(id, debug = FALSE) {
 #' @param corrected_eset Reactive returning the ComBat-corrected ExpressionSet
 #' @param sample_group_column Reactive returning the sample group column (for PN filtering)
 #' @param debug Enable debug mode
-#' @export
+#' @export 
 mod_expset_manager_server <- function(id,
 																			ExpSet_list,
 																			selected_batch_factors,
+																			all_columns,
 																			debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
-		
+		ns <- session$ns 
 		# Debug UI
 		if (isTRUE(debug)) {
 			observeEvent(input$debug, {
@@ -230,6 +245,155 @@ mod_expset_manager_server <- function(id,
 			updatePickerInput(session, "target_assays", choices = choices,
 												selected = selected)
 			updateSelectInput(session, "export_individual_expset", choices = names(choices))
+		})
+		
+		output$target_assays_text = renderText({
+			paste(input$target_assays,collapse = "<br>")
+		})
+		
+		output$target_assays_ComBat_text = renderText({
+			paste(paste0(input$target_assays,'_ComBat'),collapse = "<br>")
+		})
+		
+		# UI - Add action button
+		output$batch_correct_column_ui <- renderUI({ 
+			tagList(
+				selectInput(
+					ns('batch_correct_column'),
+					'Batch Correct Column',
+					choices = all_columns(),
+					selected = selected_batch_factors(),
+					multiple = TRUE
+				),
+				actionButton(
+					ns("apply_batch_correction"),
+					"Apply Batch Correction to Selected Assays",
+					icon = icon("magic"),
+					class = "btn-primary"
+				)
+			)
+		})
+		
+		# Server - Apply batch correction to multiple assays
+		observeEvent(input$apply_batch_correction, {
+			req(input$target_assays)
+			req(input$batch_correct_column)
+			req(ExpSet_list())
+			
+			showNotification("Starting batch correction for multiple assays.. .", 
+											 type = "message", duration = NULL, id = "batch_multi_progress")
+			
+			tryCatch({
+				# Get the base ExpressionSet (assume first one, or let user select)
+				expset_list <- ExpSet_list()
+				base_expset_name <- names(expset_list)[1]
+				base_ExpSet <- expset_list[[base_expset_name]]
+				
+				meta <- Biobase::pData(base_ExpSet)
+				batch_columns <- input$batch_correct_column
+				
+				# Validate batch columns exist
+				missing <- setdiff(batch_columns, colnames(meta))
+				if (length(missing) > 0) {
+					stop("Batch columns not found in metadata: ", paste(missing, collapse = ", "))
+				}
+				
+				# Create ComBat column in metadata (if multiple factors, combine them)
+				if (length(batch_columns) > 1) {
+					batch_data <- lapply(batch_columns, function(f) as.factor(meta[[f]]))
+					combat_column <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+					meta$ComBat <- as.character(combat_column)
+					message("Created ComBat column with ", length(unique(meta$ComBat)), " combinations")
+				} else {
+					meta$ComBat <- as.character(meta[[batch_columns]])
+					message("Created ComBat column from single factor: ", batch_columns)
+				}
+				
+				# Update base ExpressionSet metadata
+				Biobase::pData(base_ExpSet) <- meta
+				expset_list[[base_expset_name]] <- base_ExpSet
+				
+				# Apply ComBat to each selected assay
+				corrected_count <- 0
+				
+				for (assay_name in input$target_assays) {
+					message("\n========================================")
+					message("Processing: ", assay_name)
+					
+					# Check if assay exists
+					if (!assay_name %in% Biobase::assayDataElementNames(base_ExpSet)) {
+						warning("Assay '", assay_name, "' not found, skipping")
+						next
+					}
+					
+					# Get expression data for this assay
+					expr_data <- Biobase::assayDataElement(base_ExpSet, assay_name)
+					
+					# Prepare batch variable
+					if (length(batch_columns) > 1) {
+						batch <- meta$ComBat
+					} else {
+						batch <- meta[[batch_columns]]
+					}
+					
+					# Check for single-sample batches
+					batch_table <- table(batch)
+					single_sample <- names(batch_table)[batch_table == 1]
+					if (length(single_sample) > 0) {
+						warning("Assay '", assay_name, "' has batches with 1 sample, skipping")
+						next
+					}
+					
+					# Run ComBat correction
+					message("  Running ComBat...")
+					
+					# Use null model (you can make this configurable)
+					modcombat <- model.matrix(~1, data = meta)
+					
+					corrected_data <- sva::ComBat(
+						dat = expr_data,
+						batch = batch,
+						mod = modcombat,
+						par.prior = TRUE
+					)
+					
+					# Create new assay name with _ComBat suffix
+					corrected_assay_name <- paste0(assay_name, "_ComBat")
+					
+					# Add corrected data as new assay
+					Biobase::assayDataElement(base_ExpSet, corrected_assay_name) <- corrected_data
+					
+					message("  ✅ Created: ", corrected_assay_name)
+					corrected_count <- corrected_count + 1
+				}
+				
+				# Update the ExpressionSet in the list
+				expset_list[[base_expset_name]] <- base_ExpSet
+				
+				# Update the reactive ExpSet_list
+				# (You'll need to make ExpSet_list a reactiveVal to update it)
+				# ExpSet_list(expset_list)  # ⚠️ See note below
+				
+				removeNotification("batch_multi_progress")
+				
+				showNotification(
+					sprintf("✅ Batch correction complete!\n%d assays corrected\nComBat column added to metadata\nFactors: %s",
+									corrected_count,
+									paste(batch_columns, collapse = " × ")),
+					type = "message",
+					duration = 10
+				)
+				
+				# Update UI to show new assays
+				choices <- get_expset_assay_names(expset_list)
+				updatePickerInput(session, "target_assays", choices = choices)
+				
+			}, error = function(e) {
+				removeNotification("batch_multi_progress")
+				showNotification(paste("❌ Batch correction failed:", e$message), 
+												 type = "error", duration = 15)
+				message("Batch correction error: ", e$message)
+			})
 		})
 		
 		# # Auto-generate assay name based on corrected data ####

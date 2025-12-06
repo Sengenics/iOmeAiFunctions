@@ -264,7 +264,11 @@ mod_batch_combined_analysis_server <- function(id,
 			m <- Biobase::exprs(ExpSet)
 			meta <- Biobase::pData(ExpSet)
 			sample_group <- sample_group_column()
-			batch_cols <- batch_columns()
+			# if('ComBat' %in% colnames(meta)){
+			# 	batch_cols <- c(batch_columns(),'ComBat')
+			# }else{
+				batch_cols <- batch_columns()
+			#}
 			test_method <- input$test_method  # Get selected method
 			
 			if (length(batch_cols) == 0) {

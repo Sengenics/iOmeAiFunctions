@@ -34,6 +34,12 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 				# Batch factor selector
 				uiOutput(ns("combat_selector_ui")),
 				
+				# ✅ NEW: Multi-factor correction strategy (shows only when multiple factors selected)
+				uiOutput(ns("multi_factor_options")),
+				
+				# ✅ NEW: Batch combination preview
+				uiOutput(ns("batch_preview")),
+				
 				hr(),
 				
 				# ComBat Settings
@@ -248,6 +254,7 @@ mod_combat_correction_server <- function(id,
 																				 combined_results = reactive(NULL),
 																				 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
+		ns <- session$ns 
 		
 		# Debug UI
 		output$debug_ui <- renderUI({
@@ -419,9 +426,346 @@ mod_combat_correction_server <- function(id,
 			input$batch_factors
 		})
 		
-		# Run ComBat correction ####
-		observeEvent(input$run_combat, {
+		plot_batch_factors = reactive({
+			c(selected_batch_factors(),'ComBat')
+		})
+		
+		all_columns = reactive({
+			colnames(Biobase::pData(eset()))
+		})
+		
+		# ✅ NEW: Show multi-factor options only when multiple factors are selected
+		output$multi_factor_options <- renderUI({
+			req(input$batch_factors)
+			
+			if (length(input$batch_factors) <= 1) {
+				return(NULL)
+			}
+			
+			fluidRow(
+				box(
+					title = "Multi-Factor Correction Strategy",
+					width = 12,
+					status = "warning",
+					solidHeader = TRUE,
+					
+					radioButtons(
+						ns("correction_strategy"),
+						"How should multiple batch factors be handled?",
+						choices = c(
+							"Combined (Recommended) - Treat factor combinations as unique batches" = "combined",
+							"Sequential - Correct factors one at a time" = "sequential"
+						),
+						selected = "combined"
+					),
+					
+					helpText(
+						icon("info-circle"),
+						strong("Combined:"),
+						"Creates unique batches for each combination (e.g., Batch1_Date1, Batch1_Date2).  ",
+						"More statistically rigorous and accounts for interaction effects."
+					),
+					
+					helpText(
+						icon("info-circle"),
+						strong("Sequential:"),
+						"Corrects for first factor, then second, etc. ",
+						"Order matters - results depend on correction sequence."
+					),
+					
+					# Show order selection for sequential
+					conditionalPanel(
+						condition = "input.correction_strategy == 'sequential'",
+						ns = ns,
+						helpText(
+							icon("exclamation-triangle"),
+							strong("Note:"),
+							"Factors will be corrected in the order shown above. ",
+							"The first factor receives the strongest correction."
+						)
+					)
+				)
+			)
+		})
+		
+		# ✅ NEW: Batch combination preview with validation
+		output$batch_preview <- renderUI({
+			req(input$batch_factors)
 			req(eset())
+			
+			if (length(input$batch_factors) <= 1) {
+				return(NULL)
+			}
+			
+			# Get strategy (default to combined if not set yet)
+			strategy <- input$correction_strategy
+			if (is.null(strategy)) {
+				strategy <- "combined"
+			}
+			
+			ExpSet <- eset()
+			meta <- Biobase::pData(ExpSet)
+			batch_factors <- input$batch_factors
+			
+			# Validate factors exist
+			missing <- setdiff(batch_factors, colnames(meta))
+			if (length(missing) > 0) {
+				return(
+					box(
+						title = "Batch Preview",
+						width = 12,
+						status = "danger",
+						solidHeader = TRUE,
+						div(
+							class = "alert alert-danger",
+							icon("times-circle"),
+							strong(" Error: "),
+							"Batch factors not found in metadata: ",
+							paste(missing, collapse = ", ")
+						)
+					)
+				)
+			}
+			
+			if (strategy == "combined") {
+				# ✅ COMBINED STRATEGY PREVIEW
+				
+				# Create combined batch variable
+				batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+				combined_batch <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+				
+				# Analyze batch sizes
+				batch_table <- table(combined_batch)
+				n_combinations <- length(batch_table)
+				batch_sizes <- as.data.frame(batch_table)
+				colnames(batch_sizes) <- c("Batch_Combination", "N_Samples")
+				batch_sizes <- batch_sizes[order(batch_sizes$N_Samples), ]
+				
+				# Identify issues
+				small_batches <- batch_sizes$Batch_Combination[batch_sizes$N_Samples < 3]
+				single_sample_batches <- batch_sizes$Batch_Combination[batch_sizes$N_Samples == 1]
+				
+				# Determine status
+				if (length(single_sample_batches) > 0) {
+					status <- "danger"
+					icon_symbol <- "times-circle"
+					status_text <- "Critical Issue"
+					status_class <- "alert-danger"
+				} else if (length(small_batches) > 0) {
+					status <- "warning"
+					icon_symbol <- "exclamation-triangle"
+					status_text <- "Warning"
+					status_class <- "alert-warning"
+				} else {
+					status <- "success"
+					icon_symbol <- "check-circle"
+					status_text <- "All Clear"
+					status_class <- "alert-success"
+				}
+				
+				box(
+					title = "Batch Combination Preview",
+					width = 12,
+					status = status,
+					solidHeader = TRUE,
+					collapsible = TRUE,
+					
+					div(
+						class = paste("alert", status_class),
+						icon(icon_symbol),
+						strong(paste0(" ", status_text)),
+						tags$ul(
+							tags$li(strong("Total unique batch combinations: "), n_combinations),
+							tags$li(strong("Factors combined: "), paste(batch_factors, collapse = " × ")),
+							tags$li(strong("Sample size range: "), 
+											min(batch_sizes$N_Samples), " - ", max(batch_sizes$N_Samples))
+						)
+					),
+					
+					# Show issues if any
+					if (length(single_sample_batches) > 0) {
+						div(
+							class = "alert alert-danger",
+							icon("ban"),
+							strong(" CRITICAL: ", length(single_sample_batches), " batch combination(s) have only 1 sample"),
+							p("ComBat cannot correct batches with only 1 sample.  These combinations:"),
+							tags$ul(
+								lapply(head(single_sample_batches, 10), function(x) tags$li(as.character(x)))
+							),
+							if (length(single_sample_batches) > 10) {
+								p(em("... and ", length(single_sample_batches) - 10, " more"))
+							},
+							p(strong("Recommendation: "), "Use sequential correction or exclude problematic factors")
+						)
+					},
+					
+					if (length(small_batches) > 0 && length(single_sample_batches) == 0) {
+						div(
+							class = "alert alert-warning",
+							icon("exclamation-triangle"),
+							strong(" Warning: ", length(small_batches), " batch combination(s) have < 3 samples"),
+							p("Small batches may lead to unstable correction. These combinations:"),
+							tags$ul(
+								lapply(head(small_batches, 10), function(x) {
+									n <- batch_sizes$N_Samples[batch_sizes$Batch_Combination == x]
+									tags$li(as.character(x), " (n=", n, ")")
+								})
+							),
+							if (length(small_batches) > 10) {
+								p(em("... and ", length(small_batches) - 10, " more"))
+							},
+							p(strong("Recommendation: "), "Proceed with caution or use sequential correction")
+						)
+					},
+					
+					if (status == "success") {
+						div(
+							class = "alert alert-success",
+							icon("check-circle"),
+							strong(" All batch combinations have adequate sample sizes (≥ 3)")
+						)
+					},
+					
+					# Show table of batch sizes
+					hr(),
+					h5("Batch Combination Sizes:"),
+					div(
+						style = "max-height: 300px; overflow-y: auto;",
+						renderTable({
+							head(batch_sizes, 20)
+						})
+					),
+					if (nrow(batch_sizes) > 20) {
+						p(em("Showing first 20 of ", nrow(batch_sizes), " combinations"))
+					}
+				)
+				
+			} else if (strategy == "sequential") {
+				# ✅ SEQUENTIAL STRATEGY PREVIEW
+				
+				# Analyze each factor individually
+				factor_info <- lapply(batch_factors, function(f) {
+					vals <- meta[[f]]
+					batch_sizes <- table(vals)
+					
+					list(
+						factor = f,
+						n_groups = length(unique(vals)),
+						min_size = min(batch_sizes),
+						max_size = max(batch_sizes),
+						sizes = batch_sizes
+					)
+				})
+				
+				box(
+					title = "Sequential Correction Preview",
+					width = 12,
+					status = "info",
+					solidHeader = TRUE,
+					collapsible = TRUE,
+					
+					div(
+						class = "alert alert-info",
+						icon("info-circle"),
+						strong(" Sequential correction will process factors in this order:")
+					),
+					
+					lapply(seq_along(factor_info), function(i) {
+						info <- factor_info[[i]]
+						
+						tagList(
+							h5(paste0(i, ".  ", info$factor)),
+							tags$ul(
+								tags$li(strong("Number of groups: "), info$n_groups),
+								tags$li(strong("Sample size range: "), info$min_size, " - ", info$max_size)
+							),
+							if (info$min_size == 1) {
+								div(
+									class = "alert alert-danger",
+									icon("ban"),
+									strong(" CRITICAL: This factor has group(s) with only 1 sample")
+								)
+							} else if (info$min_size < 3) {
+								div(
+									class = "alert alert-warning",
+									icon("exclamation-triangle"),
+									strong(" Warning: This factor has group(s) with < 3 samples")
+								)
+							},
+							hr()
+						)
+					}),
+					
+					div(
+						class = "alert alert-warning",
+						icon("exclamation-triangle"),
+						strong(" Note: "),
+						"Order matters!  The first factor will receive the strongest correction.  ",
+						"Consider which batch effect is most important to remove."
+					)
+				)
+			}
+		})
+		
+		
+		# ✅ NEW: Create preview ComBat column when multiple factors selected
+		eset_with_combat_preview <- reactive({
+			req(eset())
+			req(input$batch_factors)
+			
+			ExpSet <- eset()
+			meta <- Biobase::pData(ExpSet)
+			batch_factors <- input$batch_factors
+			
+			# Only create ComBat column if multiple factors selected
+			if (length(batch_factors) <= 1) {
+				return(ExpSet)
+			}
+			
+			# Get strategy (default to combined)
+			strategy <- input$correction_strategy
+			if (is.null(strategy)) {
+				strategy <- "combined"
+			}
+			
+			# Validate factors exist
+			missing <- setdiff(batch_factors, colnames(meta))
+			if (length(missing) > 0) {
+				warning("Batch factors not found: ", paste(missing, collapse = ", "))
+				return(ExpSet)
+			}
+			
+			# Create ComBat column based on strategy
+			if (strategy == "combined") {
+				# Create interaction of all factors
+				batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+				combat_column <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+				meta$ComBat <- as.character(combat_column)
+				
+				message("📊 Created preview 'ComBat' column (COMBINED): ", 
+								length(unique(meta$ComBat)), " unique combinations")
+				
+			} else if (strategy == "sequential") {
+				# Concatenate all factors (same end result for preview)
+				batch_values <- lapply(batch_factors, function(f) as.character(meta[[f]]))
+				meta$ComBat <- do.call(paste, c(batch_values, list(sep = "_")))
+				
+				message("📊 Created preview 'ComBat' column (SEQUENTIAL): ", 
+								length(unique(meta$ComBat)), " unique combinations")
+			}
+			
+			# Update phenoData
+			Biobase::pData(ExpSet) <- meta
+			
+			return(ExpSet)
+		})
+		
+		# Run ComBat correction ####
+		
+		
+	
+		observeEvent(input$run_combat, {
+			req(eset()) 
 			req(input$batch_factors)
 			req(sample_group_column())
 			
@@ -449,7 +793,7 @@ mod_combat_correction_server <- function(id,
 						showModal(
 							modalDialog(
 								title = tags$span(icon("exclamation-triangle"), " Warning: Confounding Detected"),
-								size = "large",
+								size = "l",
 								
 								p(strong("The following batch factors are confounded with sample groups:")),
 								tags$ul(
@@ -493,6 +837,130 @@ mod_combat_correction_server <- function(id,
 		})
 		
 		# Actual ComBat execution function ####
+		# run_combat_correction <- function() {
+		# 	showNotification("Running ComBat correction...", type = "message", duration = NULL, id = "combat_progress")
+		# 	
+		# 	tryCatch({
+		# 		ExpSet <- eset()
+		# 		batch_factors <- input$batch_factors
+		# 		combat_model <- input$combat_model
+		# 		sample_group <- sample_group_column()
+		# 		par_prior <- as.logical(input$par_prior)
+		# 		
+		# 		# Get data
+		# 		expr_data <- Biobase::exprs(ExpSet)
+		# 		meta <- Biobase::pData(ExpSet)
+		# 		
+		# 		# Validate
+		# 		missing_factors <- setdiff(batch_factors, colnames(meta))
+		# 		if (length(missing_factors) > 0) {
+		# 			stop("Batch factors not found in metadata: ", paste(missing_factors, collapse = ", "))
+		# 		}
+		# 		
+		# 		if (! sample_group %in% colnames(meta)) {
+		# 			stop("Sample group column not found in metadata")
+		# 		}
+		# 		
+		# 		# Create model matrix based on selection
+		# 		if (combat_model == "null") {
+		# 			modcombat <- model.matrix(~1, data = meta)
+		# 			model_description <- "Null model (~1) - Maximum batch removal"
+		# 			message("Using NULL model for ComBat")
+		# 		} else {
+		# 			modcombat <- model.matrix(~ as.factor(meta[[sample_group]]))
+		# 			model_description <- paste0("Preserve model (~", sample_group, ") - Protects biological groups")
+		# 			message("Using PRESERVE model for ComBat with sample group: ", sample_group)
+		# 		}
+		# 		
+		# 		# Sequential correction for multiple factors
+		# 		corrected_data <- expr_data
+		# 		correction_log <- list()
+		# 		i = 1
+		# 		for (i in seq_along(batch_factors)) {
+		# 			batch_factor <- batch_factors[i]
+		# 			
+		# 			message(sprintf("ComBat correction %d/%d: %s", i, length(batch_factors), batch_factor))
+		# 			
+		# 			# Get batch variable
+		# 			batch <- meta[[batch_factor]]
+		# 			
+		# 			# Run ComBat
+		# 			corrected_data <- sva::ComBat(
+		# 				dat = corrected_data,
+		# 				batch = batch,
+		# 				mod = modcombat,
+		# 				par.prior = par_prior
+		# 			)
+		# 			
+		# 			correction_log[[batch_factor]] <- list(
+		# 				order = i,
+		# 				n_groups = length(unique(batch)),
+		# 				model = model_description
+		# 			)
+		# 		}
+		# 		
+		# 		# Row center (matching original script)
+		# 		#corrected_data <- row_scale_function(corrected_data)
+		# 		
+		# 		# Create new ExpressionSet with corrected data
+		# 		corrected_ExpSet <- ExpSet
+		# 		Biobase::exprs(corrected_ExpSet) <- corrected_data
+		# 		
+		# 		# Add note to experimentData
+		# 		Biobase::notes(corrected_ExpSet) <- c(
+		# 			Biobase::notes(corrected_ExpSet),
+		# 			list(
+		# 				combat_correction = list(
+		# 					batch_factors = batch_factors,
+		# 					model = model_description,
+		# 					sample_group_preserved = if (combat_model == "preserve") sample_group else NA,
+		# 					row_centered = TRUE,
+		# 					par_prior = par_prior,
+		# 					correction_date = Sys.time(),
+		# 					correction_log = correction_log
+		# 				)
+		# 			)
+		# 		)
+		# 		
+		# 		notes <- Biobase::notes(corrected_ExpSet)
+		# 		notes$combat_correction$source_eset_name <- tryCatch({
+		# 			# Try to get name from eset metadata
+		# 			eset_obj <- eset()
+		# 			eset_metadata <- Biobase::notes(eset_obj)
+		# 			
+		# 			if (!is.null(eset_metadata$name)) {
+		# 				eset_metadata$name
+		# 			} else if (!is.null(attr(eset_obj, "name"))) {
+		# 				attr(eset_obj, "name")
+		# 			} else {
+		# 				"unknown"
+		# 			}
+		# 		}, error = function(e) {
+		# 			"unknown"
+		# 		})
+		# 		#notes$combat_correction$source_eset_name <- selected_expset_name()  # Track which eset was used
+		# 		#notes$combat_correction$source_assay_name <- selected_assay_name()  # Track which assay
+		# 		Biobase::notes(corrected_ExpSet) <- notes
+		# 		
+		# 		# Store result
+		# 		corrected_eset(corrected_ExpSet)
+		# 		
+		# 		removeNotification("combat_progress")
+		# 		showNotification(
+		# 			sprintf("✅ ComBat correction complete!\nModel: %s\nCorrected for: %s",
+		# 							model_description,
+		# 							paste(batch_factors, collapse = ", ")),
+		# 			type = "message",
+		# 			duration = 10
+		# 		)
+		# 		
+		# 	}, error = function(e) {
+		# 		removeNotification("combat_progress")
+		# 		showNotification(paste("❌ ComBat failed:", e$message), type = "error", duration = 10)
+		# 		message("ComBat error: ", e$message)
+		# 	})
+		# }
+		
 		run_combat_correction <- function() {
 			showNotification("Running ComBat correction...", type = "message", duration = NULL, id = "combat_progress")
 			
@@ -502,6 +970,13 @@ mod_combat_correction_server <- function(id,
 				combat_model <- input$combat_model
 				sample_group <- sample_group_column()
 				par_prior <- as.logical(input$par_prior)
+				
+				# Get strategy (default to combined for single factor)
+				strategy <- if (length(batch_factors) > 1 && ! is.null(input$correction_strategy)) {
+					input$correction_strategy
+				} else {
+					"single"
+				}
 				
 				# Get data
 				expr_data <- Biobase::exprs(ExpSet)
@@ -517,102 +992,163 @@ mod_combat_correction_server <- function(id,
 					stop("Sample group column not found in metadata")
 				}
 				
-				# Create model matrix based on selection
+				# Create model matrix
 				if (combat_model == "null") {
 					modcombat <- model.matrix(~1, data = meta)
-					model_description <- "Null model (~1) - Maximum batch removal"
+					model_description <- "Null model (~1)"
 					message("Using NULL model for ComBat")
 				} else {
 					modcombat <- model.matrix(~ as.factor(meta[[sample_group]]))
-					model_description <- paste0("Preserve model (~", sample_group, ") - Protects biological groups")
+					model_description <- paste0("Preserve model (~", sample_group, ")")
 					message("Using PRESERVE model for ComBat with sample group: ", sample_group)
 				}
 				
-				# Sequential correction for multiple factors
-				corrected_data <- expr_data
-				correction_log <- list()
+				combat_column_value <- NULL
 				
-				for (i in seq_along(batch_factors)) {
-					batch_factor <- batch_factors[i]
+				# Apply correction based on strategy
+				if (strategy == "combined") {
+					# ✅ COMBINED STRATEGY
+					message("Using COMBINED strategy for ", length(batch_factors), " factors")
 					
-					message(sprintf("ComBat correction %d/%d: %s", i, length(batch_factors), batch_factor))
+					batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+					combined_batch <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
 					
-					# Get batch variable
-					batch <- meta[[batch_factor]]
+					combat_column_value <- as.character(combined_batch)
 					
-					# Run ComBat
+					batch_table <- table(combined_batch)
+					message("Created ", length(batch_table), " unique batch combinations")
+					
+					# Check for single-sample batches
+					single_sample <- names(batch_table)[batch_table == 1]
+					if (length(single_sample) > 0) {
+						stop("Cannot use combined strategy: ", length(single_sample), 
+								 " batch combination(s) have only 1 sample.  Use sequential strategy instead.")
+					}
+					
 					corrected_data <- sva::ComBat(
-						dat = corrected_data,
-						batch = batch,
+						dat = expr_data,
+						batch = combined_batch,
 						mod = modcombat,
 						par.prior = par_prior
 					)
 					
-					correction_log[[batch_factor]] <- list(
-						order = i,
-						n_groups = length(unique(batch)),
+					correction_log <- list(
+						method = "combined",
+						batch_factors = batch_factors,
+						n_combinations = length(batch_table),
+						batch_sizes = as.list(batch_table),
+						model = model_description
+					)
+					
+				} else if (strategy == "sequential") {
+					# ✅ SEQUENTIAL STRATEGY
+					message("Using SEQUENTIAL strategy for ", length(batch_factors), " factors")
+					
+					batch_values <- lapply(batch_factors, function(f) as.character(meta[[f]]))
+					combat_column_value <- do.call(paste, c(batch_values, list(sep = "_")))
+					
+					corrected_data <- expr_data
+					correction_log <- list(
+						method = "sequential",
+						batch_factors = batch_factors,
+						corrections = list()
+					)
+					
+					for (i in seq_along(batch_factors)) {
+						batch_factor <- batch_factors[i]
+						message(sprintf("ComBat correction %d/%d: %s", i, length(batch_factors), batch_factor))
+						
+						batch <- meta[[batch_factor]]
+						
+						corrected_data <- sva::ComBat(
+							dat = corrected_data,
+							batch = batch,
+							mod = modcombat,
+							par.prior = par_prior
+						)
+						
+						correction_log$corrections[[batch_factor]] <- list(
+							order = i,
+							n_groups = length(unique(batch))
+						)
+					}
+					
+					correction_log$model <- model_description
+					
+				} else {
+					# ✅ SINGLE FACTOR
+					batch_factor <- batch_factors[1]
+					message("Single factor correction: ", batch_factor)
+					
+					combat_column_value <- as.character(meta[[batch_factor]])
+					
+					corrected_data <- sva::ComBat(
+						dat = expr_data,
+						batch = meta[[batch_factor]],
+						mod = modcombat,
+						par.prior = par_prior
+					)
+					
+					correction_log <- list(
+						method = "single",
+						batch_factor = batch_factor,
+						n_groups = length(unique(meta[[batch_factor]])),
 						model = model_description
 					)
 				}
 				
-				# Row center (matching original script)
-				#corrected_data <- row_scale_function(corrected_data)
+				if (! is.null(combat_column_value)) {
+					meta$ComBat <- combat_column_value
+					message("✅ Added 'ComBat' column to corrected ExpressionSet metadata")
+				}
 				
-				# Create new ExpressionSet with corrected data
+				# Create corrected ExpressionSet
 				corrected_ExpSet <- ExpSet
 				Biobase::exprs(corrected_ExpSet) <- corrected_data
 				
-				# Add note to experimentData
-				Biobase::notes(corrected_ExpSet) <- c(
-					Biobase::notes(corrected_ExpSet),
-					list(
-						combat_correction = list(
-							batch_factors = batch_factors,
-							model = model_description,
-							sample_group_preserved = if (combat_model == "preserve") sample_group else NA,
-							row_centered = TRUE,
-							par_prior = par_prior,
-							correction_date = Sys.time(),
-							correction_log = correction_log
-						)
-					)
-				)
+				Biobase::pData(corrected_ExpSet) <- meta
 				
+				# Add notes
 				notes <- Biobase::notes(corrected_ExpSet)
+				notes$combat_correction <- c(correction_log, list(
+					sample_group_preserved = if (combat_model == "preserve") sample_group else NA,
+					par_prior = par_prior,
+					correction_date = Sys.time()
+				))
+				
 				notes$combat_correction$source_eset_name <- tryCatch({
-					# Try to get name from eset metadata
-					eset_obj <- eset()
-					eset_metadata <- Biobase::notes(eset_obj)
-					
-					if (!is.null(eset_metadata$name)) {
+					eset_metadata <- Biobase::notes(eset())
+					if (! is.null(eset_metadata$name)) {
 						eset_metadata$name
-					} else if (!is.null(attr(eset_obj, "name"))) {
-						attr(eset_obj, "name")
 					} else {
 						"unknown"
 					}
-				}, error = function(e) {
-					"unknown"
-				})
-				#notes$combat_correction$source_eset_name <- selected_expset_name()  # Track which eset was used
-				#notes$combat_correction$source_assay_name <- selected_assay_name()  # Track which assay
+				}, error = function(e) "unknown")
+				
+				notes$name <- notes$combat_correction$source_eset_name
+				
 				Biobase::notes(corrected_ExpSet) <- notes
 				
 				# Store result
 				corrected_eset(corrected_ExpSet)
 				
 				removeNotification("combat_progress")
-				showNotification(
-					sprintf("✅ ComBat correction complete!\nModel: %s\nCorrected for: %s",
-									model_description,
-									paste(batch_factors, collapse = ", ")),
-					type = "message",
-					duration = 10
+				
+				# Success message
+				success_msg <- switch(strategy,
+															"combined" = sprintf("✅ ComBat correction complete!\nStrategy: Combined\nFactors: %s\nUnique batches: %d",
+																									 paste(batch_factors, collapse = " × "),
+																									 correction_log$n_combinations),
+															"sequential" = sprintf("✅ ComBat correction complete!\nStrategy: Sequential\nOrder: %s",
+																										 paste(batch_factors, collapse = " → ")),
+															sprintf("✅ ComBat correction complete!\nFactor: %s", batch_factors[1])
 				)
+				
+				showNotification(success_msg, type = "message", duration = 10)
 				
 			}, error = function(e) {
 				removeNotification("combat_progress")
-				showNotification(paste("❌ ComBat failed:", e$message), type = "error", duration = 10)
+				showNotification(paste("❌ ComBat failed:", e$message), type = "error", duration = 15)
 				message("ComBat error: ", e$message)
 			})
 		}
@@ -673,13 +1209,17 @@ mod_combat_correction_server <- function(id,
 			cat("\n═══════════════════════════════════════════════\n")
 		})
 		
-
+	
 		
 		
 		# Return values ####
 		return(list(
 			corrected_eset = corrected_eset,
-			selected_batch_factors = selected_batch_factors
+			preview_eset = eset_with_combat_preview,
+			selected_batch_factors = selected_batch_factors,
+			plot_batch_factors = plot_batch_factors,
+			all_columns = all_columns,
+			safe_factors = safe_batch_factors
 		))
 	})
 }

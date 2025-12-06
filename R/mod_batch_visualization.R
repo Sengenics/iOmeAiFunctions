@@ -863,36 +863,137 @@ mod_batch_visualization_server <- function(id,
 		# 	}
 		# })
 		
+		# output$corrected_data_status <- renderUI({
+		# 	
+		# 	if (input$corrected_source == "session") {
+		# 		# ...  your session code ...
+		# 		
+		# 	} else if (input$corrected_source == "assay") {
+		# 		expected <- expected_corrected_assay_name()
+		# 		available <- available_corrected_assays()
+		# 		
+		# 		# ✅ Check if expected exists
+		# 		if (!  expected %in% available) {
+		# 			div(
+		# 				class = "alert alert-warning",
+		# 				icon("exclamation-triangle"),
+		# 				strong(" Expected corrected assay not found"),
+		# 				tags$ul(
+		# 					tags$li("Current assay: ", strong(current_assay_name())),
+		# 					tags$li("Expected corrected assay: ", strong(expected)),
+		# 					tags$li("Available corrected assays: ", paste(available, collapse = ", "))
+		# 				),
+		# 				p("The expected corrected assay does not exist in this ExpressionSet. "),
+		# 				p(strong("You can:")),
+		# 				tags$ul(
+		# 					tags$li("Select a different corrected assay from the dropdown above"),
+		# 					tags$li("Adjust the 'Corrected Assay Suffix'"),
+		# 					tags$li("Run ComBat correction on '", current_assay_name(), "' to create it")
+		# 				)
+		# 			)
+		# 		} else {
+		# 			# Expected exists - try to load it
+		# 			corrected <- eset_corrected_dynamic()
+		# 			
+		# 			if (is.null(corrected)) {
+		# 				div(
+		# 					class = "alert alert-danger",
+		# 					icon("times-circle"),
+		# 					strong(" Error loading corrected assay"),
+		# 					p("The assay '", expected, "' exists but could not be loaded.")
+		# 				)
+		# 			} else {
+		# 				notes <- Biobase::notes(corrected)
+		# 				source_info <- notes$visualization_source
+		# 				
+		# 				div(
+		# 					class = "alert alert-success",
+		# 					icon("check-circle"),
+		# 					strong(" Using corrected data from ExpressionSet ✓"),
+		# 					tags$ul(
+		# 						tags$li("Base assay: ", strong(source_info$base_assay_name)),
+		# 						tags$li("Corrected assay: ", strong(source_info$assay_name)),
+		# 						tags$li("Dimensions: ", nrow(corrected), " features × ", ncol(corrected), " samples")
+		# 					)
+		# 				)
+		# 			}
+		# 		}
+		# 	}
+		# })
+		
+		# ✅ Status display with all warnings
 		output$corrected_data_status <- renderUI({
 			
 			if (input$corrected_source == "session") {
-				# ...  your session code ...
+				app_corrected <- app_corrected_name()
+				current <- current_assay_name()
 				
-			} else if (input$corrected_source == "assay") {
-				expected <- expected_corrected_assay_name()
-				available <- available_corrected_assays()
-				
-				# ✅ Check if expected exists
-				if (!  expected %in% available) {
+				if (is.null(app_corrected)) {
 					div(
 						class = "alert alert-warning",
 						icon("exclamation-triangle"),
-						strong(" Expected corrected assay not found"),
+						strong(" No ComBat-corrected data available from this session"),
+						p("Run ComBat correction in the 'Batch Correction' tab or switch to 'Load from ExpressionSet assay' mode.")
+					)
+				} else if (! combat_is_compatible()) {
+					div(
+						class = "alert alert-danger",
+						icon("times-circle"),
+						strong(" ComBat data is for a different assay"),
 						tags$ul(
-							tags$li("Current assay: ", strong(current_assay_name())),
-							tags$li("Expected corrected assay: ", strong(expected)),
-							tags$li("Available corrected assays: ", paste(available, collapse = ", "))
+							tags$li("ComBat was run on: ", strong(app_corrected)),
+							tags$li("Currently viewing: ", strong(current))
 						),
-						p("The expected corrected assay does not exist in this ExpressionSet. "),
-						p(strong("You can:")),
+						p(strong("Solutions:")),
 						tags$ul(
-							tags$li("Select a different corrected assay from the dropdown above"),
-							tags$li("Adjust the 'Corrected Assay Suffix'"),
-							tags$li("Run ComBat correction on '", current_assay_name(), "' to create it")
+							tags$li("Select '", app_corrected, "' in the Input Data selector above, OR"),
+							tags$li("Re-run ComBat correction on '", current, "', OR"),
+							tags$li("Switch to 'Load from ExpressionSet assay' mode below")
 						)
 					)
 				} else {
-					# Expected exists - try to load it
+					notes <- Biobase::notes(eset_corrected())
+					combat_info <- notes$combat_correction
+					
+					div(
+						class = "alert alert-success",
+						icon("check-circle"),
+						strong(" Using ComBat data from this session ✓"),
+						tags$ul(
+							tags$li("Assay: ", strong(app_corrected)),
+							tags$li("Batch factors: ", paste(combat_info$batch_factors, collapse = ", ")),
+							tags$li("Correction date: ", as.character(combat_info$correction_date))
+						)
+					)
+				}
+				
+			} else if (input$corrected_source == "assay") {
+				# ✅ Check if the expected corrected assay exists
+				expected <- expected_corrected_assay_name()
+				current <- current_assay_name()
+				available_assays <- Biobase::assayDataElementNames(eset_original())
+				
+				if (! expected %in% available_assays) {
+					# ✅ WARNING: Expected corrected assay doesn't exist
+					div(
+						class = "alert alert-danger",
+						icon("times-circle"),
+						strong(" Corrected assay not found in ExpressionSet"),
+						tags$ul(
+							tags$li("Current assay: ", strong(current)),
+							tags$li("Expected corrected assay: ", strong(expected)),
+							tags$li("Available assays: ", paste(available_assays, collapse = ", "))
+						),
+						p(strong("Solutions:")),
+						tags$ul(
+							tags$li("Run ComBat correction on '", current, "' to create '", expected, "'"),
+							tags$li("Adjust the 'Corrected Assay Suffix' above if it uses a different naming convention"),
+							tags$li("Select a different input assay that has a corrected version available"),
+							tags$li("Switch to 'Use ComBat from this session' if you've just run correction")
+						)
+					)
+				} else {
+					# ✅ Corrected assay exists - try to load it
 					corrected <- eset_corrected_dynamic()
 					
 					if (is.null(corrected)) {
@@ -1313,7 +1414,7 @@ mod_batch_visualization_server <- function(id,
 		
 		# Run analysis
 		observeEvent(input$run_analysis, {
-			req(eset_original())
+			req(eset_original()) 
 			req(input$color_by)
 			
 			showNotification("Running visualization analysis...", id = "viz_progress", duration = NULL, type = "message")

@@ -555,11 +555,15 @@ create_correlation_summary_table <- function(correlation_results, meta, batch_co
 		pivot_longer(-Sample, names_to = "Sample_1", values_to = "Correlation") %>%
 		filter(Sample != Sample_1) %>%
 		left_join(
-			meta_tr %>% rownames_to_column("Sample") %>% select(Sample, Batch = !!sym(batch_column)),
+			meta_tr %>% 
+				#rownames_to_column("Sample") %>% 
+				select(Sample, Batch = !!sym(batch_column)),
 			by = "Sample"
 		) %>%
 		left_join(
-			meta_tr %>% rownames_to_column("Sample") %>% select(Sample, Batch_1 = !!sym(batch_column)),
+			meta_tr %>% 
+				#rownames_to_column("Sample") %>% 
+				select(Sample, Batch_1 = !!sym(batch_column)),
 			by = c("Sample_1" = "Sample")
 		) %>%
 		mutate(Type = ifelse(Batch == Batch_1, "Intra", "Inter"))
@@ -582,11 +586,15 @@ create_correlation_summary_table <- function(correlation_results, meta, batch_co
 			pivot_longer(-Sample, names_to = "Sample_1", values_to = "Correlation") %>%
 			filter(Sample != Sample_1) %>%
 			left_join(
-				meta_tr %>% rownames_to_column("Sample") %>% select(Sample, Batch = !! sym(batch_column)),
+				meta_tr %>% 
+					#rownames_to_column("Sample") %>% 
+					select(Sample, Batch = !! sym(batch_column)),
 				by = "Sample"
 			) %>%
 			left_join(
-				meta_tr %>% rownames_to_column("Sample") %>% select(Sample, Batch_1 = !!sym(batch_column)),
+				meta_tr %>% 
+					#rownames_to_column("Sample") %>% 
+					select(Sample, Batch_1 = !!sym(batch_column)),
 				by = c("Sample_1" = "Sample")
 			) %>%
 			mutate(Type = ifelse(Batch == Batch_1, "Intra", "Inter"))

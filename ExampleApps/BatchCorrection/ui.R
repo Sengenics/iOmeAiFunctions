@@ -76,7 +76,8 @@ ui <- dashboardPage(
 										 ),
 						tabPanel("Run ComBat",
 							mod_eset_selector_standalone_ui("combat_data",T,T,T,T),
-							mod_combat_correction_ui("combat", debug = run_debug)
+							mod_combat_correction_ui("combat", debug = run_debug),
+							mod_batch_combined_analysis_ui("batch_analysis", debug = run_debug),
 						)
 					)
 				)

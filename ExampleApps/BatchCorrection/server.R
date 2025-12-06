@@ -204,10 +204,21 @@ server <- function(input, output, session) {
 	batch_combined <- mod_batch_combined_analysis_server(
 		"batch_combined",
 		eset = data_module$eset,
+		#eset = combat_module$preview_eset,
 		sample_group_column = sample_group_module$selected_column,
 		batch_columns = batch_column_module$selected_columns,
 		debug = run_debug
 	)
+	
+	batch_analysis <- mod_batch_combined_analysis_server(
+		"batch_analysis",
+		eset = combat_module$preview_eset,  # ✅ Use preview instead of original
+		sample_group_column = sample_group_module$selected_column,
+		batch_columns = combat_module$selected_batch_factors,
+		debug = run_debug
+	)
+	
+	
 	
 	# ComBat correction module ####
 	# combat_module <- mod_combat_correction_server(
@@ -271,7 +282,7 @@ server <- function(input, output, session) {
 		eset_original = vis_input_data$eset,
 		eset_corrected = combat_module$corrected_eset,
 		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
-		batch_factors = combat_module$selected_batch_factors,            # ✅ From ComBat Correction tab
+		batch_factors = combat_module$plot_batch_factors,            # ✅ From ComBat Correction tab
 		ExpSet_list = ExpSet_list,
 		debug = run_debug
 	)
@@ -283,6 +294,7 @@ server <- function(input, output, session) {
 		"expset_manager",
 		ExpSet_list = ExpSet_list,
 		selected_batch_factors = combat_module$selected_batch_factors,
+		all_columns = combat_module$all_columns,
 		#corrected_eset = combat_module$corrected_eset,
 		debug = run_debug
 	)
