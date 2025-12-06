@@ -267,6 +267,7 @@ server <- function(input, output, session) {
 	# Batch visualization ####
 	batch_viz <- mod_batch_visualization_server(
 		"batch_viz",
+		eset_original_name = reactive(vis_input_data$eset_name()),
 		eset_original = vis_input_data$eset,
 		eset_corrected = combat_module$corrected_eset,
 		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
