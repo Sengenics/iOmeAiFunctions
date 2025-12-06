@@ -42,14 +42,53 @@ mod_eset_selector_server <- function(id, ExpSet_list, default_selection = "clini
 		})
 		
 		# Render the selection UI
+		# output$eset_select_ui <- renderUI({
+		# 	req(ExpSet_names())
+		# 	
+		# 	choices <- ExpSet_names()
+		# 	
+		# 	# Try to select default, otherwise first available
+		# 	if (default_selection %in% unlist(choices)) {
+		# 		selected <- default_selection
+		# 	} else {
+		# 		selected <- unlist(choices)[1]
+		# 	}
+		# 	
+		# 	selectInput(
+		# 		ns("eset_select"),
+		# 		"Select Expression Data:",
+		# 		choices = choices,
+		# 		selected = selected
+		# 	)
+		# })
+		
+		# Render the selection UI
 		output$eset_select_ui <- renderUI({
 			req(ExpSet_names())
 			
 			choices <- ExpSet_names()
 			
+			# Safely handle default_selection (could be reactive, static, or NULL)
+			default_val <- NULL
+			
+			if (is.function(default_selection)) {
+				# It's a reactive - call it safely
+				default_val <- tryCatch({
+					default_selection()
+				}, error = function(e) {
+					NULL
+				})
+			} else if (! is.null(default_selection)) {
+				# It's a static value
+				default_val <- default_selection
+			}
+			
 			# Try to select default, otherwise first available
-			if (default_selection %in% unlist(choices)) {
-				selected <- default_selection
+			if (! is.null(default_val) && 
+					length(default_val) > 0 && 
+					is.character(default_val) && 
+					default_val %in% unlist(choices)) {
+				selected <- default_val
 			} else {
 				selected <- unlist(choices)[1]
 			}
@@ -61,6 +100,24 @@ mod_eset_selector_server <- function(id, ExpSet_list, default_selection = "clini
 				selected = selected
 			)
 		})
+		
+		if (is.function(default_selection)) {
+			observe({
+				req(ExpSet_names())
+				
+				new_default <- tryCatch({
+					default_selection()
+				}, error = function(e) {
+					NULL
+				})
+				
+				if (!is.null(new_default) && 
+						length(new_default) > 0 && 
+						new_default %in% unlist(ExpSet_names())) {
+					updateSelectInput(session, "eset_select", selected = new_default)
+				}
+			})
+		}
 		
 		# Return selected ExpressionSet with exprs() set to selected assay
 		selected_eset <- reactive({

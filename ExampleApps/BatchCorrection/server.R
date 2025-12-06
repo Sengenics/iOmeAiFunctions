@@ -60,6 +60,32 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
+	vis_input_data <- mod_eset_selector_standalone_server(
+		"vis_input",
+		ExpSet_list = ExpSet_list,
+		default_selection = reactive({
+			name <- tryCatch({
+				combat_data$eset_name()
+			}, error = function(e) {
+				NULL
+			})
+			
+			# Return fallback if NULL, empty, or NA
+			if (is.null(name) || length(name) == 0 || is.na(name)) {
+				"sample_loess_normalised"
+			} else {
+				name
+			}
+		}),
+		#default_selection = combat_data$eset_name,
+		#default_selection = "sample_loess_normalised",
+		#default_selection = reactive({ combat_data$eset_name() }),
+		source = expset_data$source,
+		enable_subset = TRUE,
+		enable_transform = TRUE,
+		debug = run_debug
+	)
+	
 	# # Data selection module
 	# data_module <- mod_app_data_selection_server(
 	# 	"data_select",
@@ -241,7 +267,7 @@ server <- function(input, output, session) {
 	# Batch visualization ####
 	batch_viz <- mod_batch_visualization_server(
 		"batch_viz",
-		eset_original = combat_data$eset,
+		eset_original = vis_input_data$eset,
 		eset_corrected = combat_module$corrected_eset,
 		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
 		batch_factors = combat_module$selected_batch_factors,            # ✅ From ComBat Correction tab

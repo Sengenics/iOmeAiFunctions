@@ -118,12 +118,27 @@ mod_eset_selector_standalone_ui <- function(id,
 #' @export
 mod_eset_selector_standalone_server <- function(id, 
 																								ExpSet_list,
-																								default_selection = NULL,
+																								default_selection = reactive(NULL),
 																								source = reactive("unknown"),
 																								enable_subset = TRUE,
 																								enable_transform = TRUE,
 																								debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
+		
+		# Observer to update selection when default_selection changes
+		observe({
+			if (is.function(default_selection)) {
+				new_default <- default_selection()
+			} else {
+				new_default <- default_selection
+			}
+			
+			if (! is.null(new_default) && length(new_default) > 0) {
+				# Update the picker/select input
+				updatePickerInput(session, "eset_select", selected = new_default)
+				# OR updateSelectInput depending on your input type
+			}
+		})
 		
 		# ExpSet Selection Module
 		eset_selected_module <- mod_eset_selector_server(
