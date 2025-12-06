@@ -479,112 +479,273 @@ mod_batch_visualization_server <- function(id,
 			)
 		})
 		
-		# ✅ NEW: Dynamic corrected eset based on selection
-		eset_corrected_dynamic <- reactive({
 			
-			if (input$corrected_source == "session") {
-				# Use ComBat from this session
-				req(eset_corrected())
+			# ✅ NEW: Check if session ComBat matches current visualization eset
+			combat_is_compatible <- reactive({
+				req(eset_original())
+				
+				if (is.null(eset_corrected) || is.null(eset_corrected())) {
+					return(FALSE)
+				}
 				
 				corrected <- eset_corrected()
-				
 				if (is.null(corrected)) {
-					return(NULL)
+					return(FALSE)
 				}
 				
-				return(corrected)
+				original <- eset_original()
 				
-			} else if (input$corrected_source == "assay") {
-				# Load from ExpressionSet assay with suffix
-				req(eset_original())
-				req(input$corrected_suffix)
+				# Check if they have the same samples and features
+				same_samples <- identical(colnames(original), colnames(corrected))
+				same_features <- identical(rownames(original), rownames(corrected))
 				
-				ExpSet <- eset_original()
-				
-				# Get current assay name
-				current_assay <- Biobase::assayDataElementNames(ExpSet)[1]
-				
-				# Check if user selected specific assay or using suffix
-				if (! is.null(input$corrected_assay_name) && input$corrected_assay_name != "") {
-					corrected_assay_name <- input$corrected_assay_name
-				} else {
-					# Build name with suffix
-					suffix <- input$corrected_suffix
-					corrected_assay_name <- paste0(current_assay, suffix)
+				# Also check metadata if available
+				notes <- Biobase::notes(corrected)
+				if (! is.null(notes$combat_correction$source_eset_name)) {
+					# Compare eset names if available
+					current_name <- attr(original, "name")  # You may need to track this differently
+					source_name <- notes$combat_correction$source_eset_name
+					
+					# For now, rely on sample/feature matching
+					return(same_samples && same_features)
 				}
 				
-				# Check if it exists
-				all_assays <- Biobase::assayDataElementNames(ExpSet)
-				
-				if (!  corrected_assay_name %in% all_assays) {
-					return(NULL)
-				}
-				
-				# Create a copy with the corrected data as exprs
-				corrected_ExpSet <- ExpSet
-				Biobase::exprs(corrected_ExpSet) <- Biobase::assayDataElement(ExpSet, corrected_assay_name)
-				
-				# Add note about source
-				notes <- Biobase::notes(corrected_ExpSet)
-				notes$visualization_source <- list(
-					assay_name = corrected_assay_name,
-					loaded_from = "ExpressionSet assayData"
-				)
-				Biobase::notes(corrected_ExpSet) <- notes
-				
-				return(corrected_ExpSet)
-			}
+				return(same_samples && same_features)
+			})
 			
-			return(NULL)
-		})
+			# ✅ UPDATE: Dynamic corrected eset based on selection WITH VALIDATION
+			eset_corrected_dynamic <- reactive({
+				
+				if (input$corrected_source == "session") {
+					# Use ComBat from this session - BUT ONLY IF COMPATIBLE
+					req(eset_corrected())
+					
+					if (! combat_is_compatible()) {
+						return(NULL)
+					}
+					
+					corrected <- eset_corrected()
+					
+					if (is.null(corrected)) {
+						return(NULL)
+					}
+					
+					return(corrected)
+					
+				} else if (input$corrected_source == "assay") {
+					# Load from ExpressionSet assay with suffix
+					req(eset_original())
+					req(input$corrected_suffix)
+					
+					ExpSet <- eset_original()
+					
+					# Get current assay name
+					current_assay <- Biobase::assayDataElementNames(ExpSet)[1]
+					
+					# Check if user selected specific assay or using suffix
+					if (! is.null(input$corrected_assay_name) && input$corrected_assay_name != "") {
+						corrected_assay_name <- input$corrected_assay_name
+					} else {
+						# Build name with suffix
+						suffix <- input$corrected_suffix
+						corrected_assay_name <- paste0(current_assay, suffix)
+					}
+					
+					# Check if it exists
+					all_assays <- Biobase::assayDataElementNames(ExpSet)
+					
+					if (!corrected_assay_name %in% all_assays) {
+						return(NULL)
+					}
+					
+					# Create a copy with the corrected data as exprs
+					corrected_ExpSet <- ExpSet
+					Biobase::exprs(corrected_ExpSet) <- Biobase::assayDataElement(ExpSet, corrected_assay_name)
+					
+					# Add note about source
+					notes <- Biobase::notes(corrected_ExpSet)
+					notes$visualization_source <- list(
+						assay_name = corrected_assay_name,
+						loaded_from = "ExpressionSet assayData"
+					)
+					Biobase::notes(corrected_ExpSet) <- notes
+					
+					return(corrected_ExpSet)
+				}
+				
+				return(NULL)
+			})
+			
+			# ✅ UPDATE: Status display with compatibility check
+			output$corrected_data_status <- renderUI({
+				
+				if (input$corrected_source == "session") {
+					if (is.null(eset_corrected()) || is.null(eset_corrected())) {
+						div(
+							class = "alert alert-warning",
+							icon("exclamation-triangle"),
+							strong(" No ComBat-corrected data available from this session"),
+							p("Run ComBat correction in the 'Batch Correction' tab or switch to 'Load from ExpressionSet assay' mode.")
+						)
+					} else if (! combat_is_compatible()) {
+						div(
+							class = "alert alert-danger",
+							icon("times-circle"),
+							strong(" ComBat data incompatible with selected visualization data"),
+							p("The ComBat correction was performed on a different ExpressionSet than the one currently selected for visualization. "),
+							p(strong("Solutions:")),
+							tags$ul(
+								tags$li("Select the same ExpressionSet that was used for ComBat correction"),
+								tags$li("Re-run ComBat correction on the currently selected data"),
+								tags$li("Switch to 'Load from ExpressionSet assay' mode to use saved corrected data")
+							)
+						)
+					} else {
+						notes <- Biobase::notes(eset_corrected())
+						combat_info <- notes$combat_correction
+						
+						div(
+							class = "alert alert-success",
+							icon("check-circle"),
+							strong(" Using ComBat data from this session ✓"),
+							p(paste("Batch factors:", paste(combat_info$batch_factors, collapse = ", "))),
+							p(paste("Correction date:", combat_info$correction_date)),
+							p(paste("Samples:", ncol(eset_corrected()), "| Features:", nrow(eset_corrected())))
+						)
+					}
+				} else if (input$corrected_source == "assay") {
+					corrected <- eset_corrected_dynamic()
+					
+					if (is.null(corrected)) {
+						div(
+							class = "alert alert-warning",
+							icon("exclamation-triangle"),
+							strong(" Corrected assay not found"),
+							p("The specified corrected assay does not exist in the ExpressionSet.  Try adjusting the suffix or selecting a different assay.")
+						)
+					} else {
+						notes <- Biobase::notes(corrected)
+						source_info <- notes$visualization_source
+						
+						div(
+							class = "alert alert-success",
+							icon("check-circle"),
+							strong(" Using corrected data from ExpressionSet ✓"),
+							p(paste("Assay name:", source_info$assay_name)),
+							p(paste("Dimensions:", nrow(corrected), "features ×", ncol(corrected), "samples"))
+						)
+					}
+				}
+			})
+			
+
+		
+		# ✅ NEW: Dynamic corrected eset based on selection
+		# eset_corrected_dynamic <- reactive({
+		# 	
+		# 	if (input$corrected_source == "session") {
+		# 		# Use ComBat from this session
+		# 		req(eset_corrected())
+		# 		
+		# 		corrected <- eset_corrected()
+		# 		
+		# 		if (is.null(corrected)) {
+		# 			return(NULL)
+		# 		}
+		# 		
+		# 		return(corrected)
+		# 		
+		# 	} else if (input$corrected_source == "assay") {
+		# 		# Load from ExpressionSet assay with suffix
+		# 		req(eset_original())
+		# 		req(input$corrected_suffix)
+		# 		
+		# 		ExpSet <- eset_original()
+		# 		
+		# 		# Get current assay name
+		# 		current_assay <- Biobase::assayDataElementNames(ExpSet)[1]
+		# 		
+		# 		# Check if user selected specific assay or using suffix
+		# 		if (! is.null(input$corrected_assay_name) && input$corrected_assay_name != "") {
+		# 			corrected_assay_name <- input$corrected_assay_name
+		# 		} else {
+		# 			# Build name with suffix
+		# 			suffix <- input$corrected_suffix
+		# 			corrected_assay_name <- paste0(current_assay, suffix)
+		# 		}
+		# 		
+		# 		# Check if it exists
+		# 		all_assays <- Biobase::assayDataElementNames(ExpSet)
+		# 		
+		# 		if (!  corrected_assay_name %in% all_assays) {
+		# 			return(NULL)
+		# 		}
+		# 		
+		# 		# Create a copy with the corrected data as exprs
+		# 		corrected_ExpSet <- ExpSet
+		# 		Biobase::exprs(corrected_ExpSet) <- Biobase::assayDataElement(ExpSet, corrected_assay_name)
+		# 		
+		# 		# Add note about source
+		# 		notes <- Biobase::notes(corrected_ExpSet)
+		# 		notes$visualization_source <- list(
+		# 			assay_name = corrected_assay_name,
+		# 			loaded_from = "ExpressionSet assayData"
+		# 		)
+		# 		Biobase::notes(corrected_ExpSet) <- notes
+		# 		
+		# 		return(corrected_ExpSet)
+		# 	}
+		# 	
+		# 	return(NULL)
+		# })
 		
 		# ✅ NEW: Status display
-		output$corrected_data_status <- renderUI({
-			
-			if (input$corrected_source == "session") {
-				if (is.null(eset_corrected()) || is.null(eset_corrected())) {
-					div(
-						class = "alert alert-warning",
-						icon("exclamation-triangle"),
-						strong(" No ComBat-corrected data available from this session"),
-						p("Run ComBat correction in the 'Batch Correction' tab or switch to 'Load from ExpressionSet assay' mode.")
-					)
-				} else {
-					notes <- Biobase::notes(eset_corrected())
-					combat_info <- notes$combat_correction
-					
-					div(
-						class = "alert alert-success",
-						icon("check-circle"),
-						strong(" Using ComBat data from this session"),
-						p(paste("Batch factors:", paste(combat_info$batch_factors, collapse = ", "))),
-						p(paste("Correction date:", combat_info$correction_date))
-					)
-				}
-			} else if (input$corrected_source == "assay") {
-				corrected <- eset_corrected_dynamic()
-				
-				if (is.null(corrected)) {
-					div(
-						class = "alert alert-warning",
-						icon("exclamation-triangle"),
-						strong(" Corrected assay not found"),
-						p("The specified corrected assay does not exist in the ExpressionSet.  Try adjusting the suffix or selecting a different assay.")
-					)
-				} else {
-					notes <- Biobase::notes(corrected)
-					source_info <- notes$visualization_source
-					
-					div(
-						class = "alert alert-success",
-						icon("check-circle"),
-						strong(" Using corrected data from ExpressionSet"),
-						p(paste("Assay name:", source_info$assay_name)),
-						p(paste("Dimensions:", nrow(corrected), "features ×", ncol(corrected), "samples"))
-					)
-				}
-			}
-		})
+		# output$corrected_data_status <- renderUI({
+		# 	
+		# 	if (input$corrected_source == "session") {
+		# 		if (is.null(eset_corrected()) || is.null(eset_corrected())) {
+		# 			div(
+		# 				class = "alert alert-warning",
+		# 				icon("exclamation-triangle"),
+		# 				strong(" No ComBat-corrected data available from this session"),
+		# 				p("Run ComBat correction in the 'Batch Correction' tab or switch to 'Load from ExpressionSet assay' mode.")
+		# 			)
+		# 		} else {
+		# 			notes <- Biobase::notes(eset_corrected())
+		# 			combat_info <- notes$combat_correction
+		# 			
+		# 			div(
+		# 				class = "alert alert-success",
+		# 				icon("check-circle"),
+		# 				strong(" Using ComBat data from this session"),
+		# 				p(paste("Batch factors:", paste(combat_info$batch_factors, collapse = ", "))),
+		# 				p(paste("Correction date:", combat_info$correction_date))
+		# 			)
+		# 		}
+		# 	} else if (input$corrected_source == "assay") {
+		# 		corrected <- eset_corrected_dynamic()
+		# 		
+		# 		if (is.null(corrected)) {
+		# 			div(
+		# 				class = "alert alert-warning",
+		# 				icon("exclamation-triangle"),
+		# 				strong(" Corrected assay not found"),
+		# 				p("The specified corrected assay does not exist in the ExpressionSet.  Try adjusting the suffix or selecting a different assay.")
+		# 			)
+		# 		} else {
+		# 			notes <- Biobase::notes(corrected)
+		# 			source_info <- notes$visualization_source
+		# 			
+		# 			div(
+		# 				class = "alert alert-success",
+		# 				icon("check-circle"),
+		# 				strong(" Using corrected data from ExpressionSet"),
+		# 				p(paste("Assay name:", source_info$assay_name)),
+		# 				p(paste("Dimensions:", nrow(corrected), "features ×", ncol(corrected), "samples"))
+		# 			)
+		# 		}
+		# 	}
+		# })
 		
 		# Update column choices
 		observe({

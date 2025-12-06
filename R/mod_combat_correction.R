@@ -578,6 +578,26 @@ mod_combat_correction_server <- function(id,
 					)
 				)
 				
+				notes <- Biobase::notes(corrected_ExpSet)
+				notes$combat_correction$source_eset_name <- tryCatch({
+					# Try to get name from eset metadata
+					eset_obj <- eset()
+					eset_metadata <- Biobase::notes(eset_obj)
+					
+					if (!is.null(eset_metadata$name)) {
+						eset_metadata$name
+					} else if (!is.null(attr(eset_obj, "name"))) {
+						attr(eset_obj, "name")
+					} else {
+						"unknown"
+					}
+				}, error = function(e) {
+					"unknown"
+				})
+				#notes$combat_correction$source_eset_name <- selected_expset_name()  # Track which eset was used
+				#notes$combat_correction$source_assay_name <- selected_assay_name()  # Track which assay
+				Biobase::notes(corrected_ExpSet) <- notes
+				
 				# Store result
 				corrected_eset(corrected_ExpSet)
 				

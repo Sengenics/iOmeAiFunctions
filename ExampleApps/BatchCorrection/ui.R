@@ -84,17 +84,10 @@ ui <- dashboardPage(
 			## Viz ####
 			tabItem(
 				tabName = "viz_tab",
-				column(6,
-							 mod_eset_selector_standalone_ui("vis_input",T,T,T,T)
-				),
-				column(6,
-							 radioButtons('viz_output','Corrected ExpSet',c('_ComBat','exp corrected'),inline = T)
-							 #mod_eset_selector_standalone_ui("combat_data",T,T,T,T)
-							 ),
-				column(12,
-							 
-					mod_batch_visualization_ui("batch_viz", debug = run_debug)
-				)
+				mod_eset_selector_standalone_ui("vis_input",T,T,T,T),
+
+				mod_batch_visualization_ui("batch_viz", debug = run_debug)
+				
 			),
 			## Export ####
 			tabItem(
