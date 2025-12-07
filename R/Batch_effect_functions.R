@@ -217,7 +217,6 @@ anova_betadine_tidy_function <- function(m, meta, annotations) {
 #' \code{\link[vegan]{betadisper}} for beta dispersion analysis
 #'
 #' @importFrom vegan vegdist betadisper
-#' @importFrom stats anova
 #'
 #' @export
 #'
@@ -320,7 +319,6 @@ anova_betadine_function <- function(m, meta, col_name) {
 #' \code{\link[vegan]{adonis2}} for PERMANOVA details
 #'
 #' @importFrom vegan adonis2
-#' @importFrom stats as.formula
 #'
 #' @export
 #'

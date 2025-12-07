@@ -51,7 +51,6 @@
 #' @import Biobase
 #' @import dplyr
 #' @import tibble
-#' @importFrom stats model.matrix
 #' @export
 #'
 #' @examples
@@ -264,7 +263,6 @@ limma_analysis <- function(eSet,
 #'
 #' @import dplyr
 #' @import vegan
-#' @importFrom stats hclust
 #' @export
 #'
 #' @examples
@@ -389,7 +387,6 @@ prepare_limma_plot_data <- function(limma_results,
 #' Version 1.0.0
 #' File: limma_function.R
 #'
-#' @importFrom grDevices colorRampPalette
 #' @keywords internal
 generate_annotation_colors <- function(metadata) {
 

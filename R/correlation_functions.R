@@ -46,7 +46,6 @@
 #'
 #' @export
 #' @importFrom PerformanceAnalytics chart.Correlation
-#' @importFrom graphics title plot.new par
 correlation_title_plot_function <- function(plot_data, method = "pearson") {
 	
 	# Validate method

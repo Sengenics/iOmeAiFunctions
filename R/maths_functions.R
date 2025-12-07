@@ -9,7 +9,6 @@
 #'
 #' @return A single numeric value representing the mode, or \code{NA} if not enough data.
 #' 
-#' @importFrom stats density
 #' @export
 #'
 #' @examples
@@ -63,7 +62,6 @@ mode_function = function(values){
 #' \code{\link{anova_betadine_function}} which uses this function
 #' \code{\link[base]{scale}} for the underlying centering operation
 #'
-#' @importFrom base scale
 #'
 #' @export
 #'
