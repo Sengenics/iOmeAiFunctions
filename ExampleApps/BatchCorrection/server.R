@@ -246,6 +246,28 @@ server <- function(input, output, session) {
 	# )
 	ExpSet_list_val <- reactiveVal(ExpSet_list)
 	
+	# Initialize it when ExpSet_list is available
+	observe({
+		req(ExpSet_list())
+		if (is.null(ExpSet_list_val())) {
+			ExpSet_list_val(ExpSet_list())
+			message("✅ Initialized ExpSet_list_val")
+		}
+	})
+	
+	# ✅ Use a reactive that switches to ExpSet_list_val when it has data
+	ExpSet_list_for_export <- reactive({
+		# If ExpSet_list_val has been updated, use it
+		if (! is.null(ExpSet_list_val())) {
+			message("Using ExpSet_list_val for export")
+			return(ExpSet_list_val())
+		}
+		
+		# Otherwise fall back to original
+		message("Using original ExpSet_list for export")
+		ExpSet_list()
+	})
+	
 	combat_module <- mod_combat_correction_server(
 		"combat",
 		eset = combat_data$eset,
@@ -301,14 +323,14 @@ server <- function(input, output, session) {
 	# Export ####
 	
 	# ExpressionSet Manager Module
-	expset_manager <- mod_expset_manager_server(
-		"expset_manager",
-		ExpSet_list = ExpSet_list,
-		selected_batch_factors = combat_module$selected_batch_factors,
-		all_columns = combat_module$all_columns,
-		#corrected_eset = combat_module$corrected_eset,
-		debug = run_debug
-	)
+	# expset_manager <- mod_expset_manager_server(
+	# 	"expset_manager",
+	# 	ExpSet_list = ExpSet_list,
+	# 	selected_batch_factors = combat_module$selected_batch_factors,
+	# 	all_columns = combat_module$all_columns,
+	# 	#corrected_eset = combat_module$corrected_eset,
+	# 	debug = run_debug
+	# )
 	# ExpressionSet Manager Module
 	# expset_manager_2 <- mod_expset_manager_server_2(
 	# 	"expset_manager",
@@ -322,8 +344,14 @@ server <- function(input, output, session) {
 	# )
 	
 	# Export module
+	# expset_export <- mod_expset_export_server(
+	# 	"expset_export",
+	# 	ExpSet_list = ExpSet_list
+	# )
+	
+	# Export module uses the combined reactive
 	expset_export <- mod_expset_export_server(
 		"expset_export",
-		ExpSet_list = ExpSet_list
+		ExpSet_list = ExpSet_list_for_export  # ✅ Gets updated list
 	)
 }

@@ -133,7 +133,7 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 			)
 		),
 		
-		# Model Help Modal ####
+		### Model Help Modal ####
 		bsModal(
 			ns("model_help_modal"),
 			"ComBat Model Selection Guide",
@@ -253,7 +253,7 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 			)
 		),
 		
-		# Correction Results ####
+		### Correction Results ####
 		fluidRow(
 			box(
 				title = "Correction Results",
@@ -332,7 +332,7 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 					 		),
 					 		
 					 		hr(),
-					 		
+					 		### run ####
 					 		actionButton(
 					 			ns("apply_multi_batch_correction"),
 					 			"Apply Batch Correction to All Selected Assays",
@@ -1318,8 +1318,8 @@ mod_combat_correction_server <- function(id,
 				
 				
 				# ✅ NEW: Apply batch correction to multiple assays
-				observeEvent(input$apply_multi_batch_correction, {
-					req(input$target_assays)
+				observeEvent(input$apply_multi_batch_correction, { 
+					req(input$target_assays) 
 					req(input$batch_factors)
 					req(input$combat_assay_suffix)
 					req(ExpSet_list())
@@ -1352,8 +1352,10 @@ mod_combat_correction_server <- function(id,
 						updated_expsets <- list()
 						
 						# Process each target assay
+						i = 1
 						for (i in seq_along(input$target_assays)) {
-							assay_full_name <- input$target_assays[i]
+							(assay_full_name <- input$target_assays[i])
+							print(assay_full_name)
 							
 							message("\n========================================")
 							message(sprintf("Processing %d/%d: %s", i, length(input$target_assays), assay_full_name))
@@ -1365,17 +1367,19 @@ mod_combat_correction_server <- function(id,
 								id = "current_assay"
 							)
 							
+							(expset_name = get_ExpSet_name(assay_full_name,ExpSet_list()))
+							(assay_name = assay_full_name)
 							# ✅ Parse the assay name to find which ExpressionSet it belongs to
 							# assay_full_name format: "ExpSet_Name:assay_name"
-							parts <- strsplit(assay_full_name, ":")[[1]]
-							if (length(parts) != 2) {
-								warning("Invalid assay name format: ", assay_full_name)
-								failed_assays <- c(failed_assays, paste0(assay_full_name, " (invalid format)"))
-								next
-							}
+							# parts <- strsplit(assay_full_name, ":")[[1]]
+							# if (length(parts) != 2) {
+							# 	warning("Invalid assay name format: ", assay_full_name)
+							# 	failed_assays <- c(failed_assays, paste0(assay_full_name, " (invalid format)"))
+							# 	next
+							# }
 							
-							expset_name <- parts[1]
-							assay_name <- parts[2]
+							#expset_name <- parts[1]
+							#assay_name <- parts[2]
 							
 							# Get the ExpressionSet for this assay
 							if (! expset_name %in% names(expset_list)) {
@@ -1526,6 +1530,15 @@ mod_combat_correction_server <- function(id,
 						# Update the assay selector to show new assays
 						choices <- get_expset_assay_names(expset_list)
 						updatePickerInput(session, "target_assays", choices = choices)
+						
+						# ✅ Update ExpSet_list (inside the observeEvent)
+						if (is.function(update_ExpSet_list)) {
+							update_ExpSet_list(expset_list)  # ✅ This updates ExpSet_list_val
+							message("✅ Updated ExpSet_list_val with corrected assays")
+						} else {
+							warning("update_ExpSet_list is not a function")
+						}
+						
 						
 					}, error = function(e) {
 						removeNotification("batch_multi_progress")
