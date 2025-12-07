@@ -447,165 +447,380 @@ mod_expset_manager_server <- function(id,
 		update_success <- reactiveVal(FALSE)
 		update_summary <- reactiveVal(NULL)
 		
-		observeEvent(input$update_expset, {
-			req(corrected_eset())
-			req(input$combat_assay_name)
+		# Action button to run batch correction on multiple assays
+		observeEvent(input$apply_batch_correction, {
 			req(input$target_assays)
+			req(input$batch_correct_column)
+			req(input$combat_assay_name)
 			req(ExpSet_list())
 			
-			assay_name <- input$combat_assay_name
-			target_assays <- input$target_assays
-			
-			# Validate name
-			if (assay_name == "" || grepl("^\\s*$", assay_name)) {
-				showNotification("⚠️ Please provide a valid assay name", type = "warning", duration = 5)
-				return()
-			}
-			
-			if (length(target_assays) == 0) {
-				showNotification("⚠️ Please select at least one ExpressionSet to update", type = "warning", duration = 5)
-				return()
-			}
-			
-			showNotification(
-				paste("Updating", length(target_assays), "ExpressionSet(s)... "),
-				id = "update_progress",
-				duration = NULL,
-				type = "message"
-			)
+			showNotification("Starting batch correction for multiple assays...", 
+											 type = "message", duration = NULL, id = "batch_multi_progress")
 			
 			tryCatch({
-				# Get the corrected data
-				corrected_ExpSet <- corrected_eset()
-				corrected_data <- Biobase::exprs(corrected_ExpSet)
-				corrected_meta <- Biobase::pData(corrected_ExpSet)
-				
-				# Get combat info
-				combat_notes <- Biobase::notes(corrected_ExpSet)$combat_correction
-				
-				# Get the list
+				# Get the base ExpressionSet
 				expset_list <- ExpSet_list()
+				base_expset_name <- names(expset_list)[1]
+				base_ExpSet <- expset_list[[base_expset_name]]
 				
-				# Track what was added
-				summary_list <- list()
+				meta <- Biobase::pData(base_ExpSet)
+				batch_factors <- input$batch_correct_column
 				
-				# Loop through each selected assay
-				for (target_assay in target_assays) {
-					# Extract ExpressionSet name from format "ExpSetName - assayName"
-					expset_name <- sub(" - .*$", "", target_assay)
+				# Get correction parameters (you may need to pass these from combat module)
+				# For now using defaults - you can make these inputs
+				combat_model <- "null"  # or get from input
+				sample_group <- NULL    # or get from sample_group_column()
+				par_prior <- TRUE       # or get from input
+				
+				# Validate batch columns
+				missing <- setdiff(batch_factors, colnames(meta))
+				if (length(missing) > 0) {
+					stop("Batch columns not found in metadata: ", paste(missing, collapse = ", "))
+				}
+				
+				# Determine strategy based on number of factors
+				strategy <- if (length(batch_factors) > 1) {
+					"combined"  # You could add input to let user choose
+				} else {
+					"single"
+				}
+				
+				# Create model matrix
+				if (combat_model == "null") {
+					modcombat <- model.matrix(~1, data = meta)
+					model_description <- "Null model (~1)"
+					message("Using NULL model for ComBat")
+				} else if (! is.null(sample_group) && sample_group %in% colnames(meta)) {
+					modcombat <- model.matrix(~ as.factor(meta[[sample_group]]))
+					model_description <- paste0("Preserve model (~", sample_group, ")")
+					message("Using PRESERVE model for ComBat")
+				} else {
+					modcombat <- model.matrix(~1, data = meta)
+					model_description <- "Null model (~1)"
+				}
+				
+				# Create ComBat column value based on strategy
+				combat_column_value <- NULL
+				combined_batch <- NULL
+				
+				if (strategy == "combined") {
+					message("Using COMBINED strategy for ", length(batch_factors), " factors")
 					
-					if (! expset_name %in% names(expset_list)) {
-						warning("ExpressionSet not found: ", expset_name)
+					batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+					combined_batch <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+					combat_column_value <- as.character(combined_batch)
+					
+					batch_table <- table(combined_batch)
+					message("Created ", length(batch_table), " unique batch combinations")
+					
+					# Check for single-sample batches
+					single_sample <- names(batch_table)[batch_table == 1]
+					if (length(single_sample) > 0) {
+						stop("Cannot use combined strategy: ", length(single_sample), 
+								 " batch combination(s) have only 1 sample.")
+					}
+					
+				} else {
+					# Single factor
+					batch_factor <- batch_factors[1]
+					message("Single factor correction: ", batch_factor)
+					combat_column_value <- as.character(meta[[batch_factor]])
+					combined_batch <- meta[[batch_factor]]
+				}
+				
+				# Add ComBat column to metadata
+				meta$ComBat <- combat_column_value
+				message("✅ Added 'ComBat' column to metadata")
+				
+				# Update metadata in base ExpressionSet
+				Biobase::pData(base_ExpSet) <- meta
+				
+				# Loop through each selected assay and apply ComBat
+				corrected_count <- 0
+				failed_assays <- character()
+				
+				for (i in seq_along(input$target_assays)) {
+					assay_name <- input$target_assays[i]
+					
+					message("\n========================================")
+					message(sprintf("Processing %d/%d: %s", i, length(input$target_assays), assay_name))
+					
+					showNotification(
+						sprintf("Processing %d/%d: %s", i, length(input$target_assays), assay_name),
+						type = "message", duration = 2, id = "current_assay"
+					)
+					
+					# Check if assay exists
+					if (! assay_name %in% Biobase::assayDataElementNames(base_ExpSet)) {
+						warning("Assay '", assay_name, "' not found, skipping")
+						failed_assays <- c(failed_assays, paste0(assay_name, " (not found)"))
 						next
 					}
 					
-					target_ExpSet <- expset_list[[expset_name]]
+					# Get expression data for this assay
+					expr_data <- Biobase::assayDataElement(base_ExpSet, assay_name)
 					
-					# Add ComBat-corrected data as new assayData element
-					Biobase::assayDataElement(target_ExpSet, assay_name) <- corrected_data
-					
-					added_names <- c(assay_name)
-					
-					# Optionally add row-centered version
-					if (isTRUE(input$add_rc_version)) {
-						rc_name <- paste0(assay_name, "_RC")
-						corrected_data_rc <- row_scale_function(corrected_data)
-						Biobase::assayDataElement(target_ExpSet, rc_name) <- corrected_data_rc
-						added_names <- c(added_names, rc_name)
-					}
-					
-					# Optionally add PN version
-					if (isTRUE(input$add_pn_version) && !is.null(sample_group_column()) && !is.null(sample_group_column())) {
-						pn_name <- paste0(assay_name, "_PN")
-						
-						# Filter for Pooled Normal samples
-						sample_groups <- Biobase::pData(target_ExpSet)[[sample_group_column()]]
-						is_pn <- grepl("pooled.*normal", sample_groups, ignore.case = TRUE)
-						
-						if (sum(is_pn) > 0) {
-							corrected_data_pn <- corrected_data[, is_pn, drop = FALSE]
-							Biobase::assayDataElement(target_ExpSet, pn_name) <- corrected_data_pn
-							added_names <- c(added_names, pn_name)
+					# Apply ComBat correction
+					corrected_data <- tryCatch({
+						if (strategy == "combined") {
+							sva::ComBat(
+								dat = expr_data,
+								batch = combined_batch,
+								mod = modcombat,
+								par.prior = par_prior
+							)
+						} else {
+							sva::ComBat(
+								dat = expr_data,
+								batch = combined_batch,
+								mod = modcombat,
+								par.prior = par_prior
+							)
 						}
+					}, error = function(e) {
+						warning("ComBat failed for '", assay_name, "': ", e$message)
+						failed_assays <<- c(failed_assays, paste0(assay_name, " (", e$message, ")"))
+						return(NULL)
+					})
+					
+					if (is.null(corrected_data)) {
+						next
 					}
 					
-					# Update pData with any new columns from correction
-					original_meta <- Biobase::pData(target_ExpSet)
-					new_cols <- setdiff(colnames(corrected_meta), colnames(original_meta))
+					# Create new assay name with suffix
+					corrected_assay_name <- paste0(assay_name, input$combat_assay_name)
 					
-					if (length(new_cols) > 0) {
-						for (col in new_cols) {
-							original_meta[[col]] <- corrected_meta[[col]]
-						}
-						Biobase::pData(target_ExpSet) <- original_meta
-					}
+					# Add corrected data as new assay to ExpressionSet
+					Biobase::assayDataElement(base_ExpSet, corrected_assay_name) <- corrected_data
 					
-					# Update experimentData with correction info
-					exp_data <- Biobase::experimentData(target_ExpSet)
-					if (is.null(exp_data@other$combat_corrections)) {
-						exp_data@other$combat_corrections <- list()
-					}
-					
-					exp_data@other$combat_corrections[[assay_name]] <- list(
-						batch_factors = combat_notes$batch_factors,
-						model = combat_notes$model,
-						sample_group_preserved = combat_notes$sample_group_preserved,
-						par_prior = combat_notes$par_prior,
-						row_centered = combat_notes$row_centered,
-						correction_date = combat_notes$correction_date,
-						assay_names = added_names
-					)
-					
-					Biobase::experimentData(target_ExpSet) <- exp_data
-					
-					# Update the list
-					expset_list[[expset_name]] <- target_ExpSet
-					
-					# Track for summary
-					summary_list[[expset_name]] <- added_names
+					message("  ✅ Created: ", corrected_assay_name)
+					corrected_count <- corrected_count + 1
 				}
 				
-				# Update the reactive ExpSet_list
-				if (is.function(ExpSet_list)) {
+				# Update notes with correction info
+				notes <- Biobase::notes(base_ExpSet)
+				notes$batch_correction_multi <- list(
+					method = strategy,
+					batch_factors = batch_factors,
+					model = model_description,
+					par_prior = par_prior,
+					correction_date = Sys.time(),
+					assays_corrected = input$target_assays,
+					assay_suffix = input$combat_assay_name,
+					corrected_count = corrected_count,
+					failed_count = length(failed_assays)
+				)
+				Biobase::notes(base_ExpSet) <- notes
+				
+				# Update the ExpressionSet in the list
+				expset_list[[base_expset_name]] <- base_ExpSet
+				
+				# ✅ Update the ExpSet_list reactive
+				if (is.function(update_ExpSet_list)) {
+					update_ExpSet_list(expset_list)
+				} else {
+					# If ExpSet_list is a reactiveVal
 					ExpSet_list(expset_list)
 				}
 				
-				removeNotification("update_progress")
+				removeNotification("batch_multi_progress")
+				removeNotification("current_assay")
 				
-				update_success(TRUE)
-				update_summary(summary_list)
-				
-				# Build notification message
-				summary_html <- paste0(
-					"✅ Updated ", length(summary_list), " ExpressionSet(s) successfully! <br><br>"
+				# Build success message
+				success_msg <- sprintf(
+					"✅ Batch correction complete!\n%d/%d assays corrected\nSuffix: %s\nFactors: %s\nComBat column added to metadata",
+					corrected_count,
+					length(input$target_assays),
+					input$combat_assay_name,
+					paste(batch_factors, collapse = " × ")
 				)
 				
-				for (name in names(summary_list)) {
-					summary_html <- paste0(
-						summary_html,
-						"<strong>", name, ":</strong><br>",
-						paste("  • ", summary_list[[name]], collapse = "<br>"),
-						"<br><br>"
+				if (length(failed_assays) > 0) {
+					success_msg <- paste0(
+						success_msg,
+						"\n\n⚠️ Failed assays:\n",
+						paste(failed_assays, collapse = "\n")
 					)
 				}
 				
-				showNotification(
-					HTML(summary_html),
-					type = "message",
-					duration = 15
-				)
+				showNotification(success_msg, type = "message", duration = 15)
+				
+				# Update UI to show new assays
+				choices <- get_expset_assay_names(expset_list)
+				updatePickerInput(session, "target_assays", choices = choices)
 				
 			}, error = function(e) {
-				removeNotification("update_progress")
-				update_success(FALSE)
+				removeNotification("batch_multi_progress")
+				removeNotification("current_assay")
 				showNotification(
-					paste("❌ Failed to update ExpressionSet(s):", e$message),
-					type = "error",
-					duration = 10
+					paste("❌ Batch correction failed:", e$message), 
+					type = "error", 
+					duration = 20
 				)
-				message("Update error: ", e$message)
+				message("Batch correction error: ", e$message)
+				print(traceback())
 			})
 		})
+		
+		# observeEvent(input$update_expset, { 
+		# 	#req(corrected_eset())
+		# 	req(input$combat_assay_name)
+		# 	req(input$target_assays)
+		# 	req(ExpSet_list())
+		# 	
+		# 	assay_name <- input$combat_assay_name
+		# 	target_assays <- input$target_assays
+		# 	
+		# 	# Validate name
+		# 	if (assay_name == "" || grepl("^\\s*$", assay_name)) {
+		# 		showNotification("⚠️ Please provide a valid assay name", type = "warning", duration = 5)
+		# 		return()
+		# 	}
+		# 	
+		# 	if (length(target_assays) == 0) {
+		# 		showNotification("⚠️ Please select at least one ExpressionSet to update", type = "warning", duration = 5)
+		# 		return()
+		# 	}
+		# 	
+		# 	showNotification(
+		# 		paste("Updating", length(target_assays), "ExpressionSet(s)... "),
+		# 		id = "update_progress",
+		# 		duration = NULL,
+		# 		type = "message"
+		# 	)
+		# 	
+		# 	tryCatch({
+		# 		# Get the corrected data
+		# 		corrected_ExpSet <- corrected_eset()
+		# 		corrected_data <- Biobase::exprs(corrected_ExpSet)
+		# 		corrected_meta <- Biobase::pData(corrected_ExpSet)
+		# 		
+		# 		# Get combat info
+		# 		combat_notes <- Biobase::notes(corrected_ExpSet)$combat_correction
+		# 		
+		# 		# Get the list
+		# 		expset_list <- ExpSet_list()
+		# 		
+		# 		# Track what was added
+		# 		summary_list <- list()
+		# 		
+		# 		# Loop through each selected assay
+		# 		for (target_assay in target_assays) {
+		# 			# Extract ExpressionSet name from format "ExpSetName - assayName"
+		# 			expset_name <- sub(" - .*$", "", target_assay)
+		# 			
+		# 			if (! expset_name %in% names(expset_list)) {
+		# 				warning("ExpressionSet not found: ", expset_name)
+		# 				next
+		# 			}
+		# 			
+		# 			target_ExpSet <- expset_list[[expset_name]]
+		# 			
+		# 			# Add ComBat-corrected data as new assayData element
+		# 			Biobase::assayDataElement(target_ExpSet, assay_name) <- corrected_data
+		# 			
+		# 			added_names <- c(assay_name)
+		# 			
+		# 			# Optionally add row-centered version
+		# 			if (isTRUE(input$add_rc_version)) {
+		# 				rc_name <- paste0(assay_name, "_RC")
+		# 				corrected_data_rc <- row_scale_function(corrected_data)
+		# 				Biobase::assayDataElement(target_ExpSet, rc_name) <- corrected_data_rc
+		# 				added_names <- c(added_names, rc_name)
+		# 			}
+		# 			
+		# 			# Optionally add PN version
+		# 			if (isTRUE(input$add_pn_version) && !is.null(sample_group_column()) && !is.null(sample_group_column())) {
+		# 				pn_name <- paste0(assay_name, "_PN")
+		# 				
+		# 				# Filter for Pooled Normal samples
+		# 				sample_groups <- Biobase::pData(target_ExpSet)[[sample_group_column()]]
+		# 				is_pn <- grepl("pooled.*normal", sample_groups, ignore.case = TRUE)
+		# 				
+		# 				if (sum(is_pn) > 0) {
+		# 					corrected_data_pn <- corrected_data[, is_pn, drop = FALSE]
+		# 					Biobase::assayDataElement(target_ExpSet, pn_name) <- corrected_data_pn
+		# 					added_names <- c(added_names, pn_name)
+		# 				}
+		# 			}
+		# 			
+		# 			# Update pData with any new columns from correction
+		# 			original_meta <- Biobase::pData(target_ExpSet)
+		# 			new_cols <- setdiff(colnames(corrected_meta), colnames(original_meta))
+		# 			
+		# 			if (length(new_cols) > 0) {
+		# 				for (col in new_cols) {
+		# 					original_meta[[col]] <- corrected_meta[[col]]
+		# 				}
+		# 				Biobase::pData(target_ExpSet) <- original_meta
+		# 			}
+		# 			
+		# 			# Update experimentData with correction info
+		# 			exp_data <- Biobase::experimentData(target_ExpSet)
+		# 			if (is.null(exp_data@other$combat_corrections)) {
+		# 				exp_data@other$combat_corrections <- list()
+		# 			}
+		# 			
+		# 			exp_data@other$combat_corrections[[assay_name]] <- list(
+		# 				batch_factors = combat_notes$batch_factors,
+		# 				model = combat_notes$model,
+		# 				sample_group_preserved = combat_notes$sample_group_preserved,
+		# 				par_prior = combat_notes$par_prior,
+		# 				row_centered = combat_notes$row_centered,
+		# 				correction_date = combat_notes$correction_date,
+		# 				assay_names = added_names
+		# 			)
+		# 			
+		# 			Biobase::experimentData(target_ExpSet) <- exp_data
+		# 			
+		# 			# Update the list
+		# 			expset_list[[expset_name]] <- target_ExpSet
+		# 			
+		# 			# Track for summary
+		# 			summary_list[[expset_name]] <- added_names
+		# 		}
+		# 		
+		# 		# Update the reactive ExpSet_list
+		# 		if (is.function(ExpSet_list)) {
+		# 			ExpSet_list(expset_list)
+		# 		}
+		# 		
+		# 		removeNotification("update_progress")
+		# 		
+		# 		update_success(TRUE)
+		# 		update_summary(summary_list)
+		# 		
+		# 		# Build notification message
+		# 		summary_html <- paste0(
+		# 			"✅ Updated ", length(summary_list), " ExpressionSet(s) successfully! <br><br>"
+		# 		)
+		# 		
+		# 		for (name in names(summary_list)) {
+		# 			summary_html <- paste0(
+		# 				summary_html,
+		# 				"<strong>", name, ":</strong><br>",
+		# 				paste("  • ", summary_list[[name]], collapse = "<br>"),
+		# 				"<br><br>"
+		# 			)
+		# 		}
+		# 		
+		# 		showNotification(
+		# 			HTML(summary_html),
+		# 			type = "message",
+		# 			duration = 15
+		# 		)
+		# 		
+		# 	}, error = function(e) {
+		# 		removeNotification("update_progress")
+		# 		update_success(FALSE)
+		# 		showNotification(
+		# 			paste("❌ Failed to update ExpressionSet(s):", e$message),
+		# 			type = "error",
+		# 			duration = 10
+		# 		)
+		# 		message("Update error: ", e$message)
+		# 	})
+		# })
 		
 		# Show update status ####
 		output$update_status <- renderUI({

@@ -6,10 +6,12 @@
 \usage{
 mod_batch_visualization_server(
   id,
+  eset_original_name = reactive(NULL),
   eset_original,
   eset_corrected = reactive(NULL),
   sample_group_column = reactive(NULL),
   batch_factors = reactive(NULL),
+  ExpSet_list = NULL,
   debug = FALSE
 )
 }

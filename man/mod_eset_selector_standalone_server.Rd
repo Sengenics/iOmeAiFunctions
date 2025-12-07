@@ -7,7 +7,7 @@
 mod_eset_selector_standalone_server(
   id,
   ExpSet_list,
-  default_selection = NULL,
+  default_selection = reactive(NULL),
   source = reactive("unknown"),
   enable_subset = TRUE,
   enable_transform = TRUE,
