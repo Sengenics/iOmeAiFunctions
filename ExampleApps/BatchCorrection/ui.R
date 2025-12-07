@@ -3,7 +3,7 @@
 ui <- dashboardPage(
 	dashboardHeader(title = "Batch Testing App"),
 	dashboardSidebar(
-		
+		tags$h6(version),
 		sidebarMenu(
 			menuItem("Upload", tabName = "data_tab", icon = icon("database")),
 			#menuItem("Annotation Analysis", tabName = "annotation_tab", icon = icon("table")),

@@ -2,7 +2,7 @@
 #'
 #' @export
 
-
+version = "v1.0.0"
 run_debug <- ! is.na(Sys.getenv("RSTUDIO", unset = NA))
 #run_debug = F
 print(run_debug)
