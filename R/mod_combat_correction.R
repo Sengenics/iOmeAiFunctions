@@ -40,8 +40,7 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 							p("Select batch factors to correct using ComBat.  "),
 							p(strong("Safe factors:"), "Strong batch effect (p < 0.05) and NOT confounded with sample groups (p > 0.05).  "),
 							
-							# Batch factor selector
-							#uiOutput(ns("combat_selector_ui")),
+					
 							
 							# ✅ Multi-factor correction strategy (shows only when multiple factors selected)
 							uiOutput(ns("multi_factor_options")),
@@ -1286,19 +1285,7 @@ mod_combat_correction_server <- function(id,
 		})
 		
 		
-		# # ✅ Auto-populate target_assays choices from ExpSet_list
-		# observe({
-		# 	req(ExpSet_list())
-		# 	
-		# 	choices <- get_expset_assay_names(ExpSet_list())
-		# 	
-		# 	updatePickerInput(
-		# 		session, 
-		# 		"target_assays", 
-		# 		choices = choices,
-		# 		selected = NULL  # Or set default selections
-		# 	)
-		# })
+
 		
 		# ✅ Display selected assays
 		output$target_assays_text <- renderText({
@@ -1369,17 +1356,7 @@ mod_combat_correction_server <- function(id,
 							
 							(expset_name = get_ExpSet_name(assay_full_name,ExpSet_list()))
 							(assay_name = assay_full_name)
-							# ✅ Parse the assay name to find which ExpressionSet it belongs to
-							# assay_full_name format: "ExpSet_Name:assay_name"
-							# parts <- strsplit(assay_full_name, ":")[[1]]
-							# if (length(parts) != 2) {
-							# 	warning("Invalid assay name format: ", assay_full_name)
-							# 	failed_assays <- c(failed_assays, paste0(assay_full_name, " (invalid format)"))
-							# 	next
-							# }
-							
-							#expset_name <- parts[1]
-							#assay_name <- parts[2]
+
 							
 							# Get the ExpressionSet for this assay
 							if (! expset_name %in% names(expset_list)) {

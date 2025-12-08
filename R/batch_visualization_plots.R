@@ -91,20 +91,6 @@ plot_dendrogram <- function(hclust_obj,
 	# Add legend (adjust size too)
 	legend_cex <- min(0.9, label_cex + 0.1)
 	
-	
-	# Add legend
-	# legend("topright",
-	# 			 legend = c(
-	# 			 	paste0("Technical Replicates (", color_by, "):"),
-	# 			 	as.character(tr_groups),
-	# 			 	"",
-	# 			 	"Other samples"
-	# 			 ),
-	# 			 fill = c(NA, tr_colors, NA, "gray30"),
-	# 			 border = c(NA, rep("black", n_tr_groups), NA, "black"),
-	# 			 bty = "n",
-	# 			 cex = legend_cex)
-	
 	legend("topright",
 				 legend = c(
 				 	paste0("Technical Replicates (", color_by, "):"),

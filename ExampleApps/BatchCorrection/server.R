@@ -77,48 +77,12 @@ server <- function(input, output, session) {
 				name
 			}
 		}),
-		#default_selection = combat_data$eset_name,
-		#default_selection = "sample_loess_normalised",
-		#default_selection = reactive({ combat_data$eset_name() }),
 		source = expset_data$source,
 		enable_subset = TRUE,
 		enable_transform = TRUE,
 		debug = run_debug
 	)
 	
-	# # Data selection module
-	# data_module <- mod_app_data_selection_server(
-	# 	"data_select",
-	# 	default_selection = "clinical_loess_normalised_PN",
-	# 	debug = run_debug
-	# )
-	
-	# # Subset module
-	# subset_module <- mod_eset_subset_server(
-	# 	"subset",
-	# 	eset = data_module$eset,
-	# 	debug = run_debug
-	# )
-	# 
-	# # Reset subset when new data is loaded
-	# observeEvent(data_module$eset(), {
-	# 	req(data_module$eset())
-	# 	# Trigger reset by calling the reset button programmatically
-	# 	subset_module$subset_eset(data_module$eset())
-	# })
-	
-	# # Transform module (uses subset output)
-	# transform_module <- mod_eset_transform_server(
-	# 	"transform",
-	# 	eset = subset_module$subset_eset,
-	# 	debug = run_debug
-	# )
-	# 
-	# # Reset transform when subset changes
-	# observeEvent(subset_module$subset_eset(), {
-	# 	req(subset_module$subset_eset())
-	# 	transform_module$transformed_eset(subset_module$subset_eset())
-	# })
 	
 
 	# Update annotation module to use transformed data:
@@ -128,14 +92,6 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# # And all other modules that use eset should use transform_module$transformed_eset
-	# 
-	# # Annotation analysis module
-	# annotation_module <- mod_annotation_analysis_server(
-	# 	"annotation_analysis",
-	# 	eset = data_module$eset,
-	# 	debug = run_debug
-	# )
 	
 	# Extract filtered columns with better error handling
 	filtered_columns <- reactive({
@@ -218,32 +174,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	
-	
-	# ComBat correction module ####
-	# combat_module <- mod_combat_correction_server(
-	# 	"combat",
-	# 	eset = combat_data$eset,
-	# 	sample_group_column = sample_group_module$selected_column,
-	# 	combined_results = batch_combined$results,
-	# 	debug = run_debug
-	# )
-	
-	# ComBat Correction Module
-	
-	# ComBat Correction Module
-	# combat_module <- mod_combat_correction_server(
-	# 	"combat",
-	# 	eset = data_module$eset,
-	# 	sample_group_column = sample_group_module$selected_column,
-	# 	combined_results = combined_analysis$results_table,
-	# 	ExpSet_list = ExpSet_list,
-	# 	selected_expset_name = data_module$selected_name,
-	# 	update_expset_list = function(new_list) {
-	# 		ExpSet_list(new_list)  # Assuming ExpSet_list is a reactiveVal
-	# 	},
-	# 	debug = run_debug  # Pass your debug flag
-	# )
+
 	ExpSet_list_val <- reactiveVal(ExpSet_list)
 	
 	# Initialize it when ExpSet_list is available
@@ -278,35 +209,8 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# combat_module <- mod_combat_correction_server(
-	# 		"combat",
-	# 		eset = combat_data$eset,
-	# 		sample_group_column = sample_group_module$selected_column,
-	# 		combined_results = batch_combined$results,
-	# 	debug = run_debug
-	# )
-	# combat_module <- mod_combat_correction_server(
-	# 	"combat",
-	# 	eset = data_module$eset,
-	# 	sample_group_column = sample_group_module$selected_column,
-	# 	combined_results = combined_analysis$results_table,
-	# 	ExpSet_list = ExpSet_list,
-	# 	selected_expset_name = data_module$selected_name,
-	# 	update_expset_list = function(new_list) {
-	# 		# Update the main ExpSet_list reactiveVal
-	# 		# This depends on how you've structured your ExpSet_list
-	# 		# If it's a reactiveVal, you'd do:
-	# 		ExpSet_list_val(new_list)
-	# 	}
-	# )
-	
-	# Batch visualization
-	# batch_viz <- mod_batch_visualization_server(
-	# 	"batch_viz",
-	# 	eset_original = combat_data$eset,
-	# 	eset_corrected = combat_module$corrected_eset,
-	# 	debug = run_debug
-	# )
+
+
 	
 	# Batch visualization ####
 	batch_viz <- mod_batch_visualization_server(
@@ -321,34 +225,7 @@ server <- function(input, output, session) {
 	)
 	
 	# Export ####
-	
-	# ExpressionSet Manager Module
-	# expset_manager <- mod_expset_manager_server(
-	# 	"expset_manager",
-	# 	ExpSet_list = ExpSet_list,
-	# 	selected_batch_factors = combat_module$selected_batch_factors,
-	# 	all_columns = combat_module$all_columns,
-	# 	#corrected_eset = combat_module$corrected_eset,
-	# 	debug = run_debug
-	# )
-	# ExpressionSet Manager Module
-	# expset_manager_2 <- mod_expset_manager_server_2(
-	# 	"expset_manager",
-	# 	ExpSet_list = ExpSet_list,
-	# 	
-	# 	assay_choices = data_module$assay_choices,  # Use the existing assay choices
-	# 	selected_batch_factors = combat_module$selected_batch_factors,
-	# 	corrected_eset = combat_module$corrected_eset,
-	# 	sample_group_column = sample_group_module$selected_column,
-	# 	debug = run_debug
-	# )
-	
-	# Export module
-	# expset_export <- mod_expset_export_server(
-	# 	"expset_export",
-	# 	ExpSet_list = ExpSet_list
-	# )
-	
+
 	# Export module uses the combined reactive
 	expset_export <- mod_expset_export_server(
 		"expset_export",

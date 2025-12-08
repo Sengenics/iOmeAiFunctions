@@ -135,26 +135,6 @@ mod_batch_testing_server <- function(id, eset, selected_columns, debug = FALSE) 
 			
 			return(anova_df)
 		})
-		# batch_testing_results <- reactive({
-		# 	req(eset())
-		# 	req(selected_columns())
-		# 	
-		# 	annotations <- selected_columns()
-		# 	
-		# 	# Need at least one column
-		# 	if (length(annotations) == 0) {
-		# 		return(NULL)
-		# 	}
-		# 	
-		# 	ExpSet <- eset()
-		# 	m <- Biobase::exprs(ExpSet)
-		# 	meta <- Biobase::pData(ExpSet)
-		# 	
-		# 	# Run ANOVA
-		# 	anova_df <- anova_betadine_tidy_function(m, meta, annotations)
-		# 	
-		# 	return(anova_df)
-		# })
 		
 		# Status message
 		output$testing_status <- renderUI({
