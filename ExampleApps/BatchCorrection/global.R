@@ -4,7 +4,7 @@
 
 version = "v1.0.0"
 run_debug <- ! is.na(Sys.getenv("RSTUDIO", unset = NA))
-#run_debug = F
+run_debug = F
 print(run_debug)
 
 # Package Management #####
@@ -33,10 +33,13 @@ if (run_debug) {
 		renv::remove("iOmeAiFunctions")
 		renv::purge("iOmeAiFunctions")
 		iOmeAiFunction_version = 'master'
+		options(timeout = 300) 
+		gh_token <- Sys.getenv("GITHUB_PAT")
 		remotes::install_github(
 			paste0("Sengenics/iOmeAiFunctions@", iOmeAiFunction_version),
 			upgrade = "never",
-			force = TRUE
+			force = TRUE,
+			auth_token = gh_token
 		)
 		renv::remove("gert")
 		renv::remove("usethis")
