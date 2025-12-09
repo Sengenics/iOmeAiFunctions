@@ -5,6 +5,7 @@
 #' Combined ANOVA batch effects and distribution confounding tests
 #'
 #' @param id Module namespace ID
+#' @param show_auto_run_toggle Logical. Show auto-run toggle switch (default TRUE).
 #' @param debug Show debug button
 #' @export
 mod_batch_combined_analysis_ui <- function(id, 
@@ -13,232 +14,295 @@ mod_batch_combined_analysis_ui <- function(id,
 	ns <- NS(id)
 	
 	tagList(
-		
 		fluidRow(
 			box(
-				title = "Combined Batch Effect & Confounding Analysis",
+				title = "Batch Effect & Confounding Analysis",
 				width = 12,
-				status = "warning",
+				status = "primary",
 				solidHeader = TRUE,
 				collapsible = TRUE,
 				collapsed = FALSE,
 				
-				if (show_auto_run_toggle) {
-					fluidRow(
-						column(
-							width = 12,
-							box(
-								width = NULL,
-								style = "margin-bottom: 10px;",
-								
-								fluidRow(
-									column(
-										width = 8,
-										tags$div(
-											style = "padding-top: 5px;",
-											strong("Auto-Run Analysis:  "),
-											tags$small("Enable to automatically analyze when parameters change", style = "color: #6c757d;")
-										)
-									),
-									column(
-										width = 4,
-										tags$div(
-											style = "text-align: right;",
-											shinyWidgets::materialSwitch(
-												inputId = ns("auto_run_analysis"),
-												label = NULL,
-												value = TRUE,
-												status = "success",
-												right = TRUE
-											),
-											tags$span(
-												textOutput(ns("auto_run_status"), inline = TRUE),
-												style = "margin-left: 10px; font-weight: bold; font-size:  14px;"
-											)
-										)
-									)
-								),
-								
-								# ✅ Use uiOutput instead of conditionalPanel
-								uiOutput(ns("manual_run_ui"))
-							)
+				# ✅ MAIN CONTENT: Plot (always visible at top)
+				shinycssloaders::withSpinner(
+					plotOutput(ns("combined_plot"), height = "700px"),
+					type = 4,
+					color = "#337ab7"
+				),
+				
+				# ✅ Download button overlaid on top-right (below box collapse button)
+				div(
+					style = "position:  absolute; top: 45px; right: 5px; z-index: 1000;",
+					downloadButton(
+						ns("download_plot"),
+						label = NULL,
+						icon = icon("download"),
+						class = "btn-primary btn-sm",
+						style = "opacity: 0.9;",
+						title = "Download plot as PNG"
+					)
+				),
+				hr(),
+				
+				# ✅ Advanced Options button at bottom
+				fluidRow(
+					column(
+						width = 12,
+						actionButton(
+							ns("toggle_advanced"),
+							"Advanced Options & Settings",
+							icon = icon("cog"),
+							class = "btn-default",
+							style = "width:  100%; margin-bottom: 15px;"
 						)
 					)
-				},
-				
-				
-				
-				selectInput(
-					ns("test_method"),
-					"Statistical Test Method:",
-					choices = c(
-						"PERMANOVA (adonis2) - Tests group differences" = "permanova",
-						"Beta Dispersion (betadisper) - Tests variance differences" = "betadisper"
-					),
-					selected = "permanova"
-					#selected = "betadisper"
-				),
-				# ✅ Permutation input
-				numericInput(
-					ns("n_permutations"),
-					"Number of Permutations:",
-					value = 199,
-					min = 99,
-					max = 9999,
-					step = 100
-				),
-				helpText(
-					icon("info-circle"),
-					"Lower = faster, Higher = more accurate.  199 is sufficient for most analyses."
-				),
-				# ✅ Distance method selector
-				selectInput(
-					ns("distance_method"),
-					"Distance Method:",
-					choices = c(
-						"Euclidean" = "euclidean",
-						"Manhattan" = "manhattan",
-						"Canberra" = "canberra",
-						"Bray-Curtis" = "bray",
-						"Kulczynski" = "kulczynski",
-						"Jaccard" = "jaccard",
-						"Gower" = "gower",
-						"Morisita" = "morisita",
-						"Horn" = "horn",
-						"Mountford" = "mountford",
-						"Raup" = "raup",
-						"Binomial" = "binomial",
-						"Chao" = "chao",
-						"Cao" = "cao"
-					),
-					selected = "euclidean"
-				),
-				helpText(
-					icon("info-circle"),
-					strong("Euclidean: "), " Standard for continuous data (recommended for proteomics).",
-					br(),
-					strong("Manhattan:"), " Sum of absolute differences.",
-					br(),
-					strong("Bray-Curtis:"), " Common in ecology/microbiome studies."
-				),
-				selectInput(
-					ns("permanova_by"),
-					"Sequential Test (by):",
-					choices = c(
-						"Terms (sequential)" = "terms",
-						"Margin (each term separately)" = "margin",
-						"NULL (overall test)" = "NULL"
-					),
-					selected = "margin"
-				),
-				helpText(
-					icon("info-circle"),
-					strong("margin: "), " Tests each term independently (recommended).",
-					br(),
-					strong("terms:"), " Sequential tests (order matters)."
 				),
 				
-				fluidRow(
-					box(
-						title = "Combined Visualization",
-						width = 12,
-						status = "primary",
-						solidHeader = TRUE,
-						collapsible = TRUE,
-						collapsed = FALSE,
-						
-						
-						shinycssloaders::withSpinner(
-							plotOutput(ns("combined_plot"), height = "700px"),
-							type = 4,  # Spinner style (1-8 available)
-							color = "darkblue"  # Customize color
-						),
-						# ),
-						# 
-						fluidRow(
-							box(
-								title = "Interpretation Guide",
-								width = 12,
-								status = "info",
-								solidHeader = TRUE,
-								collapsible = TRUE,
-								collapsed = TRUE,
-								
-								p("Each batch column is plotted showing:"),
-								tags$ul(
-									tags$li(strong("Y-axis (Batch Effect):"), "-log10(ANOVA p-value) - higher = stronger batch effect"),
-									tags$li(strong("X-axis (Confounding):"), "-log10(Fisher p-value) - higher = more confounded with sample groups"),
-									tags$li(strong("Color:"), "Significance level"),
-									tags$li(strong("Size:"), "Number of groups in batch column")
-								),
-								
-								h4("Quadrant Interpretation:"),
-								tags$ul(
-									tags$li(strong("Top-Right (High Batch Effect + High Confounding):"), 
-													"⚠️ CRITICAL - Strong batch effect AND confounded with sample groups Correction may remove real biology! "),
-									tags$li(strong("Top-Left (High Batch Effect + Low Confounding):"), 
-													"✅ SAFE TO CORRECT - Strong batch effect but evenly distributedCorrection recommended."),
-									tags$li(strong("Bottom-Right (Low Batch Effect + High Confounding):"), 
-													"⚠️ CAUTION - Uneven distribution but weak effectMay indicate biological correlation."),
-									tags$li(strong("Bottom-Left (Low Batch Effect + Low Confounding):"), 
-													"✅ NO ACTION NEEDED - No significant batch effect or confounding.")
-								))
-						))
-				),
-				
-				
-				fluidRow(
-					
-					
+				# ✅ Collapsible Advanced Options Panel
+				# ✅ Collapsible Advanced Options Panel
+				conditionalPanel(
+					condition = "input.toggle_advanced % 2 == 1",
+					ns = ns,
 					
 					box(
-						title = "Combined Results Table",
+						#title = "Advanced Options",
 						width = 12,
 						#status = "warning",
 						#solidHeader = TRUE,
-						collapsible = TRUE,
-						collapsed = TRUE,
+						collapsible = FALSE,
 						
-						helpText(
-							strong("PERMANOVA (recommended):"), "Tests if groups have different expression profiles (location test) ",
-							"This is what most batch correction studies use.",
-							br(),
-							strong("Beta Dispersion:"), "Tests if groups have different variances (dispersion test)",
-							"Useful for detecting heteroscedasticity."
+						# ✅ 1. INTERPRETATION GUIDE (collapsed by default)
+						box(
+							title = "Interpretation Guide",
+							width = 12,
+							status = "info",
+							solidHeader = TRUE,
+							collapsible = TRUE,
+							collapsed = TRUE,
+							
+							p("Each batch column is plotted showing: "),
+							tags$ul(
+								tags$li(strong("Y-axis (Batch Effect):"), "-log10(p-value) - higher = stronger batch effect"),
+								tags$li(strong("X-axis (Confounding):"), "-log10(Fisher p-value) - higher = more confounded with sample groups"),
+								tags$li(strong("Color:"), "Significance category"),
+								tags$li(strong("Size:"), "Number of groups in batch column")
+							),
+							
+							h4("Quadrant Interpretation: "),
+							tags$ul(
+								tags$li(
+									strong("Top-Right (High Batch + High Confounding):"), 
+									tags$span("⚠️ CRITICAL", style = "color: #d32f2f; font-weight: bold;"),
+									" - Strong batch effect AND confounded.  Correction may remove real biology!"
+								),
+								tags$li(
+									strong("Top-Left (High Batch + Low Confounding):"), 
+									tags$span("✅ SAFE TO CORRECT", style = "color: #388e3c; font-weight:  bold;"),
+									" - Strong batch effect but evenly distributed.  Correction recommended."
+								),
+								tags$li(
+									strong("Bottom-Right (Low Batch + High Confounding):"), 
+									tags$span("⚠️ CAUTION", style = "color: #f57c00; font-weight: bold;"),
+									" - Uneven distribution but weak effect. May indicate biological correlation."
+								),
+								tags$li(
+									strong("Bottom-Left (Low Batch + Low Confounding):"), 
+									tags$span("✅ NO ACTION NEEDED", style = "color:  #757575; font-weight:  bold;"),
+									" - No significant batch effect or confounding."
+								)
+							)
 						),
 						
-						p(strong("This analysis answers two questions:")),
-						tags$ul(
-							tags$li(strong("Batch Effect:"), "Does this column affect protein expression?  (ANOVA)"),
-							tags$li(strong("Confounding:"), "Is this column unevenly distributed across sample groups?  (Fisher's test)")
+						# ✅ 2. RESULTS TABLE (collapsed by default)
+						box(
+							title = "Results Table",
+							width = 12,
+							status = "primary",
+							solidHeader = TRUE,
+							collapsible = TRUE,
+							collapsed = TRUE,
+							
+							# ✅ Download button at top of table box
+							fluidRow(
+								column(
+									width = 12,
+									div(
+										style = "text-align: right; margin-bottom: 10px;",
+										downloadButton(
+											ns("download_table"),
+											"Download Table (TSV)",
+											icon = icon("download"),
+											class = "btn-primary btn-sm"
+										)
+									)
+								)
+							),
+							
+							uiOutput(ns("analysis_status")),
+							
+							helpText(
+								strong("PERMANOVA: "), "Tests if groups have different expression profiles (recommended).",
+								br(),
+								strong("Beta Dispersion:"), "Tests if groups have different variances."
+							),
+							
+							hr(),
+							
+							DTOutput(ns("combined_table"))
 						),
 						
-			
+						# ✅ 3. SETTINGS (NOT collapsible - always open)
+						box(
+							title = "Analysis Settings",
+							width = 12,
+							status = "primary",
+							solidHeader = TRUE,
+							collapsible = FALSE,
+							
+							# Row 1: Test Method, Permutations, Distance
+							fluidRow(
+								column(
+									width = 4,
+									selectInput(
+										ns("test_method"),
+										"Statistical Test Method:",
+										choices = c(
+											"PERMANOVA (adonis2)" = "permanova",
+											"Beta Dispersion (betadisper)" = "betadisper"
+										),
+										selected = "permanova"
+									),
+									helpText(
+										icon("info-circle", style = "color:  #337ab7;"),
+										tags$small("PERMANOVA tests group differences (recommended)")
+									)
+								),
+								column(
+									width = 4,
+									numericInput(
+										ns("n_permutations"),
+										"Number of Permutations:",
+										value = 199,
+										min = 99,
+										max = 9999,
+										step = 100
+									),
+									helpText(
+										icon("info-circle", style = "color: #337ab7;"),
+										tags$small("Lower = faster, Higher = more accurate")
+									)
+								),
+								column(
+									width = 4,
+									selectInput(
+										ns("distance_method"),
+										"Distance Method:",
+										choices = c(
+											"Euclidean" = "euclidean",
+											"Manhattan" = "manhattan",
+											"Canberra" = "canberra",
+											"Bray-Curtis" = "bray",
+											"Kulczynski" = "kulczynski",
+											"Jaccard" = "jaccard",
+											"Gower" = "gower",
+											"Morisita" = "morisita",
+											"Horn" = "horn",
+											"Mountford" = "mountford",
+											"Raup" = "raup",
+											"Binomial" = "binomial",
+											"Chao" = "chao",
+											"Cao" = "cao"
+										),
+										selected = "euclidean"
+									),
+									helpText(
+										icon("info-circle", style = "color: #337ab7;"),
+										tags$small("Euclidean is standard for proteomics")
+									)
+								)
+							),
+							
+							hr(),
+							
+							# Row 2: By Method, Parallel Toggle, Auto-run Toggle
+							fluidRow(
+								column(
+									width = 4,
+									selectInput(
+										ns("permanova_by"),
+										"Sequential Test (by):",
+										choices = c(
+											"Margin (each term independently)" = "margin",
+											"Terms (sequential order)" = "terms",
+											"NULL (overall test)" = "NULL"
+										),
+										selected = "margin"
+									),
+									helpText(
+										icon("info-circle", style = "color: #337ab7;"),
+										tags$small("Margin tests each batch column independently")
+									)
+								),
+								column(
+									width = 4,
+									div(
+										style = "padding-top: 5px;",
+										shinyWidgets:: materialSwitch(
+											inputId = ns("use_parallel"),
+											label = "Enable Parallel Processing",
+											value = TRUE,
+											status = "success"
+										)
+									),
+									helpText(
+										icon("bolt", style = "color: #337ab7;"),
+										tags$small("Uses optimal number of CPU cores")
+									)
+								),
+								if (show_auto_run_toggle) {
+									column(
+										width = 4,
+										div(
+											style = "padding-top: 5px;",
+											shinyWidgets::materialSwitch(
+												inputId = ns("auto_run_analysis"),
+												label = "Auto-Run Analysis",
+												value = TRUE,
+												status = "success"
+											)
+										),
+										helpText(
+											icon("sync", style = "color: #337ab7;"),
+											tags$small("Re-run when parameters change")
+										)
+									)
+								}
+							),
+							
+							# Manual run UI (shows when auto-run is OFF)
+							if (show_auto_run_toggle) {
+								fluidRow(
+									column(
+										width = 12,
+										uiOutput(ns("manual_run_ui"))
+									)
+								)
+							}
+						),
 						
+						# ✅ 4. DEBUG BUTTON (if enabled)
+						if (debug) {
+								actionButton(
+									ns("debug"),
+									"Debug:  mod_batch_combined_analysis",
+									icon = icon("bug"),
+									class = "btn-warning",
+									style = "width: 100%;"
+								)
 						
-						uiOutput(ns("analysis_status")),
-						
-						hr(),
-						
-						#h4("Combined Results Table"),
-						DTOutput(ns("combined_table")),
+						}
 					)
-				),
-				#uiOutput(ns("debug_ui")),
-				if (debug) {
-					tagList(
-						actionButton(
-							ns("debug"),
-							"Debug : mod_batch_combined_analysis_ui",
-							icon = icon("bug"),
-							class = "btn-warning btn-sm"
-						),
-						hr()
-					)
-				}
-				# 	)
-				# ),
-				# 
+				)
 			)
 		)
 	)
@@ -374,7 +438,8 @@ mod_batch_combined_analysis_server <- function(id,
 											batch_columns(), 
 											input$test_method,
 											input$n_permutations,
-											input$permanova_by), {
+											input$permanova_by,
+											input$use_parallel), {
 			# Check toggle state - if OFF, don't trigger
 			if (isTRUE(input$auto_run_analysis)) {
 				isolate({
@@ -437,7 +502,8 @@ mod_batch_combined_analysis_server <- function(id,
 						perm_result <- permanova_function(m, meta, batch_col, 
 																							method = input$distance_method,
 																							permutations = input$n_permutations,
-																							by = if (input$permanova_by == "NULL") NULL else input$permanova_by)
+																							by = if (input$permanova_by == "NULL") NULL else input$permanova_by,
+																							use_parallel = input$use_parallel)
 						result_df <- as.data.frame(perm_result)
 						batch_p <- result_df$`Pr(>F)`[1]
 					} else {
@@ -693,6 +759,151 @@ mod_batch_combined_analysis_server <- function(id,
 		})
 		
 		# })
+		
+		
+		# ✅ Download plot as PNG
+		output$download_plot <- downloadHandler(
+			filename = function() {
+				paste0("batch_confounding_analysis_", Sys.Date(), ".png")
+			},
+			content = function(file) {
+				req(combined_results())
+				
+				df <- combined_results()
+				
+				if (nrow(df) == 0) {
+					stop("No data to plot")
+				}
+				
+				# Dynamically get the batch effect column name
+				batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+				method_type <- input$test_method
+				
+				# Prepare plot data
+				df_plot <- df %>%
+					rename(batch_p = !!sym(batch_col_name)) %>%
+					mutate(
+						neg_log_batch = -log10(batch_p),
+						neg_log_fisher = -log10(Fisher_p_value),
+						batch_sig = batch_p < 0.05,
+						confound_sig = Fisher_p_value < 0.05,
+						category = case_when(
+							batch_sig & confound_sig ~ "Critical: Both significant",
+							batch_sig & !confound_sig ~ "Safe:  Batch effect only",
+							!batch_sig & confound_sig ~ "Caution: Confounding only",
+							TRUE ~ "OK: Neither significant"
+						)
+					)
+				
+				# Calculate dynamic positions for annotations
+				ymax <- max(c(max(df_plot$neg_log_batch), -log10(0.05) * 2))
+				xmax <- max(c(max(df_plot$neg_log_fisher), -log10(0.05) * 2))
+				a <- -log10(0.05)
+				low <- a / 2
+				high <- a + low
+				xhigh <- ((xmax - a) / 2) + a
+				yhigh <- ((ymax - a) / 2) + a
+				
+				# Create plot
+				p <- ggplot(df_plot, aes(x = neg_log_fisher, y = neg_log_batch)) +
+					# Quadrant lines
+					geom_vline(xintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
+					geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "gray50", size = 0.8) +
+					
+					# Quadrant labels with dynamic positioning
+					annotate("text", x = low, y = yhigh, 
+									 label = "Low Confounding\nHigh Batch Effect\n✅ SAFE TO CORRECT", 
+									 hjust = 0, vjust = 1, color = "darkgreen", size = 3.5, fontface = "bold") +
+					annotate("text", x = xhigh, y = yhigh, 
+									 label = "High Confounding\nHigh Batch Effect\n⚠️ CRITICAL", 
+									 hjust = 1, vjust = 1, color = "darkred", size = 3.5, fontface = "bold") +
+					annotate("text", x = low, y = low, 
+									 label = "✅ NO ACTION\nNEEDED", 
+									 hjust = 0, vjust = 0, color = "gray50", size = 3.5) +
+					annotate("text", x = xhigh, y = low, 
+									 label = "⚠️ CAUTION\nPossible biological\ncorrelation", 
+									 hjust = 1, vjust = 0, color = "darkorange", size = 3.5) +
+					
+					# Points
+					geom_point(aes(color = category, size = Batch_Groups), alpha = 0.7) +
+					
+					# Labels
+					ggrepel::geom_text_repel(
+						aes(label = Batch_Column),
+						size = 3.5,
+						max.overlaps = 20,
+						box.padding = 0.5
+					) +
+					
+					# Colors
+					scale_color_manual(
+						values = c(
+							"Critical: Both significant" = "#d32f2f",
+							"Safe: Batch effect only" = "#388e3c",
+							"Caution: Confounding only" = "#f57c00",
+							"OK: Neither significant" = "#757575"
+						)
+					) +
+					
+					# Size
+					scale_size_continuous(range = c(3, 10)) +
+					
+					# Labels
+					labs(
+						title = sprintf("Batch Effect (%s) vs Confounding: '%s'", 
+														ifelse(method_type == "permanova", "PERMANOVA", "Beta Dispersion"),
+														sample_group_column()),
+						subtitle = "Dashed lines indicate p = 0.05 threshold",
+						x = "Confounding with Sample Groups\n-log10(Fisher's p-value) →",
+						y = sprintf("← Batch Effect on Expression\n-log10(%s p-value)", 
+												ifelse(method_type == "permanova", "PERMANOVA", "ANOVA")),
+						color = "Category",
+						size = "Number of\nBatch Groups"
+					) +
+					
+					theme_minimal(base_size = 14) +
+					theme(
+						legend.position = "bottom",
+						legend.box = "vertical",
+						panel.grid.minor = element_blank(),
+						plot.title = element_text(face = "bold"),
+						axis.title = element_text(face = "bold")
+					) + 
+					coord_cartesian(xlim = c(0, xmax), ylim = c(0, ymax))
+				
+				# Save as high-res PNG
+				ggsave(
+					filename = file,
+					plot = p,
+					width = 14,
+					height = 10,
+					dpi = 300,
+					bg = "white"
+				)
+			}
+		)
+		
+		# ✅ Download table as TSV
+		output$download_table <- downloadHandler(
+			filename = function() {
+				test_method <- input$test_method
+				paste0("batch_confounding_results_", test_method, "_", Sys.Date(), ".tsv")
+			},
+			content = function(file) {
+				req(combined_results())
+				
+				# Get the results data
+				results_df <- combined_results()
+				
+				# Write as tab-separated file
+				data.table::fwrite(
+					results_df,
+					file = file,
+					sep = "\t",
+					row.names = FALSE
+				)
+			}
+		)
 		
 		# Return results
 		return(list(

@@ -39,6 +39,29 @@ This file contains **approved patterns and standards** for building Shiny module
 
 ---
 
+## COPILOT INTERACTION
+
+# Effective Code Collaboration Pattern for Copilot
+
+## Context
+This pattern was developed during iterative refinement of a Shiny module UI.  It proved highly effective for collaborative debugging and incremental improvements. The core principle is to present code changes as targeted snippets with clear find/replace patterns, rather than dumping entire files.  Only show complete functions when creating new code or performing major refactors (>50% changes).
+
+## Standard Format for Code Edits
+
+When making small changes (<50 lines), use this structure:  Start with "## ✅ [Brief description of what's being fixed]", then show "FIND THIS:" with exact code to locate (include 5-10 lines of context), followed by "REPLACE WITH:" showing new code with ✅ comments marking key changes. Include "Location:" with file path, function name, or line number reference.  End with "## 💡 Why this works:" with 1-2 sentence explanation of the problem and solution.  For large changes or new code, use "## ✅ [Description]" followed by "REPLACE the entire [function/section name] with:" and the complete new code, with location reference.
+
+## Guidelines
+Always include exact context by showing the literal code to find, not a paraphrase. Mark changes clearly using ✅ inline comments to highlight what's new or changed. Explain the why with a brief explanation of what problem this solves. Present one change at a time and don't bundle multiple unrelated fixes in one snippet. Use visual markers where emoji help scan quickly: ✅ for good changes, ❌ for wrong approaches, ⚠️ for cautions, 💡 for insights, and 🎯 for goals.  Show impact by including before/after structure diagrams for UI changes. Verify locations by referencing function names, line numbers, or unique code patterns. 
+
+## Benefits and Anti-Patterns
+This approach reduces cognitive load because users only see what changed. It prevents errors through clear find/replace patterns that eliminate ambiguity. It maintains context by not losing surrounding code and enables verification so it's easy to confirm changes applied correctly.  It supports iteration by building solutions incrementally and facilitates learning so users understand each change.  Avoid showing entire files when only 5 lines changed, using vague locations like "near the top" or "in the server function", making changes without explanation, assuming users remember previous code states, or bundling multiple unrelated changes together.
+
+## Example Workflow and Visual Structure
+Follow this workflow:  User reports specific issue, Copilot identifies root cause, show minimal snippet to fix it with clear find/replace, explain why this solves the problem, show impact (performance, UX, etc.), then move to next issue iteratively.  For UI reorganization, show layout diagrams using box-drawing characters to help users visualize the end result before implementing changes, with arrows and descriptions showing element hierarchy and states like collapsed or expanded sections.
+
+## Session Consistency
+When working on the same code across multiple interactions, reference previous changes (e.g., "building on the parallel processing we just added"), track state (e.g., "now that auto-run toggle is working"), maintain terminology consistency, and remember user preferences (e.g., "as you mentioned, put X in advanced options"). This pattern creates a collaborative debugging experience where the user and Copilot build solutions together incrementally, rather than a "replace your code with mine" exchange.  It respects the user's understanding of their codebase while providing clear, actionable guidance. 
+
 ## 📦 CORE DATA STRUCTURES
 
 ### ExpressionSet (Primary Data Structure)
@@ -648,6 +671,204 @@ output$validation_output <- renderUI({
 ```
 
 ---
+
+# Shiny Module UI Design Pattern - Minimal with Expandable Advanced Options
+
+## Pattern Overview
+This is the standard UI pattern for analysis modules in the app. It prioritizes a clean, minimal interface with the main visualization always visible, while providing full functionality through expandable advanced options.  This pattern was developed for the batch confounding analysis module and should be replicated for similar analysis modules.
+
+## Core Design Principles
+1. **Visualization First** - The main plot/output is always visible at the top, taking priority in the layout
+2. **Progressive Disclosure** - Advanced settings are hidden by default but easily accessible via a single button
+3. **Hierarchical Organization** - Within advanced options, content is organized in collapsible boxes by purpose:  interpretation guide (collapsed), results table (collapsed), settings (always open), debug tools (if enabled)
+4. **Overlay Controls** - Download buttons and similar controls overlay the visualization in the top-right corner to save space
+5. **Self-Contained Boxes** - Each functional area (guide, table, settings) lives in its own shinydashboard box with appropriate status colors
+
+## Standard Structure Template
+
+The UI should follow this exact hierarchy:
+
+```r
+mod_[module_name]_ui <- function(id, show_auto_run_toggle = TRUE, debug = FALSE) {
+	ns <- NS(id)
+	
+	tagList(
+		fluidRow(
+			box(
+				title = "[Module Title]",
+				width = 12,
+				status = "primary",
+				solidHeader = TRUE,
+				collapsible = TRUE,
+				collapsed = FALSE,
+				
+				# SECTION 1: Main visualization with spinner
+				shinycssloaders:: withSpinner(
+					plotOutput(ns("main_plot"), height = "700px"),
+					type = 4,
+					color = "#337ab7"
+				),
+				
+				# SECTION 2: Overlay download button (top-right, icon only)
+				div(
+					style = "position:  absolute; top: 45px; right: 5px; z-index: 1000;",
+					downloadButton(
+						ns("download_plot"),
+						label = NULL,
+						icon = icon("download"),
+						class = "btn-primary btn-sm",
+						style = "opacity: 0.9;",
+						title = "Download plot as PNG"
+					)
+				),
+				
+				hr(),
+				
+				# SECTION 3: Advanced options toggle button
+				fluidRow(
+					column(
+						width = 12,
+						actionButton(
+							ns("toggle_advanced"),
+							"Advanced Options & Settings",
+							icon = icon("cog"),
+							class = "btn-default",
+							style = "width:  100%; margin-bottom: 15px;"
+						)
+					)
+				),
+				
+				# SECTION 4: Collapsible advanced panel
+				conditionalPanel(
+					condition = "input.toggle_advanced % 2 == 1",
+					ns = ns,
+					
+					box(
+						width = 12,
+						collapsible = FALSE,
+						
+						# Subsection 4.1: Interpretation Guide (collapsed)
+						box(
+							title = "Interpretation Guide",
+							width = 12,
+							status = "info",
+							solidHeader = TRUE,
+							collapsible = TRUE,
+							collapsed = TRUE,
+							
+							# [Content explaining how to read the visualization]
+						),
+						
+						# Subsection 4.2: Results Table (collapsed, with download)
+						box(
+							title = "Results Table",
+							width = 12,
+							status = "primary",
+							solidHeader = TRUE,
+							collapsible = TRUE,
+							collapsed = TRUE,
+							
+							# Download button right-aligned
+							fluidRow(
+								column(
+									width = 12,
+									div(
+										style = "text-align: right; margin-bottom: 10px;",
+										downloadButton(
+											ns("download_table"),
+											"Download Table (TSV)",
+											icon = icon("download"),
+											class = "btn-primary btn-sm"
+										)
+									)
+								)
+							),
+							
+							# Status and help text
+							uiOutput(ns("analysis_status")),
+							helpText("[Method descriptions]"),
+							
+							hr(),
+							
+							# Data table
+							DTOutput(ns("results_table"))
+						),
+						
+						# Subsection 4.3: Settings (NOT collapsible, always visible when advanced is open)
+						box(
+							title = "Analysis Settings",
+							width = 12,
+							status = "primary",
+							solidHeader = TRUE,
+							collapsible = FALSE,
+							
+							# Row 1: Main analysis parameters (3-4 columns)
+							fluidRow(
+								column(width = 4, [selectInput or numericInput]),
+								column(width = 4, [selectInput or numericInput]),
+								column(width = 4, [selectInput or numericInput])
+							),
+							
+							hr(),
+							
+							# Row 2: Toggles and secondary options
+							fluidRow(
+								column(width = 4, [selectInput]),
+								column(
+									width = 4,
+									div(
+										style = "padding-top: 5px;",
+										shinyWidgets:: materialSwitch(
+											inputId = ns("use_parallel"),
+											label = "Enable Parallel Processing",
+											value = TRUE,
+											status = "success"
+										)
+									),
+									helpText(icon("bolt"), tags$small("[Help text]"))
+								),
+								if (show_auto_run_toggle) {
+									column(
+										width = 4,
+										div(
+											style = "padding-top: 5px;",
+											shinyWidgets::materialSwitch(
+												inputId = ns("auto_run_analysis"),
+												label = "Auto-Run Analysis",
+												value = TRUE,
+												status = "success"
+											)
+										),
+										helpText(icon("sync"), tags$small("[Help text]"))
+									)
+								}
+							),
+							
+							# Manual run button (conditional on auto-run being OFF)
+							if (show_auto_run_toggle) {
+								fluidRow(
+									column(width = 12, uiOutput(ns("manual_run_ui")))
+								)
+							}
+						),
+						
+						# Subsection 4.4: Debug button (if enabled)
+						if (debug) {
+							actionButton(
+								ns("debug"),
+								"Debug:  mod_[module_name]",
+								icon = icon("bug"),
+								class = "btn-warning",
+								style = "width:  100%;"
+							)
+						}
+					)
+				)
+			)
+		)
+	)
+}
+
 
 ## 🚫 DO NOT
 
