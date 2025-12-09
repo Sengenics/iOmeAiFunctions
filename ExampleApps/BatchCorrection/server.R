@@ -132,7 +132,10 @@ server <- function(input, output, session) {
 		"sample_group",
 		eset = data_module$eset,
 		default_columns = "Labels",
-		multiple = FALSE
+		multiple = FALSE,
+		label = "Sample Grouping Column:",
+		help_text = "Primary biological grouping variable",
+		debug = TRUE
 	)
 	
 	# Batch column selector module
@@ -141,7 +144,9 @@ server <- function(input, output, session) {
 		eset = data_module$eset,
 		available_columns = filtered_columns,  # From annotation analysis
 		default_columns = reactive(c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)")),
-		multiple = TRUE
+		multiple = TRUE,
+		label = "Batch Testing Columns:",
+		debug = FALSE
 	)
 	
 	# batch_column_module <- mod_batch_column_selector_server(

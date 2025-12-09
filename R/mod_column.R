@@ -3,33 +3,85 @@
 #' Reusable column selector for phenoData
 #'
 #' @param id Module namespace ID
-#' @param label Label for the selector (e.g., "Sample Grouping Column", "Batch Testing Columns")
+#' @param label Label for the selector (e. g., "Sample Grouping Column", "Batch Testing Columns")
 #' @param help_text Optional help text
+#' @param show_summary Show summary box (default TRUE)
+#' @param show_info Show info bubble (default TRUE)
 #' @param debug Show debug button
 #' @export
 mod_column_selector_ui <- function(id, 
 																	 label = "Select Column",
 																	 help_text = NULL,
+																	 show_summary = TRUE,
+																	 show_info = TRUE,
 																	 debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
+		# ✅ Selector with optional info icon
 		fluidRow(
-			box(
-				width = 12,
+			column(
+				width = if (show_info) 11 else 12,
+				uiOutput(ns("column_selector_ui"))
+			),
+			if (show_info) {
+				column(
+					width = 1,
+					style = "padding-top: 25px;",
+					actionLink(
+						ns("toggle_details"),
+						icon("info-circle", class = "fa-lg"),
+						style = "color: #337ab7;"
+					)
+				)
+			}
+		),
+		
+		# ✅ Collapsible details
+		if (show_info) {
+			conditionalPanel(
+				condition = "input.toggle_details % 2 == 1",
+				ns = ns,
 				
-				uiOutput(ns("column_selector_ui")),
-				
-				box(
-					width = 12,
-					collapsible = TRUE,
-					collapsed = TRUE,
-					
-					uiOutput(ns("debug_ui")),
-					verbatimTextOutput(ns("column_summary"))
+				fluidRow(
+					column(
+						width = 12,
+						box(
+							width = NULL,
+							
+							# Column Summary
+							if (show_summary) {
+								box(
+									title = "Column Summary",
+									width = 12,
+									collapsible = TRUE,
+									collapsed = TRUE,
+									
+									verbatimTextOutput(ns("column_summary"))
+								)
+							},
+							
+							# Debug button
+							if (debug) {
+								fluidRow(
+									column(
+										width = 12,
+										style = "margin-top: 10px;",
+										actionButton(
+											ns("debug"),
+											"Debug:  mod_column_selector",
+											icon = icon("bug"),
+											class = "btn-warning btn-sm",
+											style = "width: 100%;"
+										)
+									)
+								)
+							}
+						)
+					)
 				)
 			)
-		)
+		}
 	)
 }
 
@@ -55,18 +107,13 @@ mod_column_selector_server <- function(id,
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
 		
-		# Debug UI
-		output$debug_ui <- renderUI({
-			if (isTRUE(debug)) {
-				actionButton(ns("debug"), "Debug", icon = icon("bug"), class = "btn-warning btn-sm")
-			}
-		})
-		
+		# ✅ Debug observer
 		if (debug) {
 			observeEvent(input$debug, {
-				message("\n═══════════════════════════════════════════════")
-				message("🔍 DEBUG MODE - Column Selector Module")
-				message("═══════════════════════════════════════════════")
+				message("🔍 DEBUG MODE - mod_column_selector")
+				message("  • Label:  ", label)
+				message("  • Multiple: ", multiple)
+				message("  • Selected:  ", paste(input$selected_columns, collapse = ", "))
 				browser()
 			})
 		}
@@ -144,7 +191,7 @@ mod_column_selector_server <- function(id,
 					multiple = multiple,
 					width = "100%"
 				),
-				if (! is.null(help_text)) {
+				if (!is.null(help_text)) {
 					helpText(help_text)
 				}
 			)

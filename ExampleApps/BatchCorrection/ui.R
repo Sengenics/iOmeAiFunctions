@@ -48,7 +48,9 @@ ui <- dashboardPage(
 								 mod_column_selector_ui(
 								 	"sample_group",
 								 	label = "Sample Grouping Column",
-								 	help_text = "Primary biological grouping variable"
+								 	help_text = "Primary biological grouping variable",
+								 	show_info = TRUE,
+								 	debug = run_debug
 								 )
 					),
 					column(6,
@@ -56,7 +58,9 @@ ui <- dashboardPage(
 								 mod_column_selector_ui(
 								 	"batch_columns",
 								 	label = "Batch Testing Columns",
-								 	help_text = "Select columns to test for batch effects"
+								 	help_text = "Select columns to test for batch effects",
+								 	show_info = TRUE,
+								 	debug = TRUE
 								 )
 					)),
 					column(12,mod_combat_correction_selector_ui("combat_selector", debug = run_debug)
