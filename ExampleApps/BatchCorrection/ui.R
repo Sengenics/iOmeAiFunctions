@@ -1,13 +1,13 @@
 # UI : BatchCorrection #####
 
 ui <- dashboardPage(
-	dashboardHeader(title = "Batch Testing App"),
+	dashboardHeader(title = "Batch Correction"),
 	dashboardSidebar(
 		tags$h6(version),
 		sidebarMenu(
 			menuItem("Upload", tabName = "data_tab", icon = icon("database")),
 			menuItem("ComBat Correction", tabName = "combat_tab", icon = icon("magic")),
-			menuItem("Batch Visualization", tabName = "viz_tab", icon = icon("chart-area")),
+			#menuItem("Batch Visualization", tabName = "viz_tab", icon = icon("chart-area")),
 			menuItem("Export Data", tabName = "export_tab", icon = icon("download"))#,
 			
 			
@@ -36,17 +36,29 @@ ui <- dashboardPage(
 			tabItem(
 				tabName = "combat_tab",
 				fluidRow(
-					column(6,mod_eset_selector_standalone_ui("initial_select",T,T,T,T)),
+					column(12,
+					column(6,mod_eset_selector_standalone_ui("initial_select",debug = run_debug)),
 					column(6,
-								 mod_eset_selector_standalone_ui("combat_data", TRUE, TRUE, TRUE, TRUE),
-								 ),
+								 mod_eset_selector_standalone_ui("combat_data",debug = run_debug),
+								 )
+					),
 								 #mod_eset_selector_standalone_ui("vis_input",T,T,T,T)),
-					column(6,
-								 mod_sample_group_selector_ui("sample_group", debug = run_debug)
+					column(12,column(6,
+								 #mod_sample_group_selector_ui("sample_group", debug = run_debug)
+								 mod_column_selector_ui(
+								 	"sample_group",
+								 	label = "Sample Grouping Column",
+								 	help_text = "Primary biological grouping variable"
+								 )
 					),
 					column(6,
-								 mod_batch_column_selector_ui("column_selector", debug = run_debug)
-					),
+								 #mod_batch_column_selector_ui("column_selector", debug = run_debug)
+								 mod_column_selector_ui(
+								 	"batch_columns",
+								 	label = "Batch Testing Columns",
+								 	help_text = "Select columns to test for batch effects"
+								 )
+					)),
 					column(12,mod_combat_correction_selector_ui("combat_selector", debug = run_debug)
 								 ),
 					#column(12,mod_combat_correction_selector_ui("selector", debug = debug)),

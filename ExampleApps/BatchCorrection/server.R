@@ -121,21 +121,36 @@ server <- function(input, output, session) {
 	
 	## Column Selection ####
 	# Sample group selector module
-	sample_group_module <- mod_sample_group_selector_server(
+	# sample_group_module <- mod_sample_group_selector_server(
+	# 	"sample_group",
+	# 	eset = data_module$eset,
+	# 	default_column = "Labels",
+	# 	debug = run_debug
+	# )
+	
+	sample_group_module <- mod_column_selector_server(
 		"sample_group",
 		eset = data_module$eset,
-		default_column = "Labels",
-		debug = run_debug
+		default_columns = "Labels",
+		multiple = FALSE
 	)
 	
 	# Batch column selector module
-	batch_column_module <- mod_batch_column_selector_server(
-		"column_selector",
+	batch_column_module <- mod_column_selector_server(
+		"batch_columns",
 		eset = data_module$eset,
-		filtered_columns = filtered_columns,
-		default_columns = c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)"),
-		debug = run_debug
+		available_columns = filtered_columns,  # From annotation analysis
+		default_columns = reactive(c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)")),
+		multiple = TRUE
 	)
+	
+	# batch_column_module <- mod_batch_column_selector_server(
+	# 	"column_selector",
+	# 	eset = data_module$eset,
+	# 	filtered_columns = filtered_columns,
+	# 	default_columns = c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)"),
+	# 	debug = run_debug
+	# )
 	
 	### Batch testing module ####
 	batch_testing <- mod_batch_testing_server(

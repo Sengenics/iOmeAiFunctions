@@ -7,7 +7,6 @@
 #' @export
 mod_eset_selector_ui <- function(id) {
 	ns <- NS(id)
-	
 	tagList(
 		uiOutput(ns("eset_select_ui"))
 	)
@@ -32,37 +31,10 @@ mod_eset_selector_server <- function(id, ExpSet_list, default_selection = "clini
 			get_expset_assay_names
 			req(ExpSet_list())
 			name_list = get_expset_assay_names(ExpSet_list())
-			# ExpSets <- names(ExpSet_list())
-			# name_list <- list()
-			# 
-			# for (entry in ExpSets) {
-			# 	entries <- names(ExpSet_list()[[entry]]@assayData)
-			# 	name_list[[entry]] <- entries
-			# }
-			# 
+
 			return(name_list)
 		})
-		
-		# Render the selection UI
-		# output$eset_select_ui <- renderUI({
-		# 	req(ExpSet_names())
-		# 	
-		# 	choices <- ExpSet_names()
-		# 	
-		# 	# Try to select default, otherwise first available
-		# 	if (default_selection %in% unlist(choices)) {
-		# 		selected <- default_selection
-		# 	} else {
-		# 		selected <- unlist(choices)[1]
-		# 	}
-		# 	
-		# 	selectInput(
-		# 		ns("eset_select"),
-		# 		"Select Expression Data:",
-		# 		choices = choices,
-		# 		selected = selected
-		# 	)
-		# })
+	
 		
 		# Render the selection UI
 		output$eset_select_ui <- renderUI({
@@ -156,125 +128,33 @@ mod_eset_selector_server <- function(id, ExpSet_list, default_selection = "clini
 #' @param show_transform Show transform module (default TRUE)
 #' @param debug Show debug buttons (default FALSE)
 #' @export
-# mod_eset_selector_standalone_ui <- function(id, 
-# 																						show_summary = TRUE,
-# 																						show_status = TRUE,
-# 																						show_subset = TRUE,
-# 																						show_transform = TRUE,
-# 																						debug = FALSE) {
-# 	ns <- NS(id)
-# 	
-# 	tagList(
-# 		# Compact selector with expandable details
-# 		fluidRow(
-# 			box(
-# 				#title = "Select ExpressionSet",
-# 				width = 12,
-# 				#status = "info",
-# 				#solidHeader = TRUE,
-# 				
-# 				# Selector dropdown
-# 				column(11,
-# 					mod_eset_selector_ui(ns("eset_select"))
-# 				),
-# 				
-# 				column(1,
-# 				
-# 				# Collapsible details section
-# 					tags$div(
-# 						style = "text-align: right; margin-top: 5px;",
-# 						actionLink(
-# 							ns("toggle_details"),
-# 							icon("info-circle", class = "fa-lg"),
-# 							style = "color: #337ab7;"
-# 						)
-# 					)
-# 				),
-# 				column(12,
-# 				conditionalPanel(
-# 					condition = "input.toggle_details % 2 == 1",
-# 					ns = ns,
-# 					hr(),
-# 					#fluidRow(
-# 
-# 			
-# 			if (show_summary) {
-# 				fluidRow(
-# 					width = 12,
-# 					box(
-# 						title = "Data Summary",
-# 						width = NULL,
-# 						#status = "success",
-# 						#solidHeader = TRUE,
-# 						collapsible = T,
-# 						collapsed = T,
-# 						
-# 						verbatimTextOutput(ns("eset_summary"))
-# 					)
-# 				)
-# 			},
-# 		
-# 		
-# 		if (show_status) {
-# 			fluidRow(
-# 				box(
-# 					title = "Data Status",
-# 					width = 12,
-# 					#status = "info",
-# 					collapsible = T,
-# 					collapsed = T,
-# 					
-# 					fluidRow(
-# 						column(width = 3, valueBoxOutput(ns("status_eset_list"), width = NULL)),
-# 						column(width = 3, valueBoxOutput(ns("status_selected"), width = NULL)),
-# 						column(width = 3, valueBoxOutput(ns("status_samples"), width = NULL)),
-# 						column(width = 3, valueBoxOutput(ns("status_features"), width = NULL))
-# 					)
-# 				)
-# 			)
-# 			
-# 		},
-# 		# Subset Section
-# 		if (show_subset) {
-# 			mod_eset_subset_ui(ns("subset"), debug = debug)
-# 		},
-# 		
-# 		# Transform Section
-# 		if (show_transform) {
-# 			mod_eset_transform_ui(ns("transform"), debug = debug)
-# 		}
-# 					)
-# 				)
-# 			)
-# 		)
-# 	)
-# 	#)
-# }
-
 mod_eset_selector_standalone_ui <- function(id, 
 																						show_summary = TRUE,
-																						show_status = TRUE,
 																						show_subset = TRUE,
 																						show_transform = TRUE,
+																						show_info = TRUE,
 																						debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
 		# ✅ Minimal inline selector with info icon
+		# ✅ Selector with optional info icon
 		fluidRow(
 			column(
-				width = 11,
+				width = if (show_info) 11 else 12,  # ✅ Full width if no info icon
 				mod_eset_selector_ui(ns("eset_select"))
 			),
-			column(
-				width = 1,
-				style = "padding-top: 25px;",  # ✅ Align with selectInput label
-				actionLink(
-					ns("toggle_details"),
-					icon("info-circle", class = "fa-lg"),
-					style = "color: #337ab7;"
+			if (show_info) {  # ✅ Only show info icon if enabled
+				column(
+					width = 1,
+					style = "padding-top: 25px;",
+					actionLink(
+						ns("toggle_details"),
+						icon("info-circle", class = "fa-lg"),
+						style = "color: #337ab7;"
+					)
 				)
-			)
+			}
 		),
 		
 		# ✅ Collapsible details (no visible box)
@@ -282,9 +162,20 @@ mod_eset_selector_standalone_ui <- function(id,
 			condition = "input.toggle_details % 2 == 1",
 			ns = ns,
 			
-			tags$div(
-				style = "margin-top: 15px;",
-				
+			# tags$div(
+			# 	style = "margin-top: 15px;",
+			fluidRow(
+				column(
+					width = 12,
+					box(
+						#title = "Data Information",
+						width = NULL,
+						#status = "info",
+						#solidHeader = TRUE,
+						#collapsible = TRUE,
+						#collapsed = FALSE,	
+			
+			
 				# Data Summary
 				if (show_summary) {
 					fluidRow(
@@ -302,27 +193,6 @@ mod_eset_selector_standalone_ui <- function(id,
 					)
 				},
 				
-				# Data Status
-				if (show_status) {
-					fluidRow(
-						column(
-							width = 12,
-							box(
-								title = "Data Status",
-								width = NULL,
-								collapsible = TRUE,
-								collapsed = TRUE,
-								
-								fluidRow(
-									column(width = 3, valueBoxOutput(ns("status_eset_list"), width = NULL)),
-									column(width = 3, valueBoxOutput(ns("status_selected"), width = NULL)),
-									column(width = 3, valueBoxOutput(ns("status_samples"), width = NULL)),
-									column(width = 3, valueBoxOutput(ns("status_features"), width = NULL))
-								)
-							)
-						)
-					)
-				},
 				
 				# Subset Section
 				if (show_subset) {
@@ -342,9 +212,25 @@ mod_eset_selector_standalone_ui <- function(id,
 							mod_eset_transform_ui(ns("transform"), debug = debug)
 						)
 					)
-				}
+				},
+				# ✅ Debug button (always visible if debug = TRUE)
+				if (debug) {
+					fluidRow(
+						column(
+							width = 12,
+							style = "margin-top: 10px;",
+							actionButton(
+								ns("debug"),
+								"Debug:  mod_eset_selector_standalone",
+								icon = icon("bug"),
+								class = "btn-warning btn-sm",
+								style = "width: 100%;"
+							)
+						)
+					)
+				},
 			)
-		)
+				)))
 	)
 }
 
@@ -368,6 +254,14 @@ mod_eset_selector_standalone_server <- function(id,
 																								enable_transform = TRUE,
 																								debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
+		
+		# ✅ Debug observer
+		if (debug) {
+			observeEvent(input$debug, {
+				message("🔍 DEBUG MODE - mod_eset_selector_standalone")
+				browser()
+			})
+		}
 		
 		# Observer to update selection when default_selection changes
 		observe({
@@ -438,55 +332,6 @@ mod_eset_selector_standalone_server <- function(id,
 			final_eset <- eset_after_subset
 		}
 		
-		# Status value boxes
-		output$status_eset_list <- renderValueBox({
-			if (! is.null(ExpSet_list())) {
-				source_label <- switch(
-					source(),
-					"uploaded" = "Uploaded ExpSets",
-					"package" = "Package ExpSets",
-					"ExpressionSets Loaded"
-				)
-				
-				valueBox(
-					value = length(ExpSet_list()),
-					subtitle = source_label,
-					icon = icon("database"),
-					color = "green"
-				)
-			} else {
-				valueBox(
-					value = "NONE",
-					subtitle = "No ExpSets Available",
-					icon = icon("exclamation-triangle"),
-					color = "red"
-				)
-			}
-		})
-		
-		output$status_selected <- renderValueBox({
-			if (!is.null(eset_selected())) {
-				valueBox(value = "✓", subtitle = "ExpSet Selected", icon = icon("check-circle"), color = "blue")
-			} else {
-				valueBox(value = "—", subtitle = "No Selection", icon = icon("exclamation-circle"), color = "yellow")
-			}
-		})
-		
-		output$status_samples <- renderValueBox({
-			if (!is.null(eset_selected())) {
-				valueBox(value = ncol(eset_selected()), subtitle = "Samples", icon = icon("users"), color = "purple")
-			} else {
-				valueBox(value = "—", subtitle = "Samples", icon = icon("users"), color = "light-blue")
-			}
-		})
-		
-		output$status_features <- renderValueBox({
-			if (!is.null(eset_selected())) {
-				valueBox(value = nrow(eset_selected()), subtitle = "Features", icon = icon("dna"), color = "teal")
-			} else {
-				valueBox(value = "—", subtitle = "Features", icon = icon("dna"), color = "light-blue")
-			}
-		})
 		
 		# ExpSet info
 		output$eset_info <- renderPrint({
