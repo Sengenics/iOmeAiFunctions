@@ -37,7 +37,9 @@ ui <- dashboardPage(
 				tabName = "combat_tab",
 				fluidRow(
 					column(6,mod_eset_selector_standalone_ui("initial_select",T,T,T,T)),
-					column(6,mod_eset_selector_standalone_ui("vis_input",T,T,T,T)),
+					column(6,
+								 mod_eset_selector_standalone_ui("combat_data", TRUE, TRUE, TRUE, TRUE),
+								 mod_eset_selector_standalone_ui("vis_input",T,T,T,T)),
 					column(6,
 								 mod_sample_group_selector_ui("sample_group", debug = run_debug)
 					),

@@ -449,26 +449,145 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 	tagList(
 		uiOutput(ns("debug_ui")),
 		
-		# Batch Factor Selection (now a separate module)
-		mod_combat_correction_selector_ui(ns("selector"), debug = debug),
+		fluidRow(
+			# Batch Factor Selection (separate module)
+			mod_combat_correction_selector_ui(ns("selector"), debug = debug)
+		),
 		
 		fluidRow(
 			column(12,
 						 tabsetPanel(
-						 	## Single ####
-						 	tabPanel('Single',
-						 					 mod_eset_selector_standalone_ui("combat_data", TRUE, TRUE, TRUE, TRUE),
-						 					 # ... rest of Single tab
+						 	
+						 	## Single Tab ####
+						 	tabPanel(
+						 		'Single',
+						 		
+						 		# Data selector
+						 		mod_eset_selector_standalone_ui("combat_data", TRUE, TRUE, TRUE, TRUE),
+						 		
+						 		# ComBat execution box
+						 		fluidRow(
+						 			box(
+						 				title = "ComBat Batch Correction",
+						 				width = 12,
+						 				status = "success",
+						 				solidHeader = TRUE,
+						 				collapsible = TRUE,
+						 				
+						 				fluidRow(
+						 					column(
+						 						width = 12,
+						 						align = "center",
+						 						br(),
+						 						actionButton(
+						 							ns("run_combat"),
+						 							"Run ComBat Correction",
+						 							icon = icon("play"),
+						 							class = "btn-success btn-lg",
+						 							style = "width: 50%;"
+						 						),
+						 						br(), br()
+						 					)
+						 				),
+						 				
+						 				uiOutput(ns("correction_status"))
+						 			)
+						 		),
+						 		
+						 		# Correction Results
+						 		fluidRow(
+						 			box(
+						 				title = "Correction Results",
+						 				width = 12,
+						 				status = "info",
+						 				solidHeader = TRUE,
+						 				collapsible = TRUE,
+						 				collapsed = TRUE,
+						 				
+						 				verbatimTextOutput(ns("correction_summary"))
+						 			)
+						 		)
 						 	),
 						 	
-						 	## Multiple ####
-						 	tabPanel('Multiple',
-						 					 # ... Multiple tab content
+						 	## Multiple Tab ####
+						 	tabPanel(
+						 		'Multiple',
+						 		
+						 		fluidRow(
+						 			box(
+						 				title = "Batch Correction for Multiple Assays",
+						 				width = 12,
+						 				status = "info",
+						 				solidHeader = TRUE,
+						 				collapsible = TRUE,
+						 				collapsed = FALSE,
+						 				
+						 				p("Apply the selected batch correction settings to multiple assays at once. "),
+						 				
+						 				fluidRow(
+						 					column(
+						 						width = 6,
+						 						pickerInput(
+						 							ns("target_assays"),
+						 							"Target Assays:",
+						 							choices = NULL,
+						 							selected = NULL,
+						 							multiple = TRUE,
+						 							options = pickerOptions(
+						 								actionsBox = TRUE,
+						 								selectedTextFormat = "count > 2",
+						 								liveSearch = TRUE,
+						 								title = "Select one or more assays to correct"
+						 							)
+						 						),
+						 						helpText("Select which assays to apply batch correction to.")
+						 					),
+						 					column(
+						 						width = 6,
+						 						textInput(
+						 							ns("combat_assay_suffix"),
+						 							"Corrected Assay Suffix:",
+						 							value = "_ComBat",
+						 							placeholder = "_ComBat"
+						 						),
+						 						helpText("Corrected assays will be added with this suffix")
+						 					)
+						 				),
+						 				
+						 				fluidRow(
+						 					column(
+						 						width = 6,
+						 						h5("Selected Assays:"),
+						 						htmlOutput(ns("target_assays_text"))
+						 					),
+						 					column(
+						 						width = 6,
+						 						h5("Will Create:"),
+						 						htmlOutput(ns("target_assays_combat_text"))
+						 					)
+						 				),
+						 				
+						 				hr(),
+						 				
+						 				actionButton(
+						 					ns("apply_multi_batch_correction"),
+						 					"Apply Batch Correction to All Selected Assays",
+						 					icon = icon("magic"),
+						 					class = "btn-success btn-lg",
+						 					style = "width: 100%;"
+						 				),
+						 				
+						 				br(), br(),
+						 				
+						 				uiOutput(ns("multi_correction_status"))
+						 			)
+						 		)
 						 	),
 						 	
-						 	## Batch Test ####
-						 	tabPanel('Batch Test',
-						 					 mod_batch_combined_analysis_ui("batch_analysis", debug = debug)
+						 	## Batch Test Tab ####
+						 	tabPanel(
+						 		'Batch Test',
+						 		mod_batch_combined_analysis_ui("batch_analysis", debug = debug)
 						 	)
 						 )
 			)
