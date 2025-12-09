@@ -4,10 +4,10 @@ server <- function(input, output, session) {
 	
 	options(shiny.maxRequestSize = 100*1024^2)
 	
-	# Debug button UI
+	##  Debug button UI ###
 	output$debug_ui <- renderUI({
 		if(run_debug == TRUE){
-			actionButton('debug', 'Debug', class = "btn-warning btn-sm")
+			actionButton('debug', 'Debug : server.R', class = "btn-warning btn-sm")
 		}
 	})
 	
@@ -15,14 +15,18 @@ server <- function(input, output, session) {
 		browser()
 	})
 	
-	# ============================================
-	# SHARED: ExpSet List Import (used by all)
-	# ============================================
+
+	# SHARED: ExpSet List Import (used by all) ####
+
+	
+
+	
 	expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
 	
 	ExpSet_list <- reactive({
 		expset_data$ExpSet_list()
 	})
+	ExpSet_list_val <- reactiveVal(ExpSet_list)
 	
 	# ExpressionSet Viewer Module
 	expset_viewer <- mod_expset_viewer_server(
@@ -30,15 +34,8 @@ server <- function(input, output, session) {
 		ExpSet_list = ExpSet_list  # Use the same ExpSet_list from expset_import
 	)
 	
-	# ============================================
-	# TAB 1: Initial Data Selection
-	# ============================================
-	# data_module <- mod_eset_selector_standalone_server(
-	# 	"initial_select",
-	# 	ExpSet_list = ExpSet_list,
-	# 	default_selection = "clinical_loess_normalised_PN",
-	# 	source = expset_data$source
-	# )
+
+	# Initial Data Selection #####
 	
 	data_module <- mod_eset_selector_standalone_server(
 		"initial_select",
@@ -60,31 +57,31 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	vis_input_data <- mod_eset_selector_standalone_server(
-		"vis_input",
-		ExpSet_list = ExpSet_list,
-		default_selection = reactive({
-			name <- tryCatch({
-				combat_data$eset_name()
-			}, error = function(e) {
-				NULL
-			})
-
-			# Return fallback if NULL, empty, or NA
-			if (is.null(name) || length(name) == 0 || is.na(name)) {
-				"sample_loess_normalised"
-			} else {
-				name
-			}
-		}),
-		source = expset_data$source,
-		enable_subset = TRUE,
-		enable_transform = TRUE,
-		debug = run_debug
-	)
+	# vis_input_data <- mod_eset_selector_standalone_server(
+	# 	"vis_input",
+	# 	ExpSet_list = ExpSet_list,
+	# 	default_selection = reactive({
+	# 		name <- tryCatch({
+	# 			combat_data$eset_name()
+	# 		}, error = function(e) {
+	# 			NULL
+	# 		})
+	# 
+	# 		# Return fallback if NULL, empty, or NA
+	# 		if (is.null(name) || length(name) == 0 || is.na(name)) {
+	# 			"sample_loess_normalised"
+	# 		} else {
+	# 			name
+	# 		}
+	# 	}),
+	# 	source = expset_data$source,
+	# 	enable_subset = TRUE,
+	# 	enable_transform = TRUE,
+	# 	debug = run_debug
+	# )
 	
 	
-
+ # Batch Testing ####
 	# Update annotation module to use transformed data:
 	annotation_module <- mod_annotation_analysis_server(
 		"annotation_analysis",
@@ -122,6 +119,7 @@ server <- function(input, output, session) {
 		}
 	})
 	
+	## Column Selection ####
 	# Sample group selector module
 	sample_group_module <- mod_sample_group_selector_server(
 		"sample_group",
@@ -139,7 +137,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# Batch testing module
+	### Batch testing module ####
 	batch_testing <- mod_batch_testing_server(
 		"batch_testing",
 		eset = data_module$eset,
@@ -147,7 +145,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# Distribution testing module
+	### Distribution testing module ####
 	distribution_test <- mod_batch_distribution_test_server(
 		"distribution_test",
 		eset = data_module$eset,
@@ -156,7 +154,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# Combined batch analysis module ####
+	## Combined batch analysis module ####
 	batch_combined <- mod_batch_combined_analysis_server(
 		"batch_combined",
 		eset = data_module$eset,
@@ -175,7 +173,7 @@ server <- function(input, output, session) {
 	)
 	
 
-	ExpSet_list_val <- reactiveVal(ExpSet_list)
+
 	
 	# Initialize it when ExpSet_list is available
 	observe({
@@ -206,6 +204,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
+	# RUN COMBAT ####
 	combat_correction <- mod_combat_correction_server(
 		"combat",
 		eset = combat_data$eset,
@@ -223,8 +222,8 @@ server <- function(input, output, session) {
 	# Batch visualization ####
 	batch_viz <- mod_batch_visualization_server(
 		"batch_viz",
-		eset_original_name = reactive(vis_input_data$eset_name()),
-		eset_original = vis_input_data$eset,
+		eset_original_name = reactive(combat_data$eset_name()),
+		eset_original = combat_data$eset,
 		eset_corrected = combat_correction$corrected_eset,
 		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
 		batch_factors = combat_correction$plot_batch_factors,            # ✅ From ComBat Correction tab
