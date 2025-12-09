@@ -69,7 +69,7 @@ server <- function(input, output, session) {
 			}, error = function(e) {
 				NULL
 			})
-			
+
 			# Return fallback if NULL, empty, or NA
 			if (is.null(name) || length(name) == 0 || is.na(name)) {
 				"sample_loess_normalised"
@@ -199,13 +199,21 @@ server <- function(input, output, session) {
 		ExpSet_list()
 	})
 	
-	combat_module <- mod_combat_correction_server(
+	combat_selector <- mod_combat_correction_selector_server(
+		"combat_selector",
+		eset = data_module$eset,  # or whatever your data source is
+		combined_results = batch_combined$results,  # or your batch analysis results
+		debug = run_debug
+	)
+	
+	combat_correction <- mod_combat_correction_server(
 		"combat",
 		eset = combat_data$eset,
 		sample_group_column = sample_group_module$selected_column,
 		ExpSet_list = ExpSet_list,           # ✅ Pass ExpSet_list
 		update_ExpSet_list = ExpSet_list_val,   # ✅ Pass update function (reactiveVal can be called to update)
 		combined_results = batch_combined$results,
+		selector = combat_selector,
 		debug = run_debug
 	)
 	
@@ -217,9 +225,9 @@ server <- function(input, output, session) {
 		"batch_viz",
 		eset_original_name = reactive(vis_input_data$eset_name()),
 		eset_original = vis_input_data$eset,
-		eset_corrected = combat_module$corrected_eset,
+		eset_corrected = combat_correction$corrected_eset,
 		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
-		batch_factors = combat_module$plot_batch_factors,            # ✅ From ComBat Correction tab
+		batch_factors = combat_correction$plot_batch_factors,            # ✅ From ComBat Correction tab
 		ExpSet_list = ExpSet_list,
 		debug = run_debug
 	)

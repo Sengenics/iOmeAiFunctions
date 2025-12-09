@@ -449,10 +449,10 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 	tagList(
 		uiOutput(ns("debug_ui")),
 		
-		fluidRow(
-			# Batch Factor Selection (separate module)
-			mod_combat_correction_selector_ui(ns("selector"), debug = debug)
-		),
+		# fluidRow(
+		# 	# Batch Factor Selection (separate module)
+		# 	mod_combat_correction_selector_ui(ns("selector"), debug = debug)
+		# ),
 		
 		fluidRow(
 			column(12,
@@ -463,7 +463,7 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 						 		'Single',
 						 		
 						 		# Data selector
-						 		mod_eset_selector_standalone_ui("combat_data", TRUE, TRUE, TRUE, TRUE),
+						 		
 						 		
 						 		# ComBat execution box
 						 		fluidRow(
@@ -611,6 +611,7 @@ mod_combat_correction_server <- function(id,
 																				 ExpSet_list = reactive(NULL),
 																				 update_ExpSet_list = NULL,
 																				 combined_results = reactive(NULL),
+																				 selector = NULL,
 																				 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
@@ -635,12 +636,12 @@ mod_combat_correction_server <- function(id,
 		}
 		
 		# ✅ Call selector module
-		selector <- mod_combat_correction_selector_server(
-			"selector",
-			eset = eset,
-			combined_results = combined_results,
-			debug = debug
-		)
+		# selector <- mod_combat_correction_selector_server(
+		# 	"selector",
+		# 	eset = eset,
+		# 	combined_results = combined_results,
+		# 	debug = debug
+		# )
 		
 		# Store corrected ExpressionSet
 		corrected_eset <- reactiveVal(NULL)
