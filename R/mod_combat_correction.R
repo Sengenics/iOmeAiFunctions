@@ -1054,7 +1054,9 @@ mod_combat_correction_selector_server <- function(id,
 #' @param id Module namespace ID
 #' @param debug Show debug button
 #' @export
-mod_combat_correction_ui <- function(id, debug = FALSE) {
+mod_combat_correction_ui <- function(id, 
+																		 show_auto_run_toggle = TRUE, 
+																		 debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
@@ -1075,7 +1077,6 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 						 		
 						 		# Data selector
 						 		
-						 		
 						 		# ComBat execution box
 						 		fluidRow(
 						 			box(
@@ -1085,25 +1086,53 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 						 				solidHeader = TRUE,
 						 				collapsible = TRUE,
 						 				
-						 				fluidRow(
-						 					column(
-						 						width = 12,
-						 						align = "center",
-						 						br(),
-						 						actionButton(
-						 							ns("run_combat"),
-						 							"Run ComBat Correction",
-						 							icon = icon("play"),
-						 							class = "btn-success btn-lg",
-						 							style = "width: 50%;"
-						 						),
-						 						br(), br()
+						 				# ✅ Auto-run toggle
+						 				if (show_auto_run_toggle) {
+						 					fluidRow(
+						 						column(
+						 							width = 12,
+						 							box(
+						 								width = NULL,
+						 								style = "background-color: #f8f9fa; border: 1px solid #dee2e6;",
+						 								
+						 								fluidRow(
+						 									column(
+						 										width = 8,
+						 										div(
+						 											style = "padding-top: 8px;",
+						 											strong("Auto-Run ComBat Correction"),
+						 											br(),
+						 											tags$small("Automatically run when batch factors or settings change", style = "color: #6c757d;")
+						 										)
+						 									),
+						 									column(
+						 										width = 4,
+						 										div(
+						 											style = "text-align: right; padding-top: 5px;",
+						 											shinyWidgets::materialSwitch(
+						 												inputId = ns("auto_run_combat"),
+						 												label = NULL,
+						 												value = TRUE,
+						 												status = "success",
+						 												right = TRUE
+						 											)
+						 										)
+						 									)
+						 								)
+						 							)
+						 						)
 						 					)
-						 				),
+						 				},
+						 				
+						 				# ✅ Manual run button (shown when auto-run is OFF)
+						 				uiOutput(ns("manual_run_ui")),
+						 				
+						 				br(),
 						 				
 						 				uiOutput(ns("correction_status"))
 						 			)
 						 		),
+
 						 		
 						 		# Correction Results
 						 		fluidRow(
@@ -1199,7 +1228,13 @@ mod_combat_correction_ui <- function(id, debug = FALSE) {
 						 	tabPanel(
 						 		'Batch Test',
 						 		mod_batch_combined_analysis_ui("batch_analysis", debug = debug)
-						 	)
+						 	),
+						 	# if (isTRUE(debug)) {
+						 	# 	tagList(
+						 	# 		actionButton(ns("debug"), "Debug : mod_combat_correction_ui", icon = icon("bug"), class = "btn-warning btn-sm"),
+						 	# 		hr()
+						 	# 	)
+						 	# }
 						 )
 			)
 		)
@@ -1223,6 +1258,7 @@ mod_combat_correction_server <- function(id,
 																				 update_ExpSet_list = NULL,
 																				 combined_results = reactive(NULL),
 																				 selector = NULL,
+																				 show_auto_run_toggle = TRUE,
 																				 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
@@ -1245,6 +1281,26 @@ mod_combat_correction_server <- function(id,
 				browser()
 			})
 		}
+		
+		# ✅ Manual run UI (shows when auto-run is OFF)
+		output$manual_run_ui <- renderUI({
+			if (show_auto_run_toggle && !isTRUE(input$auto_run_combat)) {
+				fluidRow(
+					column(
+						width = 12,
+						align = "center",
+						br(),
+						actionButton(
+							ns("run_combat_manual"),
+							"Run ComBat Correction",
+							icon = icon("play"),
+							class = "btn-success btn-lg",
+							style = "width: 50%;"
+						)
+					)
+				)
+			}
+		})
 		
 		# ✅ Call selector module
 		# selector <- mod_combat_correction_selector_server(
@@ -1269,8 +1325,75 @@ mod_combat_correction_server <- function(id,
 			colnames(Biobase::pData(eset()))
 		})
 		
-		# ✅ Run ComBat correction (Single tab)
-		observeEvent(input$run_combat, {
+		
+		# ✅ Auto-run logic
+		observeEvent(list(
+			eset(),
+			selector$batch_factors(),
+			selector$combat_model(),
+			selector$par_prior(),
+			selector$correction_strategy(),
+			sample_group_column()
+		), {
+			# Only auto-run if toggle is ON
+			if (show_auto_run_toggle && isTRUE(input$auto_run_combat)) {
+				req(eset())
+				req(selector$batch_factors())
+				req(sample_group_column())
+				
+				batch_factors <- selector$batch_factors()
+				combat_model <- selector$combat_model()
+				
+				if (length(batch_factors) == 0) {
+					return()
+				}
+				
+				# Validation warning for confounded factors with null model
+				if (combat_model == "null") {
+					if (! is.null(combined_results())) {
+						df <- combined_results()
+						batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+						
+						unsafe_factors <- df %>%
+							rename(batch_p = !!  sym(batch_col_name)) %>%
+							filter(Batch_Column %in% batch_factors, Fisher_p_value < 0.05) %>%
+							pull(Batch_Column)
+						
+						if (length(unsafe_factors) > 0) {
+							showModal(
+								modalDialog(
+									title = tags$span(icon("exclamation-triangle"), " Warning:   Confounding Detected"),
+									size = "l",
+									
+									p(strong("The following batch factors are confounded with sample groups:")),
+									tags$ul(lapply(unsafe_factors, function(x) tags$li(x))),
+									
+									p(style = "color: #e74c3c;", strong("Using the Null Model may remove real biological differences!")),
+									
+									p("Recommendations:"),
+									tags$ol(
+										tags$li("Switch to 'Preserve Sample Groups' model (safer), OR"),
+										tags$li("Only correct factors with Fisher p > 0.05, OR"),
+										tags$li("Proceed with caution if you understand the risks")
+									),
+									
+									footer = tagList(
+										actionButton(ns("cancel_combat"), "Cancel", class = "btn-default"),
+										actionButton(ns("proceed_combat"), "Proceed Anyway", class = "btn-danger")
+									)
+								)
+							)
+							return()
+						}
+					}
+				}
+				
+				run_combat_correction()
+			}
+		}, ignoreInit = TRUE)
+		
+		# ✅ Manual run button (when auto-run is OFF)
+		observeEvent(input$run_combat_manual, {
 			req(eset())
 			req(selector$batch_factors())
 			req(sample_group_column())
@@ -1283,7 +1406,7 @@ mod_combat_correction_server <- function(id,
 				return()
 			}
 			
-			# Validation warning for confounded factors with null model
+			# Same validation as auto-run
 			if (combat_model == "null") {
 				if (! is.null(combined_results())) {
 					df <- combined_results()
@@ -1325,6 +1448,63 @@ mod_combat_correction_server <- function(id,
 			
 			run_combat_correction()
 		})
+		
+		# ✅ Run ComBat correction (Single tab)
+		# observeEvent(input$run_combat, {
+		# 	req(eset())
+		# 	req(selector$batch_factors())
+		# 	req(sample_group_column())
+		# 	
+		# 	batch_factors <- selector$batch_factors()
+		# 	combat_model <- selector$combat_model()
+		# 	
+		# 	if (length(batch_factors) == 0) {
+		# 		showNotification("⚠️ Please select at least one batch factor", type = "warning", duration = 5)
+		# 		return()
+		# 	}
+		# 	
+		# 	# Validation warning for confounded factors with null model
+		# 	if (combat_model == "null") {
+		# 		if (! is.null(combined_results())) {
+		# 			df <- combined_results()
+		# 			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+		# 			
+		# 			unsafe_factors <- df %>%
+		# 				rename(batch_p = !! sym(batch_col_name)) %>%
+		# 				filter(Batch_Column %in% batch_factors, Fisher_p_value < 0.05) %>%
+		# 				pull(Batch_Column)
+		# 			
+		# 			if (length(unsafe_factors) > 0) {
+		# 				showModal(
+		# 					modalDialog(
+		# 						title = tags$span(icon("exclamation-triangle"), " Warning:  Confounding Detected"),
+		# 						size = "l",
+		# 						
+		# 						p(strong("The following batch factors are confounded with sample groups:")),
+		# 						tags$ul(lapply(unsafe_factors, function(x) tags$li(x))),
+		# 						
+		# 						p(style = "color: #e74c3c;", strong("Using the Null Model may remove real biological differences!")),
+		# 						
+		# 						p("Recommendations:"),
+		# 						tags$ol(
+		# 							tags$li("Switch to 'Preserve Sample Groups' model (safer), OR"),
+		# 							tags$li("Only correct factors with Fisher p > 0.05, OR"),
+		# 							tags$li("Proceed with caution if you understand the risks")
+		# 						),
+		# 						
+		# 						footer = tagList(
+		# 							actionButton(ns("cancel_combat"), "Cancel", class = "btn-default"),
+		# 							actionButton(ns("proceed_combat"), "Proceed Anyway", class = "btn-danger")
+		# 						)
+		# 					)
+		# 				)
+		# 				return()
+		# 			}
+		# 		}
+		# 	}
+		# 	
+		# 	run_combat_correction()
+		# })
 		
 		observeEvent(input$proceed_combat, {
 			removeModal()

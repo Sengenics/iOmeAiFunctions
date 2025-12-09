@@ -233,6 +233,7 @@ server <- function(input, output, session) {
 		update_ExpSet_list = ExpSet_list_val,   # ✅ Pass update function (reactiveVal can be called to update)
 		combined_results = batch_combined$results,
 		selector = combat_selector,
+		show_auto_run_toggle = TRUE,
 		debug = run_debug
 	)
 	
