@@ -336,8 +336,9 @@ anova_betadine_function <- function(m, meta, col_name) {
 #' }
 permanova_function <- function(m, meta, col_name, 
 															 method = "euclidean",
-															 permutations = 999,
-															 by = "margin") {
+															 permutations = 199,
+															 by = "margin",
+															 use_parallel = TRUE) {
 	
 	# Validate inputs
 	if (! col_name %in% colnames(meta)) {
@@ -363,13 +364,38 @@ permanova_function <- function(m, meta, col_name,
 	
 	message("Formula: ", formula_str)
 	
+	# ✅ Determine optimal number of cores using helper function
+	n_groups <- length(unique(meta[[col_name]]))
+	n_cores_to_use <- get_optimal_cores(
+		use_parallel = use_parallel,
+		n_groups = n_groups,
+		reserve_cores = 1,
+		verbose = TRUE
+	)
+	
+	# ✅ Setup parallel backend if using multiple cores
+	if (n_cores_to_use > 1) {
+		# Check if backend already registered
+		if (! foreach::getDoParRegistered()) {
+			cl <- parallel::makeCluster(n_cores_to_use)
+			doParallel::registerDoParallel(cl)
+			
+			# Ensure cleanup
+			on.exit({
+				parallel::stopCluster(cl)
+				foreach::registerDoSEQ()
+			}, add = TRUE)
+		}
+	}
+	
 	# Run adonis2 PERMANOVA
 	permanova_result <- vegan::adonis2(
 		formula_obj,
 		data = meta,
 		method = method,
 		permutations = permutations,
-		by = by
+		by = by,
+		parallel = n_cores_to_use
 	)
 	
 	return(permanova_result)

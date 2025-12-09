@@ -7,7 +7,9 @@
 #' @param id Module namespace ID
 #' @param debug Show debug button
 #' @export
-mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
+mod_batch_combined_analysis_ui <- function(id, 
+																					 show_auto_run_toggle = TRUE,
+																					 debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
@@ -21,6 +23,51 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 				collapsible = TRUE,
 				collapsed = FALSE,
 				
+				if (show_auto_run_toggle) {
+					fluidRow(
+						column(
+							width = 12,
+							box(
+								width = NULL,
+								style = "margin-bottom: 10px;",
+								
+								fluidRow(
+									column(
+										width = 8,
+										tags$div(
+											style = "padding-top: 5px;",
+											strong("Auto-Run Analysis:  "),
+											tags$small("Enable to automatically analyze when parameters change", style = "color: #6c757d;")
+										)
+									),
+									column(
+										width = 4,
+										tags$div(
+											style = "text-align: right;",
+											shinyWidgets::materialSwitch(
+												inputId = ns("auto_run_analysis"),
+												label = NULL,
+												value = TRUE,
+												status = "success",
+												right = TRUE
+											),
+											tags$span(
+												textOutput(ns("auto_run_status"), inline = TRUE),
+												style = "margin-left: 10px; font-weight: bold; font-size:  14px;"
+											)
+										)
+									)
+								),
+								
+								# ✅ Use uiOutput instead of conditionalPanel
+								uiOutput(ns("manual_run_ui"))
+							)
+						)
+					)
+				},
+				
+				
+				
 				selectInput(
 					ns("test_method"),
 					"Statistical Test Method:",
@@ -30,6 +77,65 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 					),
 					selected = "permanova"
 					#selected = "betadisper"
+				),
+				# ✅ Permutation input
+				numericInput(
+					ns("n_permutations"),
+					"Number of Permutations:",
+					value = 199,
+					min = 99,
+					max = 9999,
+					step = 100
+				),
+				helpText(
+					icon("info-circle"),
+					"Lower = faster, Higher = more accurate.  199 is sufficient for most analyses."
+				),
+				# ✅ Distance method selector
+				selectInput(
+					ns("distance_method"),
+					"Distance Method:",
+					choices = c(
+						"Euclidean" = "euclidean",
+						"Manhattan" = "manhattan",
+						"Canberra" = "canberra",
+						"Bray-Curtis" = "bray",
+						"Kulczynski" = "kulczynski",
+						"Jaccard" = "jaccard",
+						"Gower" = "gower",
+						"Morisita" = "morisita",
+						"Horn" = "horn",
+						"Mountford" = "mountford",
+						"Raup" = "raup",
+						"Binomial" = "binomial",
+						"Chao" = "chao",
+						"Cao" = "cao"
+					),
+					selected = "euclidean"
+				),
+				helpText(
+					icon("info-circle"),
+					strong("Euclidean: "), " Standard for continuous data (recommended for proteomics).",
+					br(),
+					strong("Manhattan:"), " Sum of absolute differences.",
+					br(),
+					strong("Bray-Curtis:"), " Common in ecology/microbiome studies."
+				),
+				selectInput(
+					ns("permanova_by"),
+					"Sequential Test (by):",
+					choices = c(
+						"Terms (sequential)" = "terms",
+						"Margin (each term separately)" = "margin",
+						"NULL (overall test)" = "NULL"
+					),
+					selected = "margin"
+				),
+				helpText(
+					icon("info-circle"),
+					strong("margin: "), " Tests each term independently (recommended).",
+					br(),
+					strong("terms:"), " Sequential tests (order matters)."
 				),
 				
 				fluidRow(
@@ -107,8 +213,7 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 							tags$li(strong("Confounding:"), "Is this column unevenly distributed across sample groups?  (Fisher's test)")
 						),
 						
-						uiOutput(ns("debug_ui")),
-						
+			
 						
 						
 						uiOutput(ns("analysis_status")),
@@ -118,7 +223,19 @@ mod_batch_combined_analysis_ui <- function(id, debug = FALSE) {
 						#h4("Combined Results Table"),
 						DTOutput(ns("combined_table")),
 					)
-				)
+				),
+				#uiOutput(ns("debug_ui")),
+				if (debug) {
+					tagList(
+						actionButton(
+							ns("debug"),
+							"Debug : mod_batch_combined_analysis_ui",
+							icon = icon("bug"),
+							class = "btn-warning btn-sm"
+						),
+						hr()
+					)
+				}
 				# 	)
 				# ),
 				# 
@@ -141,21 +258,23 @@ mod_batch_combined_analysis_server <- function(id,
 																							 batch_columns,
 																							 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
+		ns <- session$ns
 		
+
 		# Render debug button
-		output$debug_ui <- renderUI({
-			if (debug) {
-				tagList(
-					actionButton(
-						session$ns("debug"),
-						"Debug",
-						icon = icon("bug"),
-						class = "btn-warning btn-sm"
-					),
-					hr()
-				)
-			}
-		})
+		# output$debug_ui <- renderUI({
+		# 	if (debug) {
+		# 		tagList(
+		# 			actionButton(
+		# 				session$ns("debug"),
+		# 				"Debug",
+		# 				icon = icon("bug"),
+		# 				class = "btn-warning btn-sm"
+		# 			),
+		# 			hr()
+		# 		)
+		# 	}
+		# })
 		
 		# Debug observer
 		if (debug) {
@@ -163,24 +282,123 @@ mod_batch_combined_analysis_server <- function(id,
 				message("\n═══════════════════════════════════════════════")
 				message("🔍 DEBUG MODE - Combined Batch Analysis Module")
 				message("═══════════════════════════════════════════════")
-				message("\nAvailable objects:")
-				message("  • eset() - Selected ExpressionSet")
-				message("  • sample_group_column() - Sample grouping column")
-				message("  • batch_columns() - Batch columns")
-				message("  • combined_results() - Combined analysis results")
-				message("\nUseful commands:")
-				message("  str(combined_results())")
-				message("═══════════════════════════════════════════════\n")
 				browser()
 			})
 		}
 		
 		
+		# ✅ Track analysis state
+		analysis_running <- reactiveVal(FALSE)
+		analysis_trigger <- reactiveVal(0)  # Increment to trigger re-run
+		
+		# ✅ Auto-run status text
+		output$auto_run_status <- renderText({
+			if (input$auto_run_analysis) {
+				"ON"
+			} else {
+				"OFF"
+			}
+		})
+		
+		output$manual_run_ui <- renderUI({
+			if (! isTRUE(input$auto_run_analysis)) {
+				tagList(
+					hr(),
+					
+					actionButton(
+						ns("manual_run_analysis"),
+						"Run Batch Analysis",
+						icon = icon("play"),
+						class = "btn-primary",
+						style = "width: 100%;"
+					),
+					
+					tags$div(
+						style = "margin-top: 10px;",
+						uiOutput(ns("manual_run_status"))
+					)
+				)
+			}
+		})
+		
+		
+		# ✅ Manual run status
+		output$manual_run_status <- renderUI({
+			if (analysis_running()) {
+				div(
+					class = "alert alert-info",
+					style = "margin-bottom: 0;",
+					icon("spinner", class = "fa-spin"),
+					strong(" Running analysis.. .", style = "margin-left: 5px;")
+				)
+			} else if (analysis_trigger() > 0) {
+				div(
+					class = "alert alert-success",
+					style = "margin-bottom: 0;",
+					icon("check-circle"),
+					strong(" Analysis complete!", style = "margin-left:  5px;")
+				)
+			} else {
+				div(
+					class = "alert alert-warning",
+					style = "margin-bottom: 0;",
+					icon("pause-circle"),
+					strong(" Analysis paused.  Click 'Run Batch Analysis' to continue.", style = "margin-left: 5px;")
+				)
+			}
+		})
+		
+		# ✅ Manual run button
+		observeEvent(input$manual_run_analysis, {
+			analysis_trigger(analysis_trigger() + 1)
+		})
+		
+		# # ✅ Auto-run trigger (when data/params change and toggle is ON)
+		# observe({
+		# 	req(input$auto_run_analysis)  # Only if toggle is ON
+		# 	req(eset())
+		# 	req(sample_group_column())
+		# 	req(batch_columns())
+		# 	input$test_method  # Dependency
+		# 	
+		# 	# Trigger analysis
+		# 	analysis_trigger(analysis_trigger() + 1)
+		# })
+		observe({
+			message("Toggle state:  ", input$auto_run_analysis)
+			message("Analysis trigger: ", analysis_trigger())
+		})
+		# ✅ Auto-run trigger (when data/params change and toggle is ON)
+		observeEvent(list(eset(), 
+											sample_group_column(), 
+											batch_columns(), 
+											input$test_method,
+											input$n_permutations,
+											input$permanova_by), {
+			# Check toggle state - if OFF, don't trigger
+			if (isTRUE(input$auto_run_analysis)) {
+				isolate({
+					analysis_trigger(analysis_trigger() + 1)
+				})
+			}
+		}, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+		
 		# Run combined analysis ####
 		combined_results <- reactive({
+			req(analysis_trigger() > 0)
+			
+			# ✅ Stop if toggle is OFF
+			if (!isTRUE(input$auto_run_analysis)) {
+				return(NULL)
+			}
+			
 			req(eset())
 			req(sample_group_column())
 			req(batch_columns())
+			
+			analysis_running(TRUE)  # ✅ Set running state
+			on.exit(analysis_running(FALSE))  # ✅ Clear on exit
 			
 			ExpSet <- eset()
 			m <- Biobase::exprs(ExpSet)
@@ -216,7 +434,10 @@ mod_batch_combined_analysis_server <- function(id,
 					# 1 Batch effect test (method-dependent)
 					if (test_method == "permanova") {
 						# Use PERMANOVA
-						perm_result <- permanova_function(m, meta, batch_col)
+						perm_result <- permanova_function(m, meta, batch_col, 
+																							method = input$distance_method,
+																							permutations = input$n_permutations,
+																							by = if (input$permanova_by == "NULL") NULL else input$permanova_by)
 						result_df <- as.data.frame(perm_result)
 						batch_p <- result_df$`Pr(>F)`[1]
 					} else {
@@ -475,7 +696,8 @@ mod_batch_combined_analysis_server <- function(id,
 		
 		# Return results
 		return(list(
-			results = combined_results
+			results = combined_results,
+			auto_run_enabled = reactive(input$auto_run_analysis)  # ✅ ADD
 		))
 	})
 }

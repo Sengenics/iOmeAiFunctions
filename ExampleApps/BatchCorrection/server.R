@@ -184,13 +184,13 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	batch_analysis <- mod_batch_combined_analysis_server(
-		"batch_analysis",
-		eset = combat_module$preview_eset,  # ✅ Use preview instead of original
-		sample_group_column = sample_group_module$selected_column,
-		batch_columns = combat_module$selected_batch_factors,
-		debug = run_debug
-	)
+	# batch_analysis <- mod_batch_combined_analysis_server(
+	# 	"batch_analysis",
+	# 	eset = combat_module$preview_eset,  # ✅ Use preview instead of original
+	# 	sample_group_column = sample_group_module$selected_column,
+	# 	batch_columns = combat_module$selected_batch_factors,
+	# 	debug = run_debug
+	# )
 	
 
 
