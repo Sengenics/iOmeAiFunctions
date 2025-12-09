@@ -225,32 +225,67 @@ server <- function(input, output, session) {
 	)
 	
 	# RUN COMBAT ####
-	combat_correction <- mod_combat_correction_server(
-		"combat",
-		eset = combat_data$eset,
-		sample_group_column = sample_group_module$selected_column,
-		ExpSet_list = ExpSet_list,           # ✅ Pass ExpSet_list
-		update_ExpSet_list = ExpSet_list_val,   # ✅ Pass update function (reactiveVal can be called to update)
-		combined_results = batch_combined$results,
-		selector = combat_selector,
+	# combat_correction <- mod_combat_correction_server(
+	# 	"combat",
+	# 	eset = combat_data$eset,
+	# 	sample_group_column = sample_group_module$selected_column,
+	# 	ExpSet_list = ExpSet_list,           # ✅ Pass ExpSet_list
+	# 	update_ExpSet_list = ExpSet_list_val,   # ✅ Pass update function (reactiveVal can be called to update)
+	# 	combined_results = batch_combined$results,
+	# 	selector = combat_selector,
+	# 	show_auto_run_toggle = TRUE,
+	# 	debug = run_debug
+	# )
+	
+	# # ✅ Call single correction module
+	# single_combat <- mod_combat_single_server(
+	# 	"single",
+	# 	eset = eset,
+	# 	sample_group_column = sample_group_column,
+	# 	combined_results = combined_results,
+	# 	selector = selector,
+	# 	show_auto_run_toggle = show_auto_run_toggle,
+	# 	debug = debug
+	# )
+	
+	# ✅ Call single correction module
+	single_combat <- mod_combat_single_server(
+		"combat_single",  # ✅ Must match the ID in ui.R
+		eset = combat_data$eset,  # ✅ Use the actual reactive from your app
+		sample_group_column = sample_group_module$selected_column,  # ✅ Use the actual reactive
+		combined_results = batch_combined$results,  # ✅ Use the actual reactive
+		selector = combat_selector,  # ✅ Use the selector module you already called
 		show_auto_run_toggle = TRUE,
 		debug = run_debug
 	)
 	
-
-
-	
-	# Batch visualization ####
 	batch_viz <- mod_batch_visualization_server(
 		"batch_viz",
 		eset_original_name = reactive(combat_data$eset_name()),
 		eset_original = combat_data$eset,
-		eset_corrected = combat_correction$corrected_eset,
-		sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
-		batch_factors = combat_correction$plot_batch_factors,            # ✅ From ComBat Correction tab
+		eset_corrected = single_combat$corrected_eset,
+		sample_group_column = sample_group_module$selected_column,
+		batch_factors = reactive({
+			# ✅ Create plot_batch_factors from combat_selector
+			req(combat_selector$batch_factors())
+			c(combat_selector$batch_factors(), 'ComBat')
+		}),
 		ExpSet_list = ExpSet_list,
 		debug = run_debug
 	)
+
+	
+	# Batch visualization ####
+	# batch_viz <- mod_batch_visualization_server(
+	# 	"batch_viz",
+	# 	eset_original_name = reactive(combat_data$eset_name()),
+	# 	eset_original = combat_data$eset,
+	# 	eset_corrected = single_combat$corrected_eset,
+	# 	sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
+	# 	batch_factors = single_combat$plot_batch_factors,            # ✅ From ComBat Correction tab
+	# 	ExpSet_list = ExpSet_list,
+	# 	debug = run_debug
+	# )
 	
 	# Export ####
 

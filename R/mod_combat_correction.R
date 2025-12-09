@@ -1722,8 +1722,17 @@ mod_combat_correction_server <- function(id,
 		})
 		
 		# Return values
+		# return(list(
+		# 	corrected_eset = corrected_eset,
+		# 	selected_batch_factors = selector$batch_factors,
+		# 	plot_batch_factors = plot_batch_factors,
+		# 	all_columns = all_columns,
+		# 	safe_factors = selector$safe_factors
+		# ))
+		
+		# Return values
 		return(list(
-			corrected_eset = corrected_eset,
+			#corrected_eset = single_combat$corrected_eset,  # ✅ Now comes from single module
 			selected_batch_factors = selector$batch_factors,
 			plot_batch_factors = plot_batch_factors,
 			all_columns = all_columns,
@@ -1731,4 +1740,539 @@ mod_combat_correction_server <- function(id,
 		))
 	})
 }
+
+#, #####
+# SINGLE COMBAT CREATION #####
+#' Single ComBat Correction Module - UI
+#'
+#' Displays correction status and results with expandable advanced details
+#'
+#' @param id Module namespace ID
+#' @param show_auto_run_toggle Logical.  Show auto-run toggle switch (default TRUE).
+#' @param debug Show debug button
+#' @export
+mod_combat_single_ui <- function(id, 
+																 show_auto_run_toggle = TRUE,
+																 debug = FALSE) {
+	ns <- NS(id)
+	
+	tagList(
+		fluidRow(
+			box(
+				#title = "ComBat Batch Correction",
+				width = 12,
+				#status = "success",
+				#solidHeader = TRUE,
+				#collapsible = TRUE,
+				#collapsed = FALSE,
+				
+				# ✅ MAIN CONTENT:  Status indicator
+				uiOutput(ns("correction_status_display")),
+				
+				#hr(),
+				
+				# ✅ Advanced Options button at bottom
+				uiOutput(ns("advanced_button_ui")),
+				
+				# ✅ Collapsible Advanced Options Panel
+				conditionalPanel(
+					condition = "input.toggle_advanced % 2 == 1",
+					ns = ns,
+					
+					box(
+						width = 12,
+						collapsible = FALSE,
+						
+						# ✅ Correction Results (collapsed by default)
+						box(
+							title = "Correction Results",
+							width = 12,
+							status = "info",
+							solidHeader = TRUE,
+							collapsible = TRUE,
+							collapsed = TRUE,
+							
+							verbatimTextOutput(ns("correction_summary"))
+						),
+						
+						# ✅ Settings (NOT collapsible - always open)
+						box(
+							title = "Correction Settings",
+							width = 12,
+							status = "primary",
+							solidHeader = TRUE,
+							collapsible = FALSE,
+							
+							# Auto-run toggle
+							if (show_auto_run_toggle) {
+								fluidRow(
+									column(
+										width = 6,
+										div(
+											style = "padding-top: 5px;",
+											shinyWidgets::materialSwitch(
+												inputId = ns("auto_run_combat"),
+												label = "Auto-Run ComBat Correction",
+												value = TRUE,
+												status = "success"
+											)
+										),
+										helpText(
+											icon("sync", style = "color: #337ab7;"),
+											tags$small("Automatically run when batch factors or settings change")
+										)
+									)
+								)
+							},
+							
+							# Manual run UI (shows when auto-run is OFF)
+							if (show_auto_run_toggle) {
+								fluidRow(
+									column(
+										width = 12,
+										uiOutput(ns("manual_run_ui"))
+									)
+								)
+							}
+						),
+						
+						# ✅ Debug button (if enabled)
+						if (debug) {
+							actionButton(
+								ns("debug"),
+								"Debug:   mod_combat_single",
+								icon = icon("bug"),
+								class = "btn-warning",
+								style = "width: 100%;"
+							)
+						}
+					)
+				)
+			)
+		)
+	)
+}
+
+#' Single ComBat Correction Module - Server
+#'
+#' @param id Module namespace ID
+#' @param eset Reactive ExpressionSet
+#' @param sample_group_column Reactive sample group column name
+#' @param combined_results Reactive batch analysis results
+#' @param selector ComBat selector module return object
+#' @param show_auto_run_toggle Logical. Enable auto-run toggle
+#' @param debug Enable debug mode
+#' @export
+mod_combat_single_server <- function(id,
+																		 eset,
+																		 sample_group_column,
+																		 combined_results = reactive(NULL),
+																		 selector = NULL,
+																		 show_auto_run_toggle = TRUE,
+																		 debug = FALSE) {
+	moduleServer(id, function(input, output, session) {
+		ns <- session$ns
+		
+		# Debug
+		if (isTRUE(debug)) {
+			observeEvent(input$debug, {
+				message("\n═══════════════════════════════════════════════")
+				message("🔍 DEBUG MODE - ComBat Single Correction Module")
+				message("═══════════════════════════════════════════════")
+				browser()
+			})
+		}
+		
+		# Store corrected ExpressionSet
+		corrected_eset <- reactiveVal(NULL)
+		correction_in_progress <- reactiveVal(FALSE)
+		
+		# ✅ Status display (thin banner)
+		output$correction_status_display <- renderUI({
+			if (correction_in_progress()) {
+				# Show progress - thin banner
+				div(
+					class = "alert alert-info",
+					style = "margin-bottom: 15px; padding: 10px 15px;",
+					icon("spinner", class = "fa-spin"),
+					strong(" Running ComBat correction..."),
+					tags$small(" This may take a moment", style = "margin-left: 10px; color: #6c757d;")
+				)
+			} else if (! is.null(corrected_eset())) {
+				# Show success banner - thin
+				div(
+					class = "alert alert-success",
+					style = "margin-bottom: 15px; padding: 10px 15px;",
+					icon("check-circle"),
+					strong(" Batch Correction Complete!"),
+					tags$small(
+						sprintf(" %d features × %d samples corrected", 
+										nrow(corrected_eset()), 
+										ncol(corrected_eset())),
+						style = "margin-left: 10px;"
+					)
+				)
+			} else {
+				# Show waiting state - thin
+				div(
+					class = "alert alert-warning",
+					style = "margin-bottom: 15px; padding:  10px 15px;",
+					icon("hourglass-half"),
+					strong(" Ready to correct"),
+					tags$small(" Waiting for batch factor selection.. .", style = "margin-left: 10px; color: #6c757d;")
+				)
+			}
+		})
+		
+		# ✅ Status display (main content area)
+		# output$correction_status_display <- renderUI({
+		# 	if (correction_in_progress()) {
+		# 		# Show progress
+		# 		div(
+		# 			class = "alert alert-info",
+		# 			style = "text-align: center; font-size: 16px; padding: 10px;",
+		# 			icon("spinner", class = "fa-spin", style = "font-size: 24px;"),
+		# 			br(), br(),
+		# 			strong("Running ComBat correction..."),
+		# 			br(),
+		# 			tags$small("This may take a moment")
+		# 		)
+		# 	} else if (! is.null(corrected_eset())) {
+		# 		# Show success banner
+		# 		div(
+		# 			class = "alert alert-success",
+		# 			style = "text-align: center; font-size: 18px; padding: 10px;",
+		# 			icon("check-circle", style = "font-size: 32px; color: #28a745;"),
+		# 			br(), br(),
+		# 			strong("✅ Batch Correction Complete!"),
+		# 			br(),
+		# 			tags$small(
+		# 				sprintf("%d features × %d samples corrected",
+		# 								nrow(corrected_eset()),
+		# 								ncol(corrected_eset()))
+		# 			)
+		# 		)
+		# 	} else {
+		# 		# Show waiting state
+		# 		div(
+		# 			class = "alert alert-warning",
+		# 			style = "text-align: center; font-size: 16px; padding: 30px;",
+		# 			icon("hourglass-half", style = "font-size: 24px;"),
+		# 			br(), br(),
+		# 			strong("Ready to correct"),
+		# 			br(),
+		# 			tags$small("Waiting for batch factor selection and settings...")
+		# 		)
+		# 	}
+		# })
+		
+		# ✅ Show advanced button only after correction completes
+		output$advanced_button_ui <- renderUI({
+			if (!is.null(corrected_eset())) {
+				fluidRow(
+					column(
+						width = 12,
+						actionButton(
+							ns("toggle_advanced"),
+							"Advanced Options & Details",
+							icon = icon("cog"),
+							class = "btn-default",
+							style = "width:   100%; margin-bottom: 15px;"
+						)
+					)
+				)
+			}
+		})
+		
+		# ✅ Manual run UI
+		output$manual_run_ui <- renderUI({
+			if (show_auto_run_toggle && !isTRUE(input$auto_run_combat)) {
+				fluidRow(
+					column(
+						width = 12,
+						align = "center",
+						br(),
+						actionButton(
+							ns("run_combat_manual"),
+							"Run ComBat Correction",
+							icon = icon("play"),
+							class = "btn-success btn-lg",
+							style = "width: 50%;"
+						)
+					)
+				)
+			}
+		})
+		
+		# ✅ ComBat correction logic (extracted from main module)
+		run_combat_correction <- function() {
+			correction_in_progress(TRUE)
+			showNotification("Running ComBat correction...", type = "message", duration = NULL, id = "combat_progress")
+			
+			tryCatch({
+				ExpSet <- eset()
+				batch_factors <- selector$batch_factors()
+				combat_model <- selector$combat_model()
+				sample_group <- sample_group_column()
+				par_prior <- selector$par_prior()
+				
+				strategy <- if (length(batch_factors) > 1 && !is.null(selector$correction_strategy())) {
+					selector$correction_strategy()
+				} else {
+					"single"
+				}
+				
+				expr_data <- Biobase::exprs(ExpSet)
+				meta <- Biobase::pData(ExpSet)
+				
+				# Validate
+				missing_factors <- setdiff(batch_factors, colnames(meta))
+				if (length(missing_factors) > 0) {
+					stop("Batch factors not found in metadata: ", paste(missing_factors, collapse = ", "))
+				}
+				
+				if (! sample_group %in% colnames(meta)) {
+					stop("Sample group column not found in metadata")
+				}
+				
+				# Create model matrix
+				if (combat_model == "null") {
+					modcombat <- model.matrix(~1, data = meta)
+					model_description <- "Null model (~1)"
+				} else {
+					modcombat <- model.matrix(~ as.factor(meta[[sample_group]]))
+					model_description <- paste0("Preserve model (~", sample_group, ")")
+				}
+				
+				combat_column_value <- NULL
+				
+				# Apply correction based on strategy
+				if (strategy == "combined") {
+					message("Using COMBINED strategy for ", length(batch_factors), " factors")
+					
+					batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+					combined_batch <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+					combat_column_value <- as.character(combined_batch)
+					
+					batch_table <- table(combined_batch)
+					single_sample <- names(batch_table)[batch_table == 1]
+					if (length(single_sample) > 0) {
+						stop("Cannot use combined strategy:   ", length(single_sample), 
+								 " batch combination(s) have only 1 sample.")
+					}
+					
+					corrected_data <- sva::ComBat(
+						dat = expr_data,
+						batch = combined_batch,
+						mod = modcombat,
+						par.prior = par_prior
+					)
+					
+					correction_log <- list(
+						method = "combined",
+						batch_factors = batch_factors,
+						n_combinations = length(batch_table),
+						model = model_description
+					)
+					
+				} else if (strategy == "sequential") {
+					message("Using SEQUENTIAL strategy for ", length(batch_factors), " factors")
+					
+					batch_values <- lapply(batch_factors, function(f) as.character(meta[[f]]))
+					combat_column_value <- do.call(paste, c(batch_values, list(sep = "_")))
+					
+					corrected_data <- expr_data
+					correction_log <- list(
+						method = "sequential",
+						batch_factors = batch_factors,
+						corrections = list()
+					)
+					
+					for (i in seq_along(batch_factors)) {
+						batch_factor <- batch_factors[i]
+						batch <- meta[[batch_factor]]
+						
+						corrected_data <- sva::ComBat(
+							dat = corrected_data,
+							batch = batch,
+							mod = modcombat,
+							par.prior = par_prior
+						)
+						
+						correction_log$corrections[[batch_factor]] <- list(order = i)
+					}
+					
+					correction_log$model <- model_description
+					
+				} else {
+					# Single factor
+					batch_factor <- batch_factors[1]
+					combat_column_value <- as.character(meta[[batch_factor]])
+					
+					corrected_data <- sva::ComBat(
+						dat = expr_data,
+						batch = meta[[batch_factor]],
+						mod = modcombat,
+						par.prior = par_prior
+					)
+					
+					correction_log <- list(
+						method = "single",
+						batch_factor = batch_factor,
+						model = model_description
+					)
+				}
+				
+				# Add ComBat column to metadata
+				if (! is.null(combat_column_value)) {
+					meta$ComBat <- combat_column_value
+				}
+				
+				# Create corrected ExpressionSet
+				corrected_ExpSet <- ExpSet
+				Biobase::exprs(corrected_ExpSet) <- corrected_data
+				Biobase::pData(corrected_ExpSet) <- meta
+				
+				# Add notes
+				notes <- Biobase::notes(corrected_ExpSet)
+				notes$combat_correction <- c(correction_log, list(
+					sample_group_preserved = if (combat_model == "preserve") sample_group else NA,
+					par_prior = par_prior,
+					correction_date = Sys.time()
+				))
+				Biobase::notes(corrected_ExpSet) <- notes
+				
+				corrected_eset(corrected_ExpSet)
+				correction_in_progress(FALSE)
+				
+				removeNotification("combat_progress")
+				showNotification("✅ ComBat correction complete!", type = "message", duration = 10)
+				
+			}, error = function(e) {
+				correction_in_progress(FALSE)
+				removeNotification("combat_progress")
+				showNotification(paste("❌ ComBat failed:", e$message), type = "error", duration = 15)
+			})
+		}
+		
+		# ✅ Auto-run logic
+		observeEvent(list(
+			eset(),
+			selector$batch_factors(),
+			selector$combat_model(),
+			selector$par_prior(),
+			selector$correction_strategy(),
+			sample_group_column()
+		), {
+			if (show_auto_run_toggle && isTRUE(input$auto_run_combat)) {
+				req(eset())
+				req(selector$batch_factors())
+				req(sample_group_column())
+				
+				batch_factors <- selector$batch_factors()
+				combat_model <- selector$combat_model()
+				
+				if (length(batch_factors) == 0) {
+					return()
+				}
+				
+				# Validation warning for confounded factors
+				if (combat_model == "null") {
+					if (! is.null(combined_results())) {
+						df <- combined_results()
+						batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+						
+						unsafe_factors <- df %>%
+							rename(batch_p = !!  sym(batch_col_name)) %>%
+							filter(Batch_Column %in% batch_factors, Fisher_p_value < 0.05) %>%
+							pull(Batch_Column)
+						
+						if (length(unsafe_factors) > 0) {
+							showModal(
+								modalDialog(
+									title = tags$span(icon("exclamation-triangle"), " Warning:   Confounding Detected"),
+									size = "l",
+									
+									p(strong("The following batch factors are confounded with sample groups:")),
+									tags$ul(lapply(unsafe_factors, function(x) tags$li(x))),
+									
+									p(style = "color: #e74c3c;", strong("Using the Null Model may remove real biological differences!")),
+									
+									p("Recommendations:"),
+									tags$ol(
+										tags$li("Switch to 'Preserve Sample Groups' model (safer), OR"),
+										tags$li("Only correct factors with Fisher p > 0.05, OR"),
+										tags$li("Proceed with caution if you understand the risks")
+									),
+									
+									footer = tagList(
+										actionButton(ns("cancel_combat"), "Cancel", class = "btn-default"),
+										actionButton(ns("proceed_combat"), "Proceed Anyway", class = "btn-danger")
+									)
+								)
+							)
+							return()
+						}
+					}
+				}
+				
+				run_combat_correction()
+			}
+		}, ignoreInit = TRUE)
+		
+		# ✅ Manual run
+		observeEvent(input$run_combat_manual, {
+			req(eset())
+			req(selector$batch_factors())
+			req(sample_group_column())
+			
+			if (length(selector$batch_factors()) == 0) {
+				showNotification("⚠️ Please select at least one batch factor", type = "warning", duration = 5)
+				return()
+			}
+			
+			run_combat_correction()
+		})
+		
+		# Modal handlers
+		observeEvent(input$proceed_combat, {
+			removeModal()
+			run_combat_correction()
+		})
+		
+		observeEvent(input$cancel_combat, {
+			removeModal()
+		})
+		
+		# ✅ Correction summary
+		output$correction_summary <- renderPrint({
+			req(corrected_eset())
+			
+			ExpSet_corrected <- corrected_eset()
+			notes <- Biobase::notes(ExpSet_corrected)
+			combat_info <- notes$combat_correction
+			
+			cat("═══════════════════════════════════════════════\n")
+			cat("COMBAT CORRECTION SUMMARY\n")
+			cat("═══════════════════════════════════════════════\n\n")
+			
+			if (! is.null(combat_info)) {
+				cat("Strategy:", combat_info$method, "\n")
+				cat("Model used:", combat_info$model, "\n")
+				cat("Batch factors:", paste(combat_info$batch_factors, collapse = ", "), "\n")
+				cat("Par. prior:", combat_info$par_prior, "\n")
+				cat("Correction date:", as.character(combat_info$correction_date), "\n\n")
+			}
+			
+			cat("Dimensions:", nrow(ExpSet_corrected), "features ×", ncol(ExpSet_corrected), "samples\n")
+		})
+		
+		# Return values
+		return(list(
+			corrected_eset = corrected_eset,
+			correction_complete = reactive(! is.null(corrected_eset()))
+		))
+	})
+}
+
 

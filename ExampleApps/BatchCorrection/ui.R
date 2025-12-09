@@ -68,6 +68,9 @@ ui <- dashboardPage(
 								 mod_combat_correction_selector_ui("combat_selector", debug = run_debug)
 								 )
 					),
+					column(12,
+								 mod_combat_single_ui("combat_single", show_auto_run_toggle = TRUE, debug = run_debug)
+								 ),
 					#column(12,mod_combat_correction_selector_ui("selector", debug = debug)),
 					column(12,
 					tabsetPanel(
@@ -83,11 +86,11 @@ ui <- dashboardPage(
 										 )
 										 
 										 ),
-						tabPanel("Run ComBat",
-							
-							mod_combat_correction_ui("combat", debug = run_debug)
-							
-						),
+						# tabPanel("Run ComBat",
+						# 	
+						# 	mod_combat_correction_ui("combat", debug = run_debug)
+						# 	
+						# ),
 						tabPanel('Visualisation',
 						
 										 	
