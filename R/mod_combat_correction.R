@@ -1,81 +1,137 @@
-# SELECTOR #####
-
 #' ComBat Correction Selector Module - UI
 #'
-#' Select batch factors and correction settings for ComBat
+#' Minimal dropdown for batch factor selection with expandable settings
 #'
-#' @param id Module namespace ID
-#' @param debug Show debug button
+#' @param id Character.  Module namespace ID. 
+#' @param show_info Logical. Show info bubble (default TRUE).
+#' @param debug Logical. Show debug button (default FALSE).
 #' @export
-mod_combat_correction_selector_ui <- function(id, debug = FALSE) {
+mod_combat_correction_selector_ui <- function(id, 
+																							show_info = TRUE,
+																							debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
-		box(
-			title = "Batch Factor Selection",
-			width = 12,
-			status = "primary",
-			solidHeader = TRUE,
-			
-			if (debug) {
-				actionButton(
-					ns("debug"),
-					"Debug",
-					icon = icon("bug"),
-					class = "btn-warning btn-sm"
-				)
-			},
-			
-			fluidRow(
+		# ✅ Minimal inline selector with optional info icon
+		fluidRow(
+			column(
+				width = if (show_info) 11 else 12,
+				uiOutput(ns("combat_selector_ui"))
+			),
+			if (show_info) {
 				column(
-					width = 4,
-					uiOutput(ns("combat_selector_ui")),
-					box(
-						width = 12,
-						collapsible = TRUE,
-						collapsed = FALSE,
-						
-						p("Select batch factors to correct using ComBat."),
-						p(strong("Safe factors:"), "Strong batch effect (p < 0.05) and NOT confounded with sample groups (p > 0.05)."),
-						
-						# Multi-factor correction strategy
-						uiOutput(ns("multi_factor_options")),
-						
-						# Batch combination preview
-						uiOutput(ns("batch_preview"))
-					)
-				),
-				
-				column(
-					width = 4,
-					selectInput(
-						ns("par_prior"),
-						"Parametric Prior:",
-						choices = c("Parametric" = TRUE, "Non-parametric" = FALSE),
-						selected = TRUE
-					),
-					helpText("Parametric is faster and works well for most cases.  Use non-parametric for non-normal data.")
-				),
-				
-				column(
-					width = 4,
-					radioButtons(
-						ns("combat_model"),
-						"ComBat Model:",
-						choices = c(
-							"Null Model (~1)" = "null",
-							"Preserve Sample Groups" = "preserve"
-						),
-						selected = "null"
-					),
+					width = 1,
+					style = "padding-top: 25px;",
 					actionLink(
-						ns("show_model_help"),
-						HTML("<i class='fa fa-question-circle'></i> Which model should I use?"),
-						style = "font-size: 12px;"
+						ns("toggle_details"),
+						icon("info-circle", class = "fa-lg"),
+						style = "color: #337ab7;"
+					)
+				)
+			}
+		),
+		
+		# ✅ Collapsible details
+		if (show_info) {
+			conditionalPanel(
+				condition = "input.toggle_details % 2 == 1",
+				ns = ns,
+				
+				fluidRow(
+					column(
+						width = 12,
+						box(
+							width = NULL,
+							
+							# Factor Safety Info
+							box(
+								title = "Factor Safety",
+								width = 12,
+								collapsible = TRUE,
+								collapsed = FALSE,
+								
+								uiOutput(ns("factor_safety_info")),
+								
+								hr(),
+								
+								p(strong("Safe factors: "), "Strong batch effect (p < 0.05) and NOT confounded with sample groups (p > 0.05)."),
+								
+								helpText(
+									icon("lightbulb"),
+									strong("Multiple factors: "),
+									"ComBat can correct for multiple batch factors simultaneously.",
+									br(),
+									strong("Order matters:"),
+									"Factors are corrected in the order selected (most important first)."
+								)
+							),
+							
+							# ComBat Settings
+							box(
+								title = "ComBat Settings",
+								width = 12,
+								collapsible = TRUE,
+								collapsed = TRUE,
+								
+								fluidRow(
+									column(
+										width = 6,
+										selectInput(
+											ns("par_prior"),
+											"Parametric Prior:",
+											choices = c("Parametric" = TRUE, "Non-parametric" = FALSE),
+											selected = TRUE
+										),
+										helpText("Parametric is faster and works well for most cases.  Use non-parametric for non-normal data.")
+									),
+									
+									column(
+										width = 6,
+										radioButtons(
+											ns("combat_model"),
+											"ComBat Model:",
+											choices = c(
+												"Null Model (~1)" = "null",
+												"Preserve Sample Groups" = "preserve"
+											),
+											selected = "null"
+										),
+										actionLink(
+											ns("show_model_help"),
+											HTML("<i class='fa fa-question-circle'></i> Which model should I use?"),
+											style = "font-size: 12px;"
+										)
+									)
+								)
+							),
+							
+							# Multi-factor options
+							uiOutput(ns("multi_factor_options")),
+							
+							# Batch preview
+							uiOutput(ns("batch_preview")),
+							
+							# Debug button
+							if (debug) {
+								fluidRow(
+									column(
+										width = 12,
+										style = "margin-top: 10px;",
+										actionButton(
+											ns("debug"),
+											"Debug:  mod_combat_correction_selector",
+											icon = icon("bug"),
+											class = "btn-warning btn-sm",
+											style = "width: 100%;"
+										)
+									)
+								)
+							}
+						)
 					)
 				)
 			)
-		),
+		},
 		
 		### Model Help Modal ####
 		bsModal(
@@ -88,7 +144,7 @@ mod_combat_correction_selector_ui <- function(id, debug = FALSE) {
 			hr(),
 			
 			h5(tags$span(style = "color: #2c3e50;", icon("calculator"), " Null Model (~1)")),
-			p(strong("What it does:"), "Removes ALL variation associated with the batch factor. "),
+			p(strong("What it does:"), "Removes ALL variation associated with the batch factor."),
 			p(strong("Mathematical model:"), tags$code("Expression ~ 1 (intercept only)")),
 			
 			tags$ul(
@@ -200,10 +256,10 @@ mod_combat_correction_selector_ui <- function(id, debug = FALSE) {
 
 #' ComBat Correction Selector Module - Server
 #'
-#' @param id Module namespace ID
-#' @param eset Reactive ExpressionSet
-#' @param combined_results Reactive data frame from combined batch analysis
-#' @param debug Enable debug mode
+#' @param id Character. Module namespace ID.
+#' @param eset Reactive ExpressionSet. 
+#' @param combined_results Reactive data frame from combined batch analysis.
+#' @param debug Logical. Enable debug mode (default FALSE).
 #' @export
 mod_combat_correction_selector_server <- function(id,
 																									eset,
@@ -212,17 +268,18 @@ mod_combat_correction_selector_server <- function(id,
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
 		
-		# Debug observer
+		# ✅ Debug observer
 		if (debug) {
 			observeEvent(input$debug, {
-				message("\n═══════════════════════════════════════════════")
-				message("🔍 DEBUG MODE - ComBat Correction Selector Module")
-				message("═══════════════════════════════════════════════")
+				message("🔍 DEBUG MODE - mod_combat_correction_selector")
+				message("  • Selected factors: ", paste(input$batch_factors, collapse = ", "))
+				message("  • Model: ", input$combat_model)
+				message("  • Strategy: ", input$correction_strategy)
 				browser()
 			})
 		}
 		
-		# Identify safe batch factors from combined results
+		# Identify safe batch factors
 		safe_batch_factors <- reactive({
 			if (is.null(combined_results) || ! is.function(combined_results)) {
 				return(character(0))
@@ -239,7 +296,6 @@ mod_combat_correction_selector_server <- function(id,
 				return(character(0))
 			}
 			
-			# Find batch effect p-value column
 			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
 			
 			if (is.na(batch_col_name)) {
@@ -247,7 +303,6 @@ mod_combat_correction_selector_server <- function(id,
 				return(character(0))
 			}
 			
-			# Filter for safe factors
 			safe <- df %>%
 				rename(batch_p = !!sym(batch_col_name)) %>%
 				filter(batch_p < 0.05, Fisher_p_value > 0.05) %>%
@@ -273,44 +328,13 @@ mod_combat_correction_selector_server <- function(id,
 			tagList(
 				selectInput(
 					ns("batch_factors"),
-					"Select Batch Factor(s) to Correct:",
+					"Select Batch Factor(s):",
 					choices = all_columns,
 					selected = default_selection,
-					multiple = TRUE
+					multiple = TRUE,
+					width = "100%"
 				),
-				
-				uiOutput(ns("factor_safety_info")),
-				
-				box(
-					width = 12,
-					collapsible = TRUE,
-					collapsed = TRUE,
-					
-					if (length(safe_factors) > 0) {
-						div(
-							class = "alert alert-success",
-							icon("check-circle"),
-							strong(sprintf(" %d safe batch factor(s) identified and pre-selected", length(safe_factors))),
-							p("These factors have significant batch effects and are NOT confounded with sample groups.")
-						)
-					} else {
-						div(
-							class = "alert alert-info",
-							icon("info-circle"),
-							strong(" No safe batch factors identified"),
-							p("You can still select factors manually, but be cautious of confounding with biological groups.")
-						)
-					},
-					
-					helpText(
-						icon("lightbulb"),
-						strong("Multiple factors: "),
-						"ComBat can correct for multiple batch factors simultaneously.",
-						br(),
-						strong("Order matters:"),
-						"Factors are corrected in the order selected (most important first)."
-					)
-				)
+				helpText("Select one or more batch factors to correct using ComBat")
 			)
 		})
 		
@@ -321,7 +345,16 @@ mod_combat_correction_selector_server <- function(id,
 			selected <- input$batch_factors
 			safe <- safe_batch_factors()
 			
-			if (length(selected) == 0) return(NULL)
+			if (length(selected) == 0) {
+				return(
+					div(
+						class = "alert alert-warning",
+						icon("exclamation-triangle"),
+						strong(" No factors selected"),
+						p("Please select at least one batch factor to proceed.")
+					)
+				)
+			}
 			
 			safe_selected <- intersect(selected, safe)
 			unsafe_selected <- setdiff(selected, safe)
@@ -329,25 +362,36 @@ mod_combat_correction_selector_server <- function(id,
 			tagList(
 				if (length(safe_selected) > 0) {
 					div(
-						style = "background-color: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 10px;",
-						strong(icon("check-circle", class = "text-success"), " Safe factors: "),
+						class = "alert alert-success",
+						icon("check-circle"),
+						strong(sprintf(" %d safe factor(s) selected", length(safe_selected))),
 						tags$ul(
 							lapply(safe_selected, function(x) tags$li(x))
-						)
+						),
+						p(style = "margin-bottom: 0;", "These factors have significant batch effects and are NOT confounded with sample groups.")
 					)
 				},
 				
 				if (length(unsafe_selected) > 0) {
 					div(
-						style = "background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;",
-						strong(icon("exclamation-triangle", class = "text-warning"), " Caution - Unverified factors:"),
+						class = "alert alert-warning",
+						icon("exclamation-triangle"),
+						strong(sprintf(" %d unverified factor(s) selected", length(unsafe_selected))),
 						tags$ul(
 							lapply(unsafe_selected, function(x) tags$li(x))
 						),
-						p(
-							style = "margin-bottom: 0;",
+						p(style = "margin-bottom: 0;", 
 							em("These factors were not identified as 'safe'.  They may be confounded with sample groups or have no significant batch effect.")
 						)
+					)
+				},
+				
+				if (length(safe) == 0 && length(selected) > 0) {
+					div(
+						class = "alert alert-info",
+						icon("info-circle"),
+						strong(" No safe batch factors identified from analysis"),
+						p("You can still proceed, but be cautious of potential confounding with biological groups.")
 					)
 				}
 			)
@@ -364,8 +408,8 @@ mod_combat_correction_selector_server <- function(id,
 			box(
 				title = "Multi-Factor Correction Strategy",
 				width = 12,
-				status = "warning",
-				solidHeader = TRUE,
+				collapsible = TRUE,
+				collapsed = TRUE,
 				
 				radioButtons(
 					ns("correction_strategy"),
@@ -379,13 +423,13 @@ mod_combat_correction_selector_server <- function(id,
 				
 				helpText(
 					icon("info-circle"),
-					strong("Combined: "),
+					strong("Combined:  "),
 					"Creates unique batches for each combination (e.g., Batch1_Date1, Batch1_Date2). More statistically rigorous."
 				),
 				
 				helpText(
 					icon("info-circle"),
-					strong("Sequential: "),
+					strong("Sequential:  "),
 					"Corrects for first factor, then second, etc. Order matters."
 				),
 				
@@ -394,14 +438,14 @@ mod_combat_correction_selector_server <- function(id,
 					ns = ns,
 					helpText(
 						icon("exclamation-triangle"),
-						strong("Note:"),
+						strong("Note: "),
 						"Factors will be corrected in the order shown above."
 					)
 				)
 			)
 		})
 		
-		# Batch preview (keep all your existing preview logic here)
+		# Batch preview
 		output$batch_preview <- renderUI({
 			req(input$batch_factors)
 			req(eset())
@@ -410,8 +454,170 @@ mod_combat_correction_selector_server <- function(id,
 				return(NULL)
 			}
 			
-			# ...  (keep all your existing batch preview rendering code)
-			# This is the same as in your original file
+			# Get strategy (default to combined if not set yet)
+			strategy <- input$correction_strategy
+			if (is.null(strategy)) {
+				strategy <- "combined"
+			}
+			
+			ExpSet <- eset()
+			meta <- Biobase::pData(ExpSet)
+			batch_factors <- input$batch_factors
+			
+			# Validate factors exist
+			missing <- setdiff(batch_factors, colnames(meta))
+			if (length(missing) > 0) {
+				return(
+					box(
+						title = "Batch Preview",
+						width = 12,
+						status = "danger",
+						solidHeader = TRUE,
+						collapsible = TRUE,
+						collapsed = FALSE,
+						
+						div(
+							class = "alert alert-danger",
+							icon("times-circle"),
+							strong(" Error: "),
+							"Batch factors not found in metadata:  ",
+							paste(missing, collapse = ", ")
+						)
+					)
+				)
+			}
+			
+			if (strategy == "combined") {
+				# Combined strategy preview
+				batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+				combined_batch <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+				
+				batch_table <- table(combined_batch)
+				n_combinations <- length(batch_table)
+				batch_sizes <- as.data.frame(batch_table)
+				colnames(batch_sizes) <- c("Batch_Combination", "N_Samples")
+				batch_sizes <- batch_sizes[order(batch_sizes$N_Samples), ]
+				
+				small_batches <- batch_sizes$Batch_Combination[batch_sizes$N_Samples < 3]
+				single_sample_batches <- batch_sizes$Batch_Combination[batch_sizes$N_Samples == 1]
+				
+				if (length(single_sample_batches) > 0) {
+					status <- "danger"
+					icon_symbol <- "times-circle"
+					status_text <- "Critical Issue"
+					status_class <- "alert-danger"
+				} else if (length(small_batches) > 0) {
+					status <- "warning"
+					icon_symbol <- "exclamation-triangle"
+					status_text <- "Warning"
+					status_class <- "alert-warning"
+				} else {
+					status <- "success"
+					icon_symbol <- "check-circle"
+					status_text <- "All Clear"
+					status_class <- "alert-success"
+				}
+				
+				box(
+					title = "Batch Combination Preview",
+					width = 12,
+					collapsible = TRUE,
+					collapsed = FALSE,
+					
+					div(
+						class = paste("alert", status_class),
+						icon(icon_symbol),
+						strong(paste0(" ", status_text)),
+						tags$ul(
+							tags$li(strong("Total unique batch combinations:  "), n_combinations),
+							tags$li(strong("Factors combined: "), paste(batch_factors, collapse = " × ")),
+							tags$li(strong("Sample size range: "), 
+											min(batch_sizes$N_Samples), " - ", max(batch_sizes$N_Samples))
+						)
+					),
+					
+					if (length(single_sample_batches) > 0) {
+						div(
+							class = "alert alert-danger",
+							icon("ban"),
+							strong(" CRITICAL: ", length(single_sample_batches), " batch combination(s) have only 1 sample"),
+							p("ComBat cannot correct batches with only 1 sample. "),
+							p(strong("Recommendation:  "), "Use sequential correction or exclude problematic factors")
+						)
+					},
+					
+					if (length(small_batches) > 0 && length(single_sample_batches) == 0) {
+						div(
+							class = "alert alert-warning",
+							icon("exclamation-triangle"),
+							strong(" Warning: ", length(small_batches), " batch combination(s) have < 3 samples"),
+							p("Small batches may lead to unstable correction. "),
+							p(strong("Recommendation: "), "Proceed with caution or use sequential correction")
+						)
+					},
+					
+					if (status == "success") {
+						div(
+							class = "alert alert-success",
+							icon("check-circle"),
+							strong(" All batch combinations have adequate sample sizes (≥ 3)")
+						)
+					}
+				)
+				
+			} else {
+				# Sequential strategy preview
+				factor_info <- lapply(batch_factors, function(f) {
+					vals <- meta[[f]]
+					batch_sizes <- table(vals)
+					
+					list(
+						factor = f,
+						n_groups = length(unique(vals)),
+						min_size = min(batch_sizes),
+						max_size = max(batch_sizes)
+					)
+				})
+				
+				box(
+					title = "Sequential Correction Preview",
+					width = 12,
+					collapsible = TRUE,
+					collapsed = FALSE,
+					
+					div(
+						class = "alert alert-info",
+						icon("info-circle"),
+						strong(" Sequential correction will process factors in this order:")
+					),
+					
+					lapply(seq_along(factor_info), function(i) {
+						info <- factor_info[[i]]
+						
+						tagList(
+							h5(paste0(i, ". ", info$factor)),
+							tags$ul(
+								tags$li(strong("Number of groups: "), info$n_groups),
+								tags$li(strong("Sample size range: "), info$min_size, " - ", info$max_size)
+							),
+							if (info$min_size == 1) {
+								div(
+									class = "alert alert-danger",
+									icon("ban"),
+									strong(" CRITICAL: This factor has group(s) with only 1 sample")
+								)
+							} else if (info$min_size < 3) {
+								div(
+									class = "alert alert-warning",
+									icon("exclamation-triangle"),
+									strong(" Warning: This factor has group(s) with < 3 samples")
+								)
+							},
+							if (i < length(factor_info)) hr()
+						)
+					})
+				)
+			}
 		})
 		
 		# Return selected values
