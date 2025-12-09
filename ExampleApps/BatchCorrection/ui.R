@@ -36,16 +36,21 @@ ui <- dashboardPage(
 			tabItem(
 				tabName = "combat_tab",
 				fluidRow(
+					column(6,mod_eset_selector_standalone_ui("initial_select",T,T,T,T)),
+					column(6,mod_eset_selector_standalone_ui("vis_input",T,T,T,T)),
+					column(6,
+								 mod_sample_group_selector_ui("sample_group", debug = run_debug)
+					),
+					column(6,
+								 mod_batch_column_selector_ui("column_selector", debug = run_debug)
+					),
+					#column(12,mod_combat_correction_selector_ui("selector", debug = debug)),
+					column(12,
 					tabsetPanel(
 						tabPanel('Batch Analysis',
-										 mod_eset_selector_standalone_ui("initial_select",T,T,T,T),
+										 #mod_eset_selector_standalone_ui("initial_select",T,T,T,T),
 										 
-										 column(6,
-										 			 mod_sample_group_selector_ui("sample_group", debug = run_debug)
-										 ),
-										 column(6,
-										 			 mod_batch_column_selector_ui("column_selector", debug = run_debug)
-										 ),
+								
 										 column(12,
 										 			 mod_batch_combined_analysis_ui("batch_combined", debug = run_debug),
 										 			 mod_batch_testing_ui("batch_testing", debug = run_debug),
@@ -58,18 +63,25 @@ ui <- dashboardPage(
 							
 							mod_combat_correction_ui("combat", debug = run_debug)
 							
-						)
-					)
+						),
+						tabPanel('Visualisation',
+						
+										 	
+										 	
+										 	mod_batch_visualization_ui("batch_viz", debug = run_debug)
+										 	
+										 )
+					))
 				)
 			),
 			## Viz ####
-			tabItem(
-				tabName = "viz_tab",
-				mod_eset_selector_standalone_ui("vis_input",T,T,T,T),
-
-				mod_batch_visualization_ui("batch_viz", debug = run_debug)
-				
-			),
+			# tabItem(
+			# 	tabName = "viz_tab",
+			# 	mod_eset_selector_standalone_ui("vis_input",T,T,T,T),
+			# 
+			# 	mod_batch_visualization_ui("batch_viz", debug = run_debug)
+			# 	
+			# ),
 			## Export ####
 			tabItem(
 				tabName = "export_tab",
