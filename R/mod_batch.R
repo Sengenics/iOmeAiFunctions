@@ -1,3 +1,5 @@
+
+# BATCH COMBINED #####
 #' Combined Batch Analysis Module - UI
 #'
 #' Combined ANOVA batch effects and distribution confounding tests
@@ -478,7 +480,8 @@ mod_batch_combined_analysis_server <- function(id,
 	})
 }
 
-
+#. #####
+# BATCH DISTRIBUTION #####
 #' Batch Distribution Testing Module - UI
 #'
 #' Tests if sample groups are evenly distributed across batch columns
@@ -793,6 +796,9 @@ mod_batch_distribution_test_server <- function(id,
 	})
 }
 
+
+#. ####
+# BATCH TESTING ####
 #' Batch Testing Module - UI
 #'
 #' Run ANOVA tests on selected batch columns
@@ -1057,6 +1063,8 @@ mod_batch_testing_server <- function(id, eset, selected_columns, debug = FALSE) 
 	})
 }
 
+#. ####
+# BATCH VISULAISATION #####
 #' Batch Effect Visualization Module - UI
 #'
 #' Compare batch effects before and after correction using multiple visualization methods

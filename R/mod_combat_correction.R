@@ -249,6 +249,24 @@ mod_combat_correction_selector_ui <- function(id,
 					tags$li("Visualize results with dendrograms and t-SNE to verify correction quality"),
 					tags$li("When in doubt, use 'Preserve Sample Groups' - it's the safer option")
 				)
+			),
+			# ✅ Add custom CSS for color-coded options
+			tags$head(
+				tags$style(HTML("
+				. selectize-dropdown-content . safe-factor {
+					background-color: #d4edda ! important;
+					color: #155724 !important;
+					font-weight: bold;
+				}
+				.selectize-dropdown-content .unsafe-factor {
+					background-color: #fff3cd !important;
+					color: #856404 !important;
+				}
+				.selectize-dropdown-content .unknown-factor {
+					background-color: #f8f9fa !important;
+					color: #6c757d !important;
+				}
+			"))
 			)
 		)
 	)
@@ -278,6 +296,11 @@ mod_combat_correction_selector_server <- function(id,
 				browser()
 			})
 		}
+		
+		# ✅ Analysis status reactive
+		analysis_ready <- reactive({
+			! is.null(eset()) && !is.null(combined_results)
+		})
 		
 		# Identify safe batch factors
 		safe_batch_factors <- reactive({
@@ -312,12 +335,92 @@ mod_combat_correction_selector_server <- function(id,
 			as.character(safe)
 		})
 		
-		# Render batch factor selector
-		output$combat_selector_ui <- renderUI({
-			req(eset())
+		# ✅ Identify unsafe batch factors (confounded)
+		unsafe_batch_factors <- reactive({
+			if (is.null(combined_results) || !is.function(combined_results)) {
+				return(character(0))
+			}
 			
-			all_columns <- colnames(Biobase::pData(eset()))
+			df <- tryCatch({
+				combined_results()
+			}, error = function(e) NULL)
+			
+			if (is.null(df) || nrow(df) == 0) {
+				return(character(0))
+			}
+			
+			batch_col_name <- grep("_p_value$", colnames(df), value = TRUE)[1]
+			
+			if (is.na(batch_col_name)) {
+				return(character(0))
+			}
+			
+			unsafe <- df %>%
+				rename(batch_p = !!sym(batch_col_name)) %>%
+				filter(batch_p < 0.05, Fisher_p_value < 0.05) %>%  # Batch effect AND confounded
+				pull(Batch_Column)
+			
+			as.character(unsafe)
+		})
+		
+		# ✅ Render batch factor selector with loading state and color coding
+		output$combat_selector_ui <- renderUI({
+			
+			# ✅ Check 1: Is eset available?
+			if (is.null(eset())) {
+				return(
+					tagList(
+						div(
+							style = "padding: 10px 15px; text-align: center; background-color: #f8f9fa; border: 1px dashed #dee2e6; border-radius: 4px;",
+							icon("database", style = "color: #adb5bd; margin-right: 8px;"),
+							tags$span(style = "color: #6c757d;", "Waiting for data...")
+						)
+					)
+				)
+			}
+			
+			# ✅ Check 2: Is batch analysis running/pending?
+			if (is.null(combined_results) || is.function(combined_results)) {
+				# Try to get results
+				results <- tryCatch({
+					combined_results()
+				}, error = function(e) NULL)
+				
+				# If no results yet, show analyzing
+				if (is.null(results) || nrow(results) == 0) {
+					return(
+						tagList(
+							div(
+								style = "padding: 10px 15px; text-align: center; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px;",
+								icon("spinner", class = "fa-spin", style = "color: #337ab7; margin-right: 8px;"),
+								tags$span(style = "color: #004085;", "Analyzing batch factors...")
+							)
+						)
+					)
+				}
+			}
+			
+			# ✅ Check 3: Get metadata columns
+			all_columns <- tryCatch({
+				colnames(Biobase::pData(eset()))
+			}, error = function(e) {
+				character(0)
+			})
+			
+			if (length(all_columns) == 0) {
+				return(
+					div(
+						class = "alert alert-warning",
+						icon("exclamation-triangle"),
+						strong(" No metadata columns available"),
+						p("Cannot identify batch factors without sample metadata.")
+					)
+				)
+			}
+			
+			# ✅ Now we have data - get factor categorizations
 			safe_factors <- safe_batch_factors()
+			unsafe_factors <- unsafe_batch_factors()
 			
 			default_selection <- if (length(safe_factors) > 0) {
 				safe_factors
@@ -325,18 +428,320 @@ mod_combat_correction_selector_server <- function(id,
 				NULL
 			}
 			
+			# ✅ Categorize factors
+			safe_list <- intersect(all_columns, safe_factors)
+			unsafe_list <- intersect(all_columns, unsafe_factors)
+			unknown_list <- setdiff(all_columns, c(safe_list, unsafe_list))
+			
+			# ✅ Build choice list dynamically (only include non-empty groups)
+			choice_groups <- list()
+			
+			if (length(safe_list) > 0) {
+				choice_groups[["✓ Safe Factors (Recommended)"]] <- setNames(
+					safe_list,
+					paste0("✓ ", safe_list)
+				)
+			}
+			
+			if (length(unsafe_list) > 0) {
+				choice_groups[["⚠ Confounded Factors (Caution)"]] <- setNames(
+					unsafe_list,
+					paste0("⚠ ", unsafe_list)
+				)
+			}
+			
+			if (length(unknown_list) > 0) {
+				choice_groups[["○ Other Factors"]] <- setNames(
+					unknown_list,
+					paste0("○ ", unknown_list)
+				)
+			}
+			
+			# ✅ Fallback:  if no groups created, use plain list
+			if (length(choice_groups) == 0) {
+				choice_groups <- setNames(all_columns, all_columns)
+			}
+			
+			# ✅ SUCCESS - Render the selector
 			tagList(
-				selectInput(
+				# Selector input
+				shinyWidgets::pickerInput(
 					ns("batch_factors"),
 					"Select Batch Factor(s):",
-					choices = all_columns,
+					choices = choice_groups,
 					selected = default_selection,
 					multiple = TRUE,
+					options = pickerOptions(
+						actionsBox = TRUE,
+						selectedTextFormat = "count > 2",
+						liveSearch = TRUE,
+						style = "btn-default",
+						title = "Choose batch factors..."
+					),
 					width = "100%"
 				),
+				
+				# ✅ Status indicator bar
+				tags$div(
+					style = "margin-top: 5px;",
+					if (length(safe_factors) > 0) {
+						div(
+							style = "padding:  8px 12px; background-color: #d4edda; border-left: 4px solid #28a745; border-radius: 4px;",
+							icon("check-circle", style = "color: #28a745;"),
+							tags$span(
+								strong(sprintf("%d safe factor(s) available", length(safe_factors))),
+								style = "color: #155724; margin-left: 8px;"
+							)
+						)
+					} else if (length(unsafe_factors) > 0) {
+						div(
+							style = "padding: 8px 12px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;",
+							icon("exclamation-triangle", style = "color:  #ffc107;"),
+							tags$span(
+								strong("No safe factors identified"),
+								style = "color:  #856404; margin-left: 8px;"
+							),
+							tags$small(
+								" (confounded factors available)",
+								style = "color: #856404; margin-left: 5px;"
+							)
+						)
+					} else {
+						div(
+							style = "padding:  8px 12px; background-color: #d1ecf1; border-left:  4px solid #17a2b8; border-radius: 4px;",
+							icon("info-circle", style = "color:  #17a2b8;"),
+							tags$span(
+								strong("Analysis complete - no categorized factors"),
+								style = "color: #0c5460; margin-left: 8px;"
+							)
+						)
+					}
+				),
+				
+				# Help text
 				helpText("Select one or more batch factors to correct using ComBat")
 			)
 		})
+		
+		# ✅ Render batch factor selector with loading state and color coding
+		# output$combat_selector_ui <- renderUI({
+		# 	# Check if data is ready
+		# 	if (!analysis_ready()) {
+		# 		return(
+		# 			tagList(
+		# 				div(
+		# 					style = "padding: 20px; text-align: center; background-color: #f8f9fa; border-radius: 4px;",
+		# 					icon("spinner", class = "fa-spin fa-2x", style = "color: #337ab7;"),
+		# 					h4(style = "margin-top: 15px; color: #6c757d;", "Analyzing batch factors..."),
+		# 					p("Please wait while batch effect analysis completes.")
+		# 				)
+		# 			)
+		# 		)
+		# 	}
+		# 	
+		# 	req(eset())
+		# 	
+		# 	all_columns <- colnames(Biobase::pData(eset()))
+		# 	safe_factors <- safe_batch_factors()
+		# 	unsafe_factors <- unsafe_batch_factors()
+		# 	
+		# 	# If no columns available
+		# 	if (length(all_columns) == 0) {
+		# 		return(
+		# 			div(
+		# 				class = "alert alert-warning",
+		# 				icon("exclamation-triangle"),
+		# 				strong(" No metadata columns available"),
+		# 				p("Cannot identify batch factors without sample metadata.")
+		# 			)
+		# 		)
+		# 	}
+		# 	
+		# 	default_selection <- if (length(safe_factors) > 0) {
+		# 		safe_factors
+		# 	} else {
+		# 		NULL
+		# 	}
+		# 	
+		# 	# ✅ Categorize factors
+		# 	safe_list <- intersect(all_columns, safe_factors)
+		# 	unsafe_list <- intersect(all_columns, unsafe_factors)
+		# 	unknown_list <- setdiff(all_columns, c(safe_list, unsafe_list))
+		# 	
+		# 	# ✅ Build choice list dynamically (only include non-empty groups)
+		# 	choice_groups <- list()
+		# 	
+		# 	if (length(safe_list) > 0) {
+		# 		choice_groups[["✓ Safe Factors (Recommended)"]] <- setNames(
+		# 			safe_list,
+		# 			paste0("✓ ", safe_list)
+		# 		)
+		# 	}
+		# 	
+		# 	if (length(unsafe_list) > 0) {
+		# 		choice_groups[["⚠ Confounded Factors (Caution)"]] <- setNames(
+		# 			unsafe_list,
+		# 			paste0("⚠ ", unsafe_list)
+		# 		)
+		# 	}
+		# 	
+		# 	if (length(unknown_list) > 0) {
+		# 		choice_groups[["○ Other Factors"]] <- setNames(
+		# 			unknown_list,
+		# 			paste0("○ ", unknown_list)
+		# 		)
+		# 	}
+		# 	
+		# 	# ✅ Fallback:  if no groups created, use plain list
+		# 	if (length(choice_groups) == 0) {
+		# 		choice_groups <- setNames(all_columns, all_columns)
+		# 	}
+		# 	
+		# 	tagList(
+		# 		# ✅ Use shinyWidgets:: pickerInput for better styling
+		# 		shinyWidgets::pickerInput(
+		# 			ns("batch_factors"),
+		# 			"Select Batch Factor(s):",
+		# 			choices = choice_groups,
+		# 			selected = default_selection,
+		# 			multiple = TRUE,
+		# 			options = pickerOptions(
+		# 				actionsBox = TRUE,
+		# 				selectedTextFormat = "count > 2",
+		# 				liveSearch = TRUE,
+		# 				style = "btn-default",
+		# 				title = "Choose batch factors..."
+		# 			),
+		# 			width = "100%"
+		# 		),
+		# 		
+		# 		# ✅ Status indicator
+		# 		if (length(safe_factors) > 0) {
+		# 			div(
+		# 				style = "margin-top: 5px; padding: 5px 10px; background-color: #d4edda; border-left: 3px solid #28a745; border-radius: 3px;",
+		# 				icon("check-circle", style = "color: #28a745;"),
+		# 				strong(sprintf(" %d safe factor(s) available", length(safe_factors)), style = "color: #155724; margin-left: 5px;")
+		# 			)
+		# 		} else if (length(unsafe_factors) > 0) {
+		# 			div(
+		# 				style = "margin-top:  5px; padding: 5px 10px; background-color: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px;",
+		# 				icon("exclamation-triangle", style = "color: #ffc107;"),
+		# 				strong(" No safe factors identified (confounded factors available)", style = "color: #856404; margin-left: 5px;")
+		# 			)
+		# 		} else {
+		# 			div(
+		# 				style = "margin-top:  5px; padding: 5px 10px; background-color: #d1ecf1; border-left:  3px solid #17a2b8; border-radius: 3px;",
+		# 				icon("info-circle", style = "color: #17a2b8;"),
+		# 				strong(" Batch analysis not yet completed", style = "color: #0c5460; margin-left: 5px;")
+		# 			)
+		# 		},
+		# 		
+		# 		helpText("Select one or more batch factors to correct using ComBat")
+		# 	)
+		# })
+		
+		# ✅ Render batch factor selector with loading state and color coding
+		# output$combat_selector_ui <- renderUI({
+		# 	# Check if data is ready
+		# 	if (!analysis_ready()) {
+		# 		return(
+		# 			tagList(
+		# 				div(
+		# 					style = "padding: 20px; text-align: center; background-color: #f8f9fa; border-radius: 4px;",
+		# 					icon("spinner", class = "fa-spin fa-2x", style = "color: #337ab7;"),
+		# 					h4(style = "margin-top: 15px; color: #6c757d;", "Analyzing batch factors..."),
+		# 					p("Please wait while batch effect analysis completes.")
+		# 				)
+		# 			)
+		# 		)
+		# 	}
+		# 	
+		# 	req(eset())
+		# 	
+		# 	all_columns <- colnames(Biobase::pData(eset()))
+		# 	safe_factors <- safe_batch_factors()
+		# 	unsafe_factors <- unsafe_batch_factors()
+		# 	
+		# 	default_selection <- if (length(safe_factors) > 0) {
+		# 		safe_factors
+		# 	} else {
+		# 		NULL
+		# 	}
+		# 	
+		# 	# ✅ Create color-coded choice list
+		# 	choice_list <- setNames(all_columns, all_columns)
+		# 	
+		# 	# Build optgroup structure for color coding
+		# 	safe_list <- intersect(all_columns, safe_factors)
+		# 	unsafe_list <- intersect(all_columns, unsafe_factors)
+		# 	unknown_list <- setdiff(all_columns, c(safe_list, unsafe_list))
+		# 	
+		# 	tagList(
+		# 		# ✅ Use shinyWidgets:: pickerInput for better styling
+		# 		shinyWidgets::pickerInput(
+		# 			ns("batch_factors"),
+		# 			"Select Batch Factor(s):",
+		# 			choices = list(
+		# 				"✓ Safe Factors (Recommended)" = setNames(safe_list, paste0("✓ ", safe_list)),
+		# 				"⚠ Confounded Factors (Caution)" = setNames(unsafe_list, paste0("⚠ ", unsafe_list)),
+		# 				"○ Other Factors" = setNames(unknown_list, paste0("○ ", unknown_list))
+		# 			),
+		# 			selected = default_selection,
+		# 			multiple = TRUE,
+		# 			options = pickerOptions(
+		# 				actionsBox = TRUE,
+		# 				selectedTextFormat = "count > 2",
+		# 				liveSearch = TRUE,
+		# 				style = "btn-default",
+		# 				title = "Choose batch factors..."
+		# 			),
+		# 			width = "100%"
+		# 		),
+		# 		
+		# 		# ✅ Status indicator
+		# 		if (length(safe_factors) > 0) {
+		# 			div(
+		# 				style = "margin-top: 5px; padding: 5px 10px; background-color: #d4edda; border-left: 3px solid #28a745; border-radius: 3px;",
+		# 				icon("check-circle", style = "color: #28a745;"),
+		# 				strong(sprintf(" %d safe factor(s) available", length(safe_factors)), style = "color: #155724; margin-left: 5px;")
+		# 			)
+		# 		} else {
+		# 			div(
+		# 				style = "margin-top:  5px; padding: 5px 10px; background-color: #fff3cd; border-left: 3px solid #ffc107; border-radius: 3px;",
+		# 				icon("exclamation-triangle", style = "color: #ffc107;"),
+		# 				strong(" No safe factors identified", style = "color: #856404; margin-left: 5px;")
+		# 			)
+		# 		},
+		# 		
+		# 		helpText("Select one or more batch factors to correct using ComBat")
+		# 	)
+		# })
+		
+		# Render batch factor selector
+		# output$combat_selector_ui <- renderUI({
+		# 	req(eset())
+		# 	
+		# 	all_columns <- colnames(Biobase::pData(eset()))
+		# 	safe_factors <- safe_batch_factors()
+		# 	
+		# 	default_selection <- if (length(safe_factors) > 0) {
+		# 		safe_factors
+		# 	} else {
+		# 		NULL
+		# 	}
+		# 	
+		# 	tagList(
+		# 		selectInput(
+		# 			ns("batch_factors"),
+		# 			"Select Batch Factor(s):",
+		# 			choices = all_columns,
+		# 			selected = default_selection,
+		# 			multiple = TRUE,
+		# 			width = "100%"
+		# 		),
+		# 		helpText("Select one or more batch factors to correct using ComBat")
+		# 	)
+		# })
 		
 		# Factor safety information
 		output$factor_safety_info <- renderUI({

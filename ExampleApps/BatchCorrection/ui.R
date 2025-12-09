@@ -43,7 +43,8 @@ ui <- dashboardPage(
 								 )
 					),
 								 #mod_eset_selector_standalone_ui("vis_input",T,T,T,T)),
-					column(12,column(6,
+					column(12,
+						column(4,
 								 #mod_sample_group_selector_ui("sample_group", debug = run_debug)
 								 mod_column_selector_ui(
 								 	"sample_group",
@@ -53,7 +54,7 @@ ui <- dashboardPage(
 								 	debug = run_debug
 								 )
 					),
-					column(6,
+					column(4,
 								 #mod_batch_column_selector_ui("column_selector", debug = run_debug)
 								 mod_column_selector_ui(
 								 	"batch_columns",
@@ -62,9 +63,11 @@ ui <- dashboardPage(
 								 	show_info = TRUE,
 								 	debug = TRUE
 								 )
-					)),
-					column(12,mod_combat_correction_selector_ui("combat_selector", debug = run_debug)
-								 ),
+					),
+					column(4,
+								 mod_combat_correction_selector_ui("combat_selector", debug = run_debug)
+								 )
+					),
 					#column(12,mod_combat_correction_selector_ui("selector", debug = debug)),
 					column(12,
 					tabsetPanel(
