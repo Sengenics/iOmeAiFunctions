@@ -6,6 +6,7 @@
 #' @param strategy Character, either "combined" (default) or "sequential"
 #' @param combat_model Character, either "null" or "preserve"
 #' @param par_prior Logical, use parametric priors (default TRUE)
+#' @param assay_suffix Character, suffix to append to assay name (default "_ComBat")
 #' @param debug Logical, print debug messages (default FALSE)
 #'
 #' @return A corrected ExpressionSet with batch effects removed
@@ -29,6 +30,7 @@ run_combat_correction <- function(eset,
 																	strategy = "combined",
 																	combat_model = "null",
 																	par_prior = TRUE,
+																	assay_suffix = "_ComBat",
 																	debug = FALSE) {
 	
 	# Validate inputs
@@ -60,6 +62,7 @@ run_combat_correction <- function(eset,
 	# Extract data
 	expr_data <- Biobase::exprs(eset)
 	meta <- Biobase::pData(eset)
+	meta[is.na(meta)] = 'NA' # This is a patch that needs to move higher up in the eset formation
 	
 	# Validate batch factors exist
 	missing_factors <- setdiff(batch_factors, colnames(meta))
@@ -173,14 +176,22 @@ run_combat_correction <- function(eset,
 	}
 	
 	# Create new assay name
-	combat_assay_name <- paste0(current_assay, "_ComBat")
+	#combat_assay_name <- paste0(current_assay, "_ComBat")
+	# Create new assay name
+	combat_assay_name <- paste0(current_assay, assay_suffix)
 	
 	if (isTRUE(debug)) {
 		message("📊 Creating new assay: ", combat_assay_name)
 	}
 	
 	# Add corrected data as new assay element
-	Biobase::assayData(corrected_eset)[[combat_assay_name]] <- corrected_data
+	#Biobase::assayData(corrected_eset)[[combat_assay_name]] <- corrected_data
+	corrected_eset <- Biobase::assayDataElementReplace(
+		corrected_eset, 
+		combat_assay_name, 
+		corrected_data,
+		validate = FALSE
+	)
 	
 	# Update pData with ComBat column
 	Biobase::pData(corrected_eset) <- meta
