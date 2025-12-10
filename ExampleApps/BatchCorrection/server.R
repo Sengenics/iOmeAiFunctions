@@ -287,6 +287,28 @@ server <- function(input, output, session) {
 	# 	debug = run_debug
 	# )
 	
+	# MULTI ####
+	
+	mod_combat_multi_assay_server(
+		id = "combat_multi",
+		ExpSet_list = ExpSet_list,
+		update_ExpSet_list = update_ExpSet_list,
+		combat_settings = reactive({
+			list(
+				batch_factors = selector$batch_factors(),
+				combat_model = selector$combat_model(),
+				sample_group = sample_group_column(),
+				par_prior = selector$par_prior(),
+				strategy = if (length(selector$batch_factors()) > 1 && ! is.null(selector$correction_strategy())) {
+					selector$correction_strategy()
+				} else {
+					"combined"
+				}
+			)
+		}),
+		debug = debug
+	)
+	
 	# Export ####
 
 	# Export module uses the combined reactive

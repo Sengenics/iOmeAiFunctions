@@ -93,7 +93,7 @@ ui <- dashboardPage(
 						# ),
 						tabPanel('Visualisation',
 						
-										 	
+										  
 										 	
 										 	mod_batch_visualization_ui("batch_viz", debug = run_debug)
 										 	
@@ -112,6 +112,7 @@ ui <- dashboardPage(
 			## Export ####
 			tabItem(
 				tabName = "export_tab",
+				mod_combat_multi_assay_ui("combat_multi"),
 				mod_expset_export_ui("expset_export")
 			)
 		)

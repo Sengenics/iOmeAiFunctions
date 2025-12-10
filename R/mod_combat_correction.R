@@ -1935,4 +1935,413 @@ mod_combat_single_server <- function(id,
 	})
 }
 
+#. #####
+# COMBAT MULTI #####
+#' Multi-Assay Batch Correction UI
+#'
+#' @param id Module ID
+#' @export
+mod_combat_multi_assay_ui <- function(id) {
+	ns <- NS(id)
+	
+	tagList(
+		fluidRow(
+			box(
+				title = "Batch Correction for Multiple Assays",
+				width = 12,
+				status = "info",
+				solidHeader = TRUE,
+				collapsible = TRUE,
+				collapsed = FALSE,
+				
+				p("Apply the selected batch correction settings to multiple assays at once."),
+				p(strong("Note: "), " This will use the current ComBat settings from the Batch Correction tab."),
+				
+				fluidRow(
+					column(
+						width = 6,
+						shinyWidgets::pickerInput(
+							ns("target_assays"),
+							"Target Assays:",
+							choices = NULL,
+							selected = NULL,
+							multiple = TRUE,
+							options = shinyWidgets::pickerOptions(
+								actionsBox = TRUE,
+								selectedTextFormat = "count > 2",
+								liveSearch = TRUE,
+								title = "Select one or more assays to correct"
+							)
+						),
+						helpText("Select which assays to apply batch correction to.")
+					),
+					column(
+						width = 6,
+						textInput(
+							ns("combat_assay_suffix"),
+							"Corrected Assay Suffix:",
+							value = "_ComBat",
+							placeholder = "_ComBat"
+						),
+						helpText("Corrected assays will be added with this suffix")
+					)
+				),
+				
+				hr(),
+				
+				fluidRow(
+					column(
+						width = 6,
+						h5(icon("list"), " Selected Assays:"),
+						htmlOutput(ns("target_assays_text"))
+					),
+					column(
+						width = 6,
+						h5(icon("magic"), " Will Create:"),
+						htmlOutput(ns("target_assays_combat_text"))
+					)
+				),
+				
+				hr(),
+				
+				actionButton(
+					ns("apply_multi_batch_correction"),
+					"Apply Batch Correction to All Selected Assays",
+					icon = icon("play-circle"),
+					class = "btn-success btn-lg",
+					style = "width: 100%;"
+				),
+				
+				br(), br(),
+				
+				uiOutput(ns("multi_correction_status")),
+				
+				br(),
+				
+				uiOutput(ns("correction_log"))
+			)
+		)
+	)
+}
 
+#' Multi-Assay Batch Correction Server
+#'
+#' @param id Module ID
+#' @param ExpSet_list Reactive containing list of ExpressionSets
+#' @param update_ExpSet_list Function to update the ExpSet_list
+#' @param combat_settings Reactive list with combat settings (batch_factors, combat_model, par_prior, strategy, sample_group)
+#' @param debug Logical, enable debug mode
+#' @export
+mod_combat_multi_assay_server <- function(id,
+																					ExpSet_list,
+																					update_ExpSet_list,
+																					combat_settings,
+																					debug = FALSE) {
+	moduleServer(id, function(input, output, session) {
+		ns <- session$ns
+		
+		# Reactive values for tracking
+		correction_log_data <- reactiveVal(NULL)
+		
+		# Update assay choices when ExpSet_list changes
+		observe({
+			req(ExpSet_list())
+			choices <- get_expset_assay_names(ExpSet_list())
+			shinyWidgets::updatePickerInput(session, "target_assays", 
+																			choices = choices, 
+																			selected = c('clinical_loess_normalised',
+																									 'clinical_loess_normalised_PN',
+																									 'sample_loess_normalised'))
+		})
+		
+		# Display selected assays
+		output$target_assays_text <- renderText({
+			req(input$target_assays)
+			if (length(input$target_assays) == 0) {
+				return("<em>No assays selected</em>")
+			}
+			paste(input$target_assays, collapse = "<br>")
+		})
+		
+		# Display corrected assay names
+		output$target_assays_combat_text <- renderText({
+			req(input$target_assays)
+			req(input$combat_assay_suffix)
+			if (length(input$target_assays) == 0) {
+				return("<em>No assays selected</em>")
+			}
+			paste(paste0(input$target_assays, input$combat_assay_suffix), collapse = "<br>")
+		})
+		
+		# Status display
+		output$multi_correction_status <- renderUI({
+			req(correction_log_data())
+			
+			log <- correction_log_data()
+			
+			if (log$corrected_count == 0) {
+				div(
+					class = "alert alert-danger",
+					icon("times-circle"),
+					strong(" No assays were corrected"),
+					if (length(log$failed_assays) > 0) {
+						tagList(
+							p("Failed assays:"),
+							tags$ul(
+								lapply(log$failed_assays, function(x) tags$li(x))
+							)
+						)
+					}
+				)
+			} else if (length(log$failed_assays) > 0) {
+				div(
+					class = "alert alert-warning",
+					icon("exclamation-triangle"),
+					strong(sprintf(" Partially completed:  %d/%d assays corrected", 
+												 log$corrected_count, log$total_count)),
+					tags$ul(
+						tags$li("Suffix: ", tags$code(log$suffix)),
+						tags$li("Strategy: ", tags$code(log$strategy)),
+						tags$li("Batch factors: ", tags$code(paste(log$batch_factors, collapse = " × "))),
+						tags$li("Updated ExpressionSets: ", log$updated_expsets_count)
+					),
+					p(strong("Failed assays:")),
+					tags$ul(
+						lapply(log$failed_assays, function(x) tags$li(x))
+					)
+				)
+			} else {
+				div(
+					class = "alert alert-success",
+					icon("check-circle"),
+					strong(sprintf(" Success!  %d/%d assays corrected", 
+												 log$corrected_count, log$total_count)),
+					tags$ul(
+						tags$li("Suffix: ", tags$code(log$suffix)),
+						tags$li("Strategy: ", tags$code(log$strategy)),
+						tags$li("Batch factors:  ", tags$code(paste(log$batch_factors, collapse = " × "))),
+						tags$li("Updated ExpressionSets:  ", log$updated_expsets_count)
+					)
+				)
+			}
+		})
+		
+		# Detailed correction log
+		output$correction_log <- renderUI({
+			req(correction_log_data())
+			
+			log <- correction_log_data()
+			
+			if (length(log$details) == 0) return(NULL)
+			
+			box(
+				title = "Correction Log",
+				width = 12,
+				status = "primary",
+				solidHeader = FALSE,
+				collapsible = TRUE,
+				collapsed = TRUE,
+				
+				tags$pre(
+					style = "max-height: 400px; overflow-y: auto; background-color: #f5f5f5; padding: 10px;",
+					paste(log$details, collapse = "\n")
+				)
+			)
+		})
+		
+		# Main batch correction logic
+		observeEvent(input$apply_multi_batch_correction, {
+			req(input$target_assays)
+			req(input$combat_assay_suffix)
+			req(ExpSet_list())
+			req(combat_settings())
+			
+			showNotification(
+				"Starting batch correction for multiple assays...",
+				type = "message",
+				duration = NULL,
+				id = "batch_multi_progress"
+			)
+			
+			tryCatch({
+				expset_list <- ExpSet_list()
+				settings <- combat_settings()
+				
+				# Extract settings
+				batch_factors <- settings$batch_factors
+				combat_model <- settings$combat_model
+				sample_group <- settings$sample_group
+				par_prior <- settings$par_prior
+				strategy <- settings$strategy
+				suffix <- input$combat_assay_suffix
+				
+				# Validation
+				if (is.null(batch_factors) || length(batch_factors) == 0) {
+					stop("No batch factors selected.  Please configure batch correction settings first.")
+				}
+				
+				# Track results
+				corrected_count <- 0
+				failed_assays <- character()
+				updated_expsets <- list()
+				log_details <- character()
+				
+				# Process each target assay
+				for (i in seq_along(input$target_assays)) {
+					assay_full_name <- input$target_assays[i]
+					
+					log_details <- c(log_details, "========================================")
+					log_details <- c(log_details, sprintf("Processing %d/%d:  %s", i, length(input$target_assays), assay_full_name))
+					
+					showNotification(
+						sprintf("Processing %d/%d: %s", i, length(input$target_assays), assay_full_name),
+						type = "message",
+						duration = 2,
+						id = "current_assay"
+					)
+					
+					# Parse assay name
+					expset_name <- get_ExpSet_name(assay_full_name, ExpSet_list())
+					assay_name <- assay_full_name
+					
+					# Validate ExpressionSet exists
+					if (! expset_name %in% names(expset_list)) {
+						msg <- paste0(assay_full_name, " (ExpSet not found)")
+						failed_assays <- c(failed_assays, msg)
+						log_details <- c(log_details, paste("  ❌ FAILED:", msg))
+						next
+					}
+					
+					ExpSet <- expset_list[[expset_name]]
+					
+					# Validate assay exists
+					if (!assay_name %in% Biobase::assayDataElementNames(ExpSet)) {
+						msg <- paste0(assay_full_name, " (assay not found)")
+						failed_assays <- c(failed_assays, msg)
+						log_details <- c(log_details, paste("  ❌ FAILED:", msg))
+						next
+					}
+					
+					# Create a temporary ExpressionSet with the target assay as exprs
+					temp_ExpSet <- ExpSet
+					Biobase::exprs(temp_ExpSet) <- Biobase::assayDataElement(ExpSet, assay_name)
+					
+					# Add note about which assay we're correcting
+					notes <- Biobase::notes(temp_ExpSet)
+					notes$current_assay <- assay_name
+					Biobase::notes(temp_ExpSet) <- notes
+					
+					# ✅ Call the standalone run_combat_correction function
+					corrected_ExpSet <- tryCatch({
+						run_combat_correction(
+							eset = temp_ExpSet,
+							batch_factors = batch_factors,
+							sample_group = sample_group,
+							strategy = strategy,
+							combat_model = combat_model,
+							par_prior = par_prior,
+							assay_suffix = suffix,
+							debug = debug
+						)
+					}, error = function(e) {
+						msg <- paste0(assay_full_name, " (", e$message, ")")
+						failed_assays <<- c(failed_assays, msg)
+						log_details <<- c(log_details, paste("  ❌ FAILED:", msg))
+						return(NULL)
+					})
+					
+					if (is.null(corrected_ExpSet)) {
+						next
+					}
+					
+					# ✅ Extract the corrected assay and add it to the original ExpressionSet
+					corrected_assay_name <- paste0(assay_name, suffix)
+					
+					# Get the corrected data from the corrected ExpressionSet
+					all_assays <- Biobase::assayDataElementNames(corrected_ExpSet)
+					if (corrected_assay_name %in% all_assays) {
+						corrected_data <- Biobase::assayDataElement(corrected_ExpSet, corrected_assay_name)
+					} else {
+						# Fallback:  use exprs if the expected name isn't found
+						corrected_data <- Biobase::exprs(corrected_ExpSet)
+					}
+					
+					# Add corrected assay to original ExpressionSet
+					ExpSet <- Biobase::assayDataElementReplace(
+						ExpSet,
+						corrected_assay_name,
+						corrected_data,
+						validate = FALSE
+					)
+					
+					# ✅ Update metadata with ComBat column (only once per ExpressionSet)
+					if (! expset_name %in% names(updated_expsets)) {
+						updated_meta <- Biobase::pData(corrected_ExpSet)
+						if ("ComBat" %in% colnames(updated_meta)) {
+							Biobase::pData(ExpSet) <- updated_meta
+							log_details <- c(log_details, paste("  ✅ Added ComBat column to", expset_name))
+						}
+					}
+					
+					# Store updated ExpressionSet
+					expset_list[[expset_name]] <- ExpSet
+					updated_expsets[[expset_name]] <- TRUE
+					
+					log_details <- c(log_details, paste("  ✅ Created:", corrected_assay_name))
+					corrected_count <- corrected_count + 1
+				}
+				
+				# ✅ Update ExpSet_list
+				if (is.function(update_ExpSet_list)) {
+					update_ExpSet_list(expset_list)
+					log_details <- c(log_details, "✅ Updated ExpSet_list")
+				}
+				
+				# Update correction log
+				correction_log_data(list(
+					corrected_count = corrected_count,
+					total_count = length(input$target_assays),
+					failed_assays = failed_assays,
+					suffix = suffix,
+					strategy = strategy,
+					batch_factors = batch_factors,
+					updated_expsets_count = length(updated_expsets),
+					details = log_details
+				))
+				
+				removeNotification("batch_multi_progress")
+				removeNotification("current_assay")
+				
+				# Show final notification
+				if (corrected_count > 0) {
+					showNotification(
+						sprintf("✅ Corrected %d/%d assays", corrected_count, length(input$target_assays)),
+						type = "message",
+						duration = 10
+					)
+				} else {
+					showNotification(
+						"❌ No assays were corrected.  Check the log for details.",
+						type = "error",
+						duration = 10
+					)
+				}
+				
+				# Update the assay selector to show new assays
+				choices <- get_expset_assay_names(expset_list)
+				shinyWidgets::updatePickerInput(session, "target_assays", choices = choices)
+				
+			}, error = function(e) {
+				removeNotification("batch_multi_progress")
+				removeNotification("current_assay")
+				showNotification(
+					paste("❌ Batch correction failed:", e$message),
+					type = "error",
+					duration = 20
+				)
+				message("Batch correction error: ", e$message)
+				print(traceback())
+			})
+		})
+	})
+}
