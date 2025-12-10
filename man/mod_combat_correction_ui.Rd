@@ -4,7 +4,7 @@
 \alias{mod_combat_correction_ui}
 \title{ComBat Batch Correction Module - UI}
 \usage{
-mod_combat_correction_ui(id, debug = FALSE)
+mod_combat_correction_ui(id, show_auto_run_toggle = TRUE, debug = FALSE)
 }
 \arguments{
 \item{id}{Module namespace ID}

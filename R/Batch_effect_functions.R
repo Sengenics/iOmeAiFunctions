@@ -77,7 +77,7 @@ run_combat_correction <- function(eset,
 		modcombat <- model.matrix(~1, data = meta)
 		model_description <- "Null model (~1)"
 	} else {
-		modcombat <- model. matrix(~ as.factor(meta[[sample_group]]))
+		modcombat <- model.matrix(~ as.factor(meta[[sample_group]]))
 		model_description <- paste0("Preserve model (~", sample_group, ")")
 	}
 	
@@ -111,7 +111,7 @@ run_combat_correction <- function(eset,
 				dat = corrected_data,
 				batch = batch,
 				mod = modcombat,
-				par. prior = par_prior
+				par.prior = par_prior
 			)
 			
 			correction_log$corrections[[batch_factor]] <- list(order = i)
@@ -158,8 +158,31 @@ run_combat_correction <- function(eset,
 	}
 	
 	# Create corrected ExpressionSet
+	# corrected_eset <- eset
+	# Biobase::exprs(corrected_eset) <- corrected_data
+	# Biobase::pData(corrected_eset) <- meta
+	
+	# ✅ Add corrected data as new assay (don't overwrite original)
 	corrected_eset <- eset
-	Biobase::exprs(corrected_eset) <- corrected_data
+	
+	# Get the current assay name (default to "exprs" if not stored)
+	current_assay <- if (! is.null(Biobase::notes(eset)$current_assay)) {
+		Biobase::notes(eset)$current_assay
+	} else {
+		"exprs"
+	}
+	
+	# Create new assay name
+	combat_assay_name <- paste0(current_assay, "_ComBat")
+	
+	if (isTRUE(debug)) {
+		message("📊 Creating new assay: ", combat_assay_name)
+	}
+	
+	# Add corrected data as new assay element
+	Biobase::assayData(corrected_eset)[[combat_assay_name]] <- corrected_data
+	
+	# Update pData with ComBat column
 	Biobase::pData(corrected_eset) <- meta
 	
 	# Add notes
@@ -167,8 +190,11 @@ run_combat_correction <- function(eset,
 	notes$combat_correction <- c(correction_log, list(
 		sample_group_preserved = if (combat_model == "preserve") sample_group else NA,
 		par_prior = par_prior,
-		correction_date = Sys.time()
+		correction_date = Sys.time(),
+		original_assay = current_assay,  # ✅ Track which assay was corrected
+		corrected_assay = combat_assay_name  # ✅ Track new assay name
 	))
+	notes$current_assay <- combat_assay_name
 	Biobase::notes(corrected_eset) <- notes
 	
 	if (isTRUE(debug)) {

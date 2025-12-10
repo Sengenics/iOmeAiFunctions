@@ -9,8 +9,9 @@ permanova_function(
   meta,
   col_name,
   method = "euclidean",
-  permutations = 999,
-  by = "margin"
+  permutations = 199,
+  by = "margin",
+  use_parallel = TRUE
 )
 }
 \arguments{
