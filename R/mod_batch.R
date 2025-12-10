@@ -1510,64 +1510,100 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 	
 	tagList(
 		
+		# Advanced Settings Box (Collapsed by default)
 		fluidRow(
 			box(
-				title = "Batch Effect Visualization Settings",
+				title = "Advanced Visualization Settings",
 				width = 12,
 				status = "primary",
 				solidHeader = TRUE,
 				collapsible = TRUE,
+				collapsed = TRUE,  # ✅ Collapsed by default
 				
-				uiOutput(ns("debug_ui")),
 				textOutput(ns('eset_name_text')),
 				
+				# Auto-run toggle
 				fluidRow(
-					box(
-						title = "Corrected Data Selection",
-						width = 12,
-						status = "info",
-						solidHeader = TRUE,
-						collapsible = TRUE,
-						
-						fluidRow(
-							column(
-								width = 4,
-								radioButtons(
-									ns("corrected_source"),
-									"Corrected Data Source:",
-									choices = c(
-										"Use ComBat from this session" = "session",
-										"Load from ExpressionSet assay" = "assay"
-									),
-									selected = "session"
-								)
-							),
-							column(
-								width = 4,
-								textInput(
-									ns("corrected_suffix"),
-									"Corrected Assay Suffix:",
-									value = "_ComBat",
-									placeholder = "_ComBat"
-								),
-								helpText("Suffix appended to the original assay name")
-							),
-							column(
-								width = 4,
-								conditionalPanel(
-									condition = "input.corrected_source == 'assay'",
-									ns = ns,
-									uiOutput(ns("corrected_assay_selector"))  # Shows status/validation
-								)
-							)
+					column(
+						width = 6,
+						shinyWidgets::prettySwitch(
+							inputId = ns("auto_run_viz"),
+							label = "Auto-generate visualizations",
+							value = TRUE,
+							status = "success",
+							fill = TRUE
 						),
-
-						hr(),
-						
-						uiOutput(ns("corrected_data_status"))
+						helpText("When enabled, visualizations update automatically when settings change")
+					),
+					column(
+						width = 6,
+						conditionalPanel(
+							condition = "! input. auto_run_viz",
+							ns = ns,
+							actionButton(
+								ns("run_analysis"),
+								"Generate Visualizations",
+								icon = icon("chart-line"),
+								class = "btn-primary btn-lg",
+								style = "margin-top: 0px; width: 100%;"
+							)
+						)
 					)
 				),
 				
+				hr(),
+				
+				# Corrected Data Selection
+				box(
+					title = "Corrected Data Selection",
+					width = 12,
+					status = "info",
+					solidHeader = TRUE,
+					collapsible = TRUE,
+					collapsed = FALSE,
+					
+					fluidRow(
+						column(
+							width = 4,
+							radioButtons(
+								ns("corrected_source"),
+								"Corrected Data Source:",
+								choices = c(
+									"Use ComBat from this session" = "session",
+									"Load from ExpressionSet assay" = "assay"
+								),
+								selected = "session"
+							)
+						),
+						column(
+							width = 4,
+							textInput(
+								ns("corrected_suffix"),
+								"Corrected Assay Suffix:",
+								value = "_ComBat",
+								placeholder = "_ComBat"
+							),
+							helpText("Suffix appended to the original assay name")
+						),
+						column(
+							width = 4,
+							conditionalPanel(
+								condition = "input.corrected_source == 'assay'",
+								ns = ns,
+								uiOutput(ns("corrected_assay_selector"))
+							)
+						)
+					),
+					
+					hr(),
+					
+					uiOutput(ns("corrected_data_status"))
+				),
+				
+				hr(),
+				
+				# Column Selection
+				h4("Visualization Column Selection"),
 				fluidRow(
 					column(
 						width = 3,
@@ -1581,7 +1617,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 						width = 3,
 						selectInput(
 							ns("shape_by"),
-							"Shape by (t-SNE only):",
+							"Shape by (t-SNE/PCA):",
 							choices = NULL
 						)
 					),
@@ -1589,42 +1625,44 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 						width = 3,
 						selectInput(
 							ns("qc_column"),
-							"QC Column (for TR identification):",
+							"QC Column (TR identification):",
 							choices = NULL,
 							selected = "QC"
 						),
-						helpText("Used to identify technical replicates on dendrogram")
+						helpText("Identifies technical replicates")
 					),
 					column(
 						width = 3,
 						selectInput(
 							ns("label_column"),
-							"Label Column (for TR grouping):",
+							"Label Column (TR grouping):",
 							choices = NULL,
 							selected = "Labels"
 						),
-						helpText("TR samples with same Label will be colored together")
+						helpText("Groups TR samples by label")
 					)
 				),
 				
 				hr(),
 				
+				# t-SNE Parameters
+				h4("t-SNE Parameters"),
 				fluidRow(
 					column(
-						width = 3,
+						width = 4,
 						numericInput(
 							ns("tsne_perplexity"),
-							"t-SNE Perplexity:",
+							"Perplexity:",
 							value = 30,
 							min = 5,
 							max = 50
 						)
 					),
 					column(
-						width = 3,
+						width = 4,
 						numericInput(
 							ns("tsne_iterations"),
-							"t-SNE Iterations:",
+							"Iterations:",
 							value = 1000,
 							min = 250,
 							max = 5000,
@@ -1632,30 +1670,24 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 						)
 					),
 					column(
-						width = 3,
+						width = 4,
 						checkboxInput(
 							ns("show_corrected"),
-							"Show Corrected Data",
+							"Show Corrected Data Comparisons",
 							value = TRUE
 						),
-						helpText("Enable to compare before/after ComBat correction")
-					),
-					column(
-						width = 3,
-						actionButton(
-							ns("run_analysis"),
-							"Generate Visualizations",
-							icon = icon("chart-line"),
-							class = "btn-primary btn-lg",
-							style = "margin-top: 25px;"
-						)
+						helpText("Compare before/after correction")
 					)
-				)
+				),
+				
+				hr(),
+				
+				# Debug button at bottom
+				uiOutput(ns("debug_ui"))
 			)
 		),
 		
 		# PN Correlations ####
-		
 		fluidRow(
 			box(
 				title = "Technical Replicate Correlation Analysis",
@@ -1664,7 +1696,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				solidHeader = TRUE,
 				collapsible = TRUE,
 				
-				p("Correlation between technical replicates should be high (>0.9).  ComBat correction should improve correlation."),
+				p("Correlation between technical replicates should be high (>0.9). ComBat correction should improve correlation."),
 				
 				tabsetPanel(
 					id = ns("correlation_tabs"),
@@ -1781,7 +1813,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 					tabPanel(
 						"Intra vs Inter Batch",
 						br(),
-						p("Compare correlations within batches vs between batches.  ComBat should reduce differences. "),
+						p("Compare correlations within batches vs between batches.  ComBat should reduce differences."),
 						DT::dataTableOutput(ns("sample_correlation_intra_inter_table")),
 						br(),
 						shinycssloaders::withSpinner(
@@ -1805,20 +1837,22 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				
 				p("Technical replicates should cluster together if batch effects are minimal."),
 				
-				tabsetPanel(selected = 'Side-by-Side',
-										id = ns("dendro_tabs"),
-										tabPanel(
-											"Original Data",
-											plotOutput(ns("dendrogram_original"), height = "600px")
-										),
-										tabPanel(
-											"Corrected Data",
-											plotOutput(ns("dendrogram_corrected"), height = "600px")
-										),
-										tabPanel('Side-by-Side',
-														 plotOutput(ns("dendrogram_original_2"), height = "300px"),
-														 plotOutput(ns("dendrogram_corrected_2"), height = "300px")
-										)
+				tabsetPanel(
+					selected = 'Side-by-Side',
+					id = ns("dendro_tabs"),
+					tabPanel(
+						"Original Data",
+						plotOutput(ns("dendrogram_original"), height = "600px")
+					),
+					tabPanel(
+						"Corrected Data",
+						plotOutput(ns("dendrogram_corrected"), height = "600px")
+					),
+					tabPanel(
+						'Side-by-Side',
+						plotOutput(ns("dendrogram_original_2"), height = "300px"),
+						plotOutput(ns("dendrogram_corrected_2"), height = "300px")
+					)
 				)
 			)
 		),
@@ -1834,20 +1868,21 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				
 				p("Samples should separate by biological groups, not batch factors."),
 				
-				tabsetPanel(selected = "Side-by-Side",
-										id = ns("tsne_tabs"),
-										tabPanel(
-											"Original Data",
-											plotOutput(ns("tsne_original"), height = "600px")
-										),
-										tabPanel(
-											"Corrected Data",
-											plotOutput(ns("tsne_corrected"), height = "600px")
-										),
-										tabPanel(
-											"Side-by-Side",
-											plotOutput(ns("tsne_comparison"), height = "600px")
-										)
+				tabsetPanel(
+					selected = "Side-by-Side",
+					id = ns("tsne_tabs"),
+					tabPanel(
+						"Original Data",
+						plotOutput(ns("tsne_original"), height = "600px")
+					),
+					tabPanel(
+						"Corrected Data",
+						plotOutput(ns("tsne_corrected"), height = "600px")
+					),
+					tabPanel(
+						"Side-by-Side",
+						plotOutput(ns("tsne_comparison"), height = "600px")
+					)
 				)
 			)
 		),
@@ -2456,8 +2491,9 @@ mod_batch_visualization_server <- function(id,
 		# Storage for analysis results
 		analysis_results <- reactiveVal(NULL)
 		
-		# Run analysis
-		observeEvent(input$run_analysis, {
+		# Run analysis ####
+		# ✅ Extract the analysis logic into a shared function
+		run_visualization_analysis <- function() {
 			req(eset_original()) 
 			req(input$color_by)
 			
@@ -2491,7 +2527,64 @@ mod_batch_visualization_server <- function(id,
 				removeNotification("viz_progress")
 				showNotification(paste("❌ Analysis failed:", e$message), type = "error", duration = 10)
 			})
+		}
+		
+		# ✅ Manual run button (always works)
+		observeEvent(input$run_analysis, {
+			run_visualization_analysis()
 		})
+		
+		# ✅ Auto-run logic (only when toggle is ON)
+		observeEvent(list(
+			eset_original(),
+			eset_corrected_dynamic(),
+			input$color_by,
+			input$shape_by,
+			input$tsne_perplexity,
+			input$tsne_iterations,
+			input$show_corrected
+		), {
+			# Only auto-run if toggle is enabled
+			if (isTRUE(input$auto_run_viz)) {
+				run_visualization_analysis()
+			}
+		}, ignoreNULL = TRUE, ignoreInit = TRUE)
+		
+		# observeEvent(input$run_analysis, {
+		# 	req(eset_original()) 
+		# 	req(input$color_by)
+		# 	
+		# 	showNotification("Running visualization analysis...", id = "viz_progress", duration = NULL, type = "message")
+		# 	
+		# 	tryCatch({
+		# 		results <- list()
+		# 		
+		# 		# Original data analysis
+		# 		results$original <- perform_analysis(
+		# 			eset_original(),
+		# 			perplexity = input$tsne_perplexity,
+		# 			iterations = input$tsne_iterations
+		# 		)
+		# 		
+		# 		# Corrected data analysis (if available)
+		# 		if (input$show_corrected && !is.null(eset_corrected_dynamic())) {
+		# 			results$corrected <- perform_analysis(
+		# 				eset_corrected_dynamic(),
+		# 				perplexity = input$tsne_perplexity,
+		# 				iterations = input$tsne_iterations
+		# 			)
+		# 		}
+		# 		
+		# 		analysis_results(results)
+		# 		
+		# 		removeNotification("viz_progress")
+		# 		showNotification("✅ Visualization complete!", type = "message", duration = 3)
+		# 		
+		# 	}, error = function(e) {
+		# 		removeNotification("viz_progress")
+		# 		showNotification(paste("❌ Analysis failed:", e$message), type = "error", duration = 10)
+		# 	})
+		# })
 		
 		# Helper function to perform all analyses
 		perform_analysis <- function(eset, perplexity, iterations) {
