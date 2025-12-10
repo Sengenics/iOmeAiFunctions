@@ -2284,7 +2284,9 @@ mod_batch_visualization_server <- function(id,
 			message("  Current assay: ", current_assay_name())
 			
 			cols <- colnames(Biobase::pData(eset_original()))
-			message("  Available columns: ", paste(cols, collapse = ", "))
+			
+			
+			#message("  Available columns: ", paste(cols, collapse = ", "))
 			
 			sample_group <- sample_group_column()
 			batch_cols <- batch_factors()

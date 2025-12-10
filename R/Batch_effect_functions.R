@@ -1,3 +1,187 @@
+#' Run ComBat Batch Correction on ExpressionSet
+#'
+#' @param eset An ExpressionSet object
+#' @param batch_factors Character vector of batch factor column names from pData
+#' @param sample_group Character, sample group column name to preserve (optional)
+#' @param strategy Character, either "combined" (default) or "sequential"
+#' @param combat_model Character, either "null" or "preserve"
+#' @param par_prior Logical, use parametric priors (default TRUE)
+#' @param debug Logical, print debug messages (default FALSE)
+#'
+#' @return A corrected ExpressionSet with batch effects removed
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' corrected_eset <- run_combat_correction(
+#'   eset = my_eset,
+#'   batch_factors = c("Batch_ID", "Assay"),
+#'   sample_group = "Treatment",
+#'   strategy = "combined",
+#'   combat_model = "preserve",
+#'   par_prior = TRUE,
+#'   debug = FALSE
+#' )
+#' }
+run_combat_correction <- function(eset,
+																	batch_factors,
+																	sample_group = NULL,
+																	strategy = "combined",
+																	combat_model = "null",
+																	par_prior = TRUE,
+																	debug = FALSE) {
+	
+	# Validate inputs
+	if (!inherits(eset, "ExpressionSet")) {
+		stop("eset must be an ExpressionSet object")
+	}
+	
+	if (length(batch_factors) == 0) {
+		stop("At least one batch factor must be provided")
+	}
+	
+	if (! strategy %in% c("combined", "sequential")) {
+		stop("strategy must be either 'combined' or 'sequential'")
+	}
+	
+	if (!combat_model %in% c("null", "preserve")) {
+		stop("combat_model must be either 'null' or 'preserve'")
+	}
+	
+	if (combat_model == "preserve" && is.null(sample_group)) {
+		stop("sample_group must be provided when combat_model = 'preserve'")
+	}
+	
+	if (isTRUE(debug)) {
+		message("\n🔥 run_combat_correction() CALLED")
+		message("Batch factors:   ", paste(batch_factors, collapse = ", "))
+	}
+	
+	# Extract data
+	expr_data <- Biobase::exprs(eset)
+	meta <- Biobase::pData(eset)
+	
+	# Validate batch factors exist
+	missing_factors <- setdiff(batch_factors, colnames(meta))
+	if (length(missing_factors) > 0) {
+		stop("Batch factors not found in metadata:  ", paste(missing_factors, collapse = ", "))
+	}
+	
+	# Validate sample group if provided
+	if (!is.null(sample_group) && !sample_group %in% colnames(meta)) {
+		stop("Sample group column '", sample_group, "' not found in metadata")
+	}
+	
+	# Create model matrix
+	if (combat_model == "null") {
+		modcombat <- model.matrix(~1, data = meta)
+		model_description <- "Null model (~1)"
+	} else {
+		modcombat <- model. matrix(~ as.factor(meta[[sample_group]]))
+		model_description <- paste0("Preserve model (~", sample_group, ")")
+	}
+	
+	combat_column_value <- NULL
+	
+	if (isTRUE(debug)) {
+		message("🔍 Strategy:  ", strategy)
+		message("🔍 Number of batch factors:  ", length(batch_factors))
+	}
+	
+	# Apply correction based on strategy
+	if (strategy == "sequential") {
+		if (isTRUE(debug)) message("✅ ENTERING SEQUENTIAL BRANCH")
+		message("Using SEQUENTIAL strategy for ", length(batch_factors), " factors")
+		
+		batch_values <- lapply(batch_factors, function(f) as.character(meta[[f]]))
+		combat_column_value <- do.call(paste, c(batch_values, list(sep = "_")))
+		
+		corrected_data <- expr_data
+		correction_log <- list(
+			method = "sequential",
+			batch_factors = batch_factors,
+			corrections = list()
+		)
+		
+		for (i in seq_along(batch_factors)) {
+			batch_factor <- batch_factors[i]
+			batch <- meta[[batch_factor]]
+			
+			corrected_data <- sva::ComBat(
+				dat = corrected_data,
+				batch = batch,
+				mod = modcombat,
+				par. prior = par_prior
+			)
+			
+			correction_log$corrections[[batch_factor]] <- list(order = i)
+		}
+		
+		correction_log$model <- model_description
+		
+	} else {
+		if (isTRUE(debug)) message("✅ ENTERING COMBINED BRANCH")
+		message("Using COMBINED strategy for ", length(batch_factors), " factor(s)")
+		
+		batch_data <- lapply(batch_factors, function(f) as.factor(meta[[f]]))
+		combined_batch <- do.call(interaction, c(batch_data, list(drop = TRUE, sep = "_")))
+		combat_column_value <- as.character(combined_batch)
+		
+		# Check for single-sample batches (only matters for multiple factors)
+		if (length(batch_factors) > 1) {
+			batch_table <- table(combined_batch)
+			single_sample <- names(batch_table)[batch_table == 1]
+			if (length(single_sample) > 0) {
+				stop("Cannot use combined strategy:  ", length(single_sample), 
+						 " batch combination(s) have only 1 sample.")
+			}
+		}
+		
+		corrected_data <- sva::ComBat(
+			dat = expr_data,
+			batch = combined_batch,
+			mod = modcombat,
+			par.prior = par_prior
+		)
+		
+		correction_log <- list(
+			method = "combined",
+			batch_factors = batch_factors,
+			n_factors = length(batch_factors),
+			model = model_description
+		)
+	}
+	
+	# Add ComBat column to metadata
+	if (! is.null(combat_column_value)) {
+		meta$ComBat <- combat_column_value
+	}
+	
+	# Create corrected ExpressionSet
+	corrected_eset <- eset
+	Biobase::exprs(corrected_eset) <- corrected_data
+	Biobase::pData(corrected_eset) <- meta
+	
+	# Add notes
+	notes <- Biobase::notes(corrected_eset)
+	notes$combat_correction <- c(correction_log, list(
+		sample_group_preserved = if (combat_model == "preserve") sample_group else NA,
+		par_prior = par_prior,
+		correction_date = Sys.time()
+	))
+	Biobase::notes(corrected_eset) <- notes
+	
+	if (isTRUE(debug)) {
+		message("📊 Stored correction info:")
+		message("   Method:  ", notes$combat_correction$method)
+		message("   Factors: ", paste(notes$combat_correction$batch_factors, collapse = ", "))
+	}
+	
+	message("✅ ComBat correction complete!")
+	
+	return(corrected_eset)
+}
+
 #' Apply ComBat Batch Correction to ExpressionSet
 #'
 #' Applies the ComBat algorithm (from the `sva` package) to correct for batch effects in an `ExpressionSet`.
