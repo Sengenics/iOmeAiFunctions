@@ -43,6 +43,8 @@ mod_combat_correction_selector_ui <- function(id,
 						box(
 							width = NULL,
 							
+							
+							
 							# Factor Safety Info
 							box(
 								title = "Factor Safety",
@@ -101,6 +103,26 @@ mod_combat_correction_selector_ui <- function(id,
 											HTML("<i class='fa fa-question-circle'></i> Which model should I use?"),
 											style = "font-size: 12px;"
 										)
+									)
+								),
+								# ✅ AUTO-RUN CONTROL
+								fluidRow(
+									column(
+										width = 6,
+										shinyWidgets:: materialSwitch(
+											inputId = ns("auto_run_combat"),
+											label = "Auto-Run ComBat Correction",
+											value = TRUE,
+											status = "success"
+										),
+										helpText(
+											icon("sync", style = "color:  #337ab7;"),
+											tags$small("Automatically run when settings change")
+										)
+									),
+									column(
+										width = 6,
+										uiOutput(ns("manual_run_ui"))
 									)
 								)
 							),
@@ -296,6 +318,22 @@ mod_combat_correction_selector_server <- function(id,
 				browser()
 			})
 		}
+		
+		# ✅ Manual run UI (shows when auto-run is OFF)
+		output$manual_run_ui <- renderUI({
+			if (! isTRUE(input$auto_run_combat)) {
+				div(
+					style = "text-align: center; padding-top: 5px;",
+					actionButton(
+						ns("run_combat_manual"),
+						"Run ComBat Correction",
+						icon = icon("play"),
+						class = "btn-success btn-lg",
+						style = "width: 90%;"
+					)
+				)
+			}
+		})
 		
 		# ✅ Analysis status reactive
 		analysis_ready <- reactive({
@@ -1025,13 +1063,15 @@ mod_combat_correction_selector_server <- function(id,
 			}
 		})
 		
-		# Return selected values
+		### Return####
 		return(list(
 			batch_factors = reactive(input$batch_factors),
 			par_prior = reactive(as.logical(input$par_prior)),
 			combat_model = reactive(input$combat_model),
 			correction_strategy = reactive(input$correction_strategy),
-			safe_factors = safe_batch_factors
+			safe_factors = safe_batch_factors,
+			auto_run_combat = reactive(input$auto_run_combat),  # ✅ NEW
+			run_combat_manual = reactive(input$run_combat_manual)
 		))
 	})
 }
@@ -1336,7 +1376,7 @@ mod_combat_correction_server <- function(id,
 			sample_group_column()
 		), {
 			# Only auto-run if toggle is ON
-			if (show_auto_run_toggle && isTRUE(input$auto_run_combat)) {
+			if (isTRUE(selector$auto_run_combat())) { 
 				req(eset())
 				req(selector$batch_factors())
 				req(sample_group_column())
@@ -1393,7 +1433,7 @@ mod_combat_correction_server <- function(id,
 		}, ignoreInit = TRUE)
 		
 		# ✅ Manual run button (when auto-run is OFF)
-		observeEvent(input$run_combat_manual, {
+		observeEvent(selector$run_combat_manual, {
 			req(eset())
 			req(selector$batch_factors())
 			req(sample_group_column())
@@ -1794,48 +1834,7 @@ mod_combat_single_ui <- function(id,
 							
 							verbatimTextOutput(ns("correction_summary"))
 						),
-						
-						# ✅ Settings (NOT collapsible - always open)
-						box(
-							title = "Correction Settings",
-							width = 12,
-							status = "primary",
-							solidHeader = TRUE,
-							collapsible = FALSE,
-							
-							# Auto-run toggle
-							if (show_auto_run_toggle) {
-								fluidRow(
-									column(
-										width = 6,
-										div(
-											style = "padding-top: 5px;",
-											shinyWidgets::materialSwitch(
-												inputId = ns("auto_run_combat"),
-												label = "Auto-Run ComBat Correction",
-												value = TRUE,
-												status = "success"
-											)
-										),
-										helpText(
-											icon("sync", style = "color: #337ab7;"),
-											tags$small("Automatically run when batch factors or settings change")
-										)
-									)
-								)
-							},
-							
-							# Manual run UI (shows when auto-run is OFF)
-							if (show_auto_run_toggle) {
-								fluidRow(
-									column(
-										width = 12,
-										uiOutput(ns("manual_run_ui"))
-									)
-								)
-							}
-						),
-						
+
 						# ✅ Debug button (if enabled)
 						if (debug) {
 							actionButton(
@@ -1983,26 +1982,8 @@ mod_combat_single_server <- function(id,
 				)
 			}
 		})
-		
-		# ✅ Manual run UI
-		output$manual_run_ui <- renderUI({
-			if (show_auto_run_toggle && !isTRUE(input$auto_run_combat)) {
-				fluidRow(
-					column(
-						width = 12,
-						align = "center",
-						br(),
-						actionButton(
-							ns("run_combat_manual"),
-							"Run ComBat Correction",
-							icon = icon("play"),
-							class = "btn-success btn-lg",
-							style = "width: 50%;"
-						)
-					)
-				)
-			}
-		})
+
+
 		
 		# ✅ ComBat correction logic (extracted from main module)
 		run_combat_correction <- function() {
@@ -2155,16 +2136,17 @@ mod_combat_single_server <- function(id,
 			})
 		}
 		
-		# ✅ Auto-run logic
+		### ✅ Auto-run logic 1  ####
 		observeEvent(list(
 			eset(),
 			selector$batch_factors(),
 			selector$combat_model(),
 			selector$par_prior(),
 			selector$correction_strategy(),
-			sample_group_column()
+			sample_group_column(),
+			selector$auto_run_combat()
 		), {
-			if (show_auto_run_toggle && isTRUE(input$auto_run_combat)) {
+			if (isTRUE(selector$auto_run_combat())) {  # ✅ Use selector's toggle
 				req(eset())
 				req(selector$batch_factors())
 				req(sample_group_column())
@@ -2221,7 +2203,7 @@ mod_combat_single_server <- function(id,
 		}, ignoreInit = TRUE)
 		
 		# ✅ Manual run
-		observeEvent(input$run_combat_manual, {
+		observeEvent(selector$run_combat_manual(), { 
 			req(eset())
 			req(selector$batch_factors())
 			req(sample_group_column())
