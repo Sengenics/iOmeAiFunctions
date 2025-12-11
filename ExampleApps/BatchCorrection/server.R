@@ -26,7 +26,14 @@ server <- function(input, output, session) {
 	ExpSet_list <- reactive({
 		expset_data$ExpSet_list()
 	})
-	ExpSet_list_val <- reactiveVal(ExpSet_list)
+	
+	ExpSet_list_val <- reactiveVal(NULL)  # ✅ Initialize as NULL
+	
+	# Create the update function: 
+	update_ExpSet_list <- function(new_list) {
+		ExpSet_list_val(new_list)  # ✅ Update the reactiveVal
+		message("✅ Updated ExpSet_list_val with ", length(new_list), " ExpressionSets")
+	}
 	
 	# ExpressionSet Viewer Module
 	expset_viewer <- mod_expset_viewer_server(
@@ -293,20 +300,9 @@ server <- function(input, output, session) {
 		id = "combat_multi",
 		ExpSet_list = ExpSet_list,
 		update_ExpSet_list = update_ExpSet_list,
-		combat_settings = reactive({
-			list(
-				batch_factors = selector$batch_factors(),
-				combat_model = selector$combat_model(),
-				sample_group = sample_group_column(),
-				par_prior = selector$par_prior(),
-				strategy = if (length(selector$batch_factors()) > 1 && ! is.null(selector$correction_strategy())) {
-					selector$correction_strategy()
-				} else {
-					"combined"
-				}
-			)
-		}),
-		debug = debug
+		sample_group_column = sample_group_module$selected_column,
+		selector = combat_selector,
+		debug = run_debug
 	)
 	
 	# Export ####

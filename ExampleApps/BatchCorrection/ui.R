@@ -112,7 +112,7 @@ ui <- dashboardPage(
 			## Export ####
 			tabItem(
 				tabName = "export_tab",
-				mod_combat_multi_assay_ui("combat_multi"),
+				mod_combat_multi_assay_ui("combat_multi",debug = run_debug),
 				mod_expset_export_ui("expset_export")
 			)
 		)

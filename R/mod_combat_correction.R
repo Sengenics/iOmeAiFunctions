@@ -1070,15 +1070,63 @@ mod_combat_correction_selector_server <- function(id,
 		})
 		
 		### Return####
+		# return(list(
+		# 	batch_factors = reactive(input$batch_factors),
+		# 	par_prior = reactive(as.logical(input$par_prior)),
+		# 	assay_suffix = reactive(input$assay_suffix),
+		# 	combat_model = reactive(input$combat_model),
+		# 	correction_strategy = reactive(input$correction_strategy),
+		# 	safe_factors = safe_batch_factors,
+		# 	auto_run_combat = reactive(input$auto_run_combat),  # ✅ NEW
+		# 	run_combat_manual = reactive(input$run_combat_manual)
+		# ))
+		
+		### Return with defaults ####
 		return(list(
-			batch_factors = reactive(input$batch_factors),
-			par_prior = reactive(as.logical(input$par_prior)),
-			assay_suffix = reactive(input$assay_suffix),
-			combat_model = reactive(input$combat_model),
-			correction_strategy = reactive(input$correction_strategy),
+			batch_factors = reactive({
+				input$batch_factors %||% character(0)
+			}),
+			
+			par_prior = reactive({
+				if (is.null(input$par_prior)) {
+					TRUE  # Default to parametric
+				} else {
+					as.logical(input$par_prior)
+				}
+			}),
+			
+			assay_suffix = reactive({
+				input$assay_suffix %||% "_ComBat"
+			}),
+			
+			combat_model = reactive({
+				input$combat_model %||% "null"
+			}),
+			
+			correction_strategy = reactive({
+				# Only relevant if multiple factors selected
+				n_factors <- length(input$batch_factors %||% character(0))
+				if (n_factors > 1) {
+					input$correction_strategy %||% "combined"
+				} else {
+					"combined"  # Default for single factor (doesn't matter)
+				}
+			}),
+			
 			safe_factors = safe_batch_factors,
-			auto_run_combat = reactive(input$auto_run_combat),  # ✅ NEW
-			run_combat_manual = reactive(input$run_combat_manual)
+			
+			auto_run_combat = reactive({
+				# Default to TRUE if not set
+				if (is.null(input$auto_run_combat)) {
+					TRUE
+				} else {
+					isTRUE(input$auto_run_combat)
+				}
+			}),
+			
+			run_combat_manual = reactive({
+				input$run_combat_manual %||% 0
+			})
 		))
 	})
 }
@@ -1385,11 +1433,8 @@ mod_combat_single_server <- function(id,
 				sample_group <- sample_group_column()
 				par_prior <- selector$par_prior()
 				assay_suffix <- selector$assay_suffix()  # ✅ NEW:  Get suffix from selector
-				strategy <- if (length(batch_factors) > 1 && !is.null(selector$correction_strategy())) {
-					selector$correction_strategy()
-				} else {
-					"combined"
-				}
+				strategy <- selector$correction_strategy()
+			
 				
 				# ✅ Call the standalone function
 				corrected_ExpSet <- run_combat_correction(
@@ -1941,9 +1986,9 @@ mod_combat_single_server <- function(id,
 #'
 #' @param id Module ID
 #' @export
-mod_combat_multi_assay_ui <- function(id) {
+mod_combat_multi_assay_ui <- function(id,debug = FALSE) {
 	ns <- NS(id)
-	
+
 	tagList(
 		fluidRow(
 			box(
@@ -1953,10 +1998,10 @@ mod_combat_multi_assay_ui <- function(id) {
 				solidHeader = TRUE,
 				collapsible = TRUE,
 				collapsed = FALSE,
-				
+
 				p("Apply the selected batch correction settings to multiple assays at once."),
 				p(strong("Note: "), " This will use the current ComBat settings from the Batch Correction tab."),
-				
+
 				fluidRow(
 					column(
 						width = 6,
@@ -1986,9 +2031,9 @@ mod_combat_multi_assay_ui <- function(id) {
 						helpText("Corrected assays will be added with this suffix")
 					)
 				),
-				
+
 				hr(),
-				
+
 				fluidRow(
 					column(
 						width = 6,
@@ -2001,9 +2046,9 @@ mod_combat_multi_assay_ui <- function(id) {
 						htmlOutput(ns("target_assays_combat_text"))
 					)
 				),
-				
+
 				hr(),
-				
+
 				actionButton(
 					ns("apply_multi_batch_correction"),
 					"Apply Batch Correction to All Selected Assays",
@@ -2011,14 +2056,30 @@ mod_combat_multi_assay_ui <- function(id) {
 					class = "btn-success btn-lg",
 					style = "width: 100%;"
 				),
-				
+
 				br(), br(),
-				
+
 				uiOutput(ns("multi_correction_status")),
-				
+
 				br(),
-				
-				uiOutput(ns("correction_log"))
+
+				uiOutput(ns("correction_log")),
+
+				if (debug) {
+					fluidRow(
+						column(
+							width = 12,
+							style = "margin-top: 10px;",
+							actionButton(
+								ns("debug"),
+								"Debug:  mod_combat_correction_selector",
+								icon = icon("bug"),
+								class = "btn-warning btn-sm",
+								style = "width: 100%;"
+							)
+						)
+					)
+				}
 			)
 		)
 	)
@@ -2029,16 +2090,24 @@ mod_combat_multi_assay_ui <- function(id) {
 #' @param id Module ID
 #' @param ExpSet_list Reactive containing list of ExpressionSets
 #' @param update_ExpSet_list Function to update the ExpSet_list
-#' @param combat_settings Reactive list with combat settings (batch_factors, combat_model, par_prior, strategy, sample_group)
+#' @param selector Reactive list with combat settings (batch_factors, combat_model, par_prior, strategy, sample_group)
 #' @param debug Logical, enable debug mode
 #' @export
 mod_combat_multi_assay_server <- function(id,
 																					ExpSet_list,
 																					update_ExpSet_list,
-																					combat_settings,
+																					sample_group_column,
+																					selector,
 																					debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
-		ns <- session$ns
+		ns <- session$ns 
+		
+
+			observeEvent(input$debug, {
+				message("🔍 DEBUG MODE - mod_combat_multi_assay_server")
+				browser()
+			})
+		
 		
 		# Reactive values for tracking
 		correction_log_data <- reactiveVal(NULL)
@@ -2075,9 +2144,12 @@ mod_combat_multi_assay_server <- function(id,
 		
 		# Status display
 		output$multi_correction_status <- renderUI({
-			req(correction_log_data())
-			
 			log <- correction_log_data()
+			
+			# Don't render anything if no log data yet
+			if (is.null(log)) {
+				return(NULL)
+			}
 			
 			if (log$corrected_count == 0) {
 				div(
@@ -2128,11 +2200,11 @@ mod_combat_multi_assay_server <- function(id,
 		
 		# Detailed correction log
 		output$correction_log <- renderUI({
-			req(correction_log_data())
-			
 			log <- correction_log_data()
 			
-			if (length(log$details) == 0) return(NULL)
+			if (is.null(log) || length(log$details) == 0) {
+				return(NULL)
+			}
 			
 			box(
 				title = "Correction Log",
@@ -2151,10 +2223,10 @@ mod_combat_multi_assay_server <- function(id,
 		
 		# Main batch correction logic
 		observeEvent(input$apply_multi_batch_correction, {
-			req(input$target_assays)
+			req(input$target_assays) 
 			req(input$combat_assay_suffix)
 			req(ExpSet_list())
-			req(combat_settings())
+			req(selector)
 			
 			showNotification(
 				"Starting batch correction for multiple assays...",
@@ -2165,15 +2237,16 @@ mod_combat_multi_assay_server <- function(id,
 			
 			tryCatch({
 				expset_list <- ExpSet_list()
-				settings <- combat_settings()
+				#settings <- selector
 				
 				# Extract settings
-				batch_factors <- settings$batch_factors
-				combat_model <- settings$combat_model
-				sample_group <- settings$sample_group
-				par_prior <- settings$par_prior
-				strategy <- settings$strategy
-				suffix <- input$combat_assay_suffix
+				(batch_factors <- selector$batch_factors())
+				(combat_model <- selector$combat_model())
+				#(sample_group <- selector$sample_group())
+				sample_group <- sample_group_column()
+				(par_prior <- selector$par_prior())
+				(strategy <- selector$correction_strategy())
+				(suffix <- input$combat_assay_suffix)
 				
 				# Validation
 				if (is.null(batch_factors) || length(batch_factors) == 0) {
@@ -2187,8 +2260,9 @@ mod_combat_multi_assay_server <- function(id,
 				log_details <- character()
 				
 				# Process each target assay
+				i = 1
 				for (i in seq_along(input$target_assays)) {
-					assay_full_name <- input$target_assays[i]
+					(assay_full_name <- input$target_assays[i])
 					
 					log_details <- c(log_details, "========================================")
 					log_details <- c(log_details, sprintf("Processing %d/%d:  %s", i, length(input$target_assays), assay_full_name))
@@ -2292,9 +2366,18 @@ mod_combat_multi_assay_server <- function(id,
 				}
 				
 				# ✅ Update ExpSet_list
-				if (is.function(update_ExpSet_list)) {
+				# if (is.function(update_ExpSet_list)) {
+				# 	update_ExpSet_list(expset_list)
+				# 	log_details <- c(log_details, "✅ Updated ExpSet_list")
+				# }
+				
+				# ✅ Update ExpSet_list
+				if (! is.null(update_ExpSet_list) && is.function(update_ExpSet_list)) {
 					update_ExpSet_list(expset_list)
 					log_details <- c(log_details, "✅ Updated ExpSet_list")
+				} else {
+					warning("update_ExpSet_list is not a function - ExpSet_list was not updated")
+					log_details <- c(log_details, "⚠️ Could not update ExpSet_list (not a function)")
 				}
 				
 				# Update correction log
@@ -2329,7 +2412,10 @@ mod_combat_multi_assay_server <- function(id,
 				
 				# Update the assay selector to show new assays
 				choices <- get_expset_assay_names(expset_list)
-				shinyWidgets::updatePickerInput(session, "target_assays", choices = choices)
+				shinyWidgets::updatePickerInput(session, 
+																				"target_assays", 
+																				choices = choices,
+																				selected = input$target_assays)
 				
 			}, error = function(e) {
 				removeNotification("batch_multi_progress")
