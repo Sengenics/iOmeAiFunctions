@@ -1,6 +1,6 @@
 # tools/setup_package.R
-version = "0.1.3"
-release_data = '2025-12-08'
+version = "0.1.4"
+release_data = '2025-12-11'
 
 options(
 	renv.consent = TRUE,

@@ -2,7 +2,7 @@
 #'
 #' @export
 
-version = "v1.0.1"
+version = "v1.1.0"
 run_debug <- ! is.na(Sys.getenv("RSTUDIO", unset = NA))
 #run_debug = F
 print(run_debug)
@@ -32,7 +32,7 @@ if (run_debug) {
 		
 		renv::remove("iOmeAiFunctions")
 		renv::purge("iOmeAiFunctions")
-		iOmeAiFunction_version = 'master'
+		iOmeAiFunction_version = 'BatchCorrect_mod_3'
 		options(timeout = 300) 
 		gh_token <- Sys.getenv("GITHUB_PAT")
 		remotes::install_github(

@@ -64,28 +64,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# vis_input_data <- mod_eset_selector_standalone_server(
-	# 	"vis_input",
-	# 	ExpSet_list = ExpSet_list,
-	# 	default_selection = reactive({
-	# 		name <- tryCatch({
-	# 			combat_data$eset_name()
-	# 		}, error = function(e) {
-	# 			NULL
-	# 		})
-	# 
-	# 		# Return fallback if NULL, empty, or NA
-	# 		if (is.null(name) || length(name) == 0 || is.na(name)) {
-	# 			"sample_loess_normalised"
-	# 		} else {
-	# 			name
-	# 		}
-	# 	}),
-	# 	source = expset_data$source,
-	# 	enable_subset = TRUE,
-	# 	enable_transform = TRUE,
-	# 	debug = run_debug
-	# )
+
 	
 	
  # Batch Testing ####
@@ -126,14 +105,6 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	## Column Selection ####
-	# Sample group selector module
-	# sample_group_module <- mod_sample_group_selector_server(
-	# 	"sample_group",
-	# 	eset = data_module$eset,
-	# 	default_column = "Labels",
-	# 	debug = run_debug
-	# )
 	
 	sample_group_module <- mod_column_selector_server(
 		"sample_group",
@@ -156,13 +127,6 @@ server <- function(input, output, session) {
 		debug = FALSE
 	)
 	
-	# batch_column_module <- mod_batch_column_selector_server(
-	# 	"column_selector",
-	# 	eset = data_module$eset,
-	# 	filtered_columns = filtered_columns,
-	# 	default_columns = c("Labels",'Assay','Batch_ID','Assay.Date',"Assay_Date.(YYYY/MM/DD)"),
-	# 	debug = run_debug
-	# )
 	
 	### Batch testing module ####
 	batch_testing <- mod_batch_testing_server(
@@ -191,16 +155,6 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# batch_analysis <- mod_batch_combined_analysis_server(
-	# 	"batch_analysis",
-	# 	eset = combat_module$preview_eset,  # ✅ Use preview instead of original
-	# 	sample_group_column = sample_group_module$selected_column,
-	# 	batch_columns = combat_module$selected_batch_factors,
-	# 	debug = run_debug
-	# )
-	
-
-
 	
 	# Initialize it when ExpSet_list is available
 	observe({
@@ -231,29 +185,7 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# RUN COMBAT ####
-	# combat_correction <- mod_combat_correction_server(
-	# 	"combat",
-	# 	eset = combat_data$eset,
-	# 	sample_group_column = sample_group_module$selected_column,
-	# 	ExpSet_list = ExpSet_list,           # ✅ Pass ExpSet_list
-	# 	update_ExpSet_list = ExpSet_list_val,   # ✅ Pass update function (reactiveVal can be called to update)
-	# 	combined_results = batch_combined$results,
-	# 	selector = combat_selector,
-	# 	show_auto_run_toggle = TRUE,
-	# 	debug = run_debug
-	# )
-	
-	# # ✅ Call single correction module
-	# single_combat <- mod_combat_single_server(
-	# 	"single",
-	# 	eset = eset,
-	# 	sample_group_column = sample_group_column,
-	# 	combined_results = combined_results,
-	# 	selector = selector,
-	# 	show_auto_run_toggle = show_auto_run_toggle,
-	# 	debug = debug
-	# )
+
 	
 	# ✅ Call single correction module
 	single_combat <- mod_combat_single_server(
@@ -281,18 +213,6 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 
-	
-	# Batch visualization ####
-	# batch_viz <- mod_batch_visualization_server(
-	# 	"batch_viz",
-	# 	eset_original_name = reactive(combat_data$eset_name()),
-	# 	eset_original = combat_data$eset,
-	# 	eset_corrected = single_combat$corrected_eset,
-	# 	sample_group_column = sample_group_module$selected_column,      # ✅ From Batch Analysis tab
-	# 	batch_factors = single_combat$plot_batch_factors,            # ✅ From ComBat Correction tab
-	# 	ExpSet_list = ExpSet_list,
-	# 	debug = run_debug
-	# )
 	
 	# MULTI ####
 	

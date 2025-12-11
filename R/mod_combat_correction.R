@@ -1132,7 +1132,7 @@ mod_combat_correction_selector_server <- function(id,
 }
 
 
-#, #####
+#. #####
 # SINGLE COMBAT CREATION #####
 #' Single ComBat Correction Module - UI
 #'
