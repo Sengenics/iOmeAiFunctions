@@ -1204,35 +1204,7 @@ mod_combat_single_server <- function(id,
 		
 		# ✅ Smart results box with dynamic title
 		output$results_box_ui <- renderUI({
-			# Determine state
-			# state <- if (correction_in_progress()) {
-			# 	"running"
-			# } else if (! is.null(corrected_eset())) {
-			# 	"success"
-			# } else if (! is.null(eset()) && length(selector$batch_factors()) == 0) {
-			# 	"no_factors"
-			# } else if (!is.null(eset()) && is.null(sample_group_column())) {
-			# 	"no_sample_group"
-			# } else if (is.null(eset())) {
-			# 	"no_data"
-			# } else {
-			# 	"not_run"
-			# }
-			
-			# Determine state
-			# state <- if (correction_in_progress()) {
-			# 	"running"
-			# } else if (! is.null(corrected_eset())) {
-			# 	"success"
-			# } else if (! is.null(eset()) && length(selector$batch_factors()) == 0) {
-			# 	"no_factors"
-			# } else if (!is.null(eset()) && is.null(sample_group_column())) {
-			# 	"no_sample_group"
-			# } else if (is.null(eset())) {
-			# 	"no_data"
-			# } else {
-			# 	"not_run"
-			# }
+	
 			
 			# Determine state
 			state <- if (correction_in_progress()) {
@@ -2505,75 +2477,183 @@ mod_combat_multi_assay_server <- function(id,
 		# Status display
 		output$multi_correction_status <- renderUI({
 			log <- correction_log_data()
+			status <- processing_status()
 			
-			# Don't render anything if no log data yet
+			# ✅ RUNNING STATE
+			if (status == "running") {
+				return(
+					div(
+						class = "alert alert-info",
+						icon("spinner fa-spin"),
+						strong(" Processing batch correction..."),
+						p("Please wait while assays are being corrected.")
+					)
+				)
+			}
+			
+			# ✅ ERROR STATE
+			if (status == "error") {
+				error_msg <- if (! is.null(log) && ! is.null(log$details)) {
+					log$details
+				} else {
+					"An unknown error occurred"
+				}
+				
+				return(
+					div(
+						class = "alert alert-danger",
+						icon("exclamation-circle"),
+						strong(" Error during batch correction"),
+						p(error_msg),
+						p(tags$small("Check the console for detailed error messages. "))
+					)
+				)
+			}
+			
+			# ✅ NOT READY STATE - Show what's missing
 			if (is.null(log)) {
-				# Show ready state if conditions are met
-				if (ready_to_run()) {
+				# Check each condition and report what's missing
+				has_expset <- !is.null(ExpSet_list()) && length(ExpSet_list()) > 0
+				has_batch <- !is.null(selector$batch_factors()) && length(selector$batch_factors()) > 0
+				has_assays <- !is.null(input$target_assays) && length(input$target_assays) > 0
+				has_suffix <- !is.null(input$combat_assay_suffix) && nchar(input$combat_assay_suffix) > 0
+				
+				# ✅ Ready to run
+				if (has_expset && has_batch && has_assays && has_suffix) {
 					return(
 						div(
 							class = "alert alert-info",
 							icon("check-circle"),
 							strong(" Ready to run batch correction"),
-							p(
-								sprintf("%d assays selected", length(input$target_assays)),
-								" | ",
-								sprintf("Batch factors: %s", paste(selector$batch_factors(), collapse = ", "))
-							)
+							tags$ul(
+								tags$li(sprintf("%d assays selected", length(input$target_assays))),
+								tags$li(sprintf("Batch factors: %s", paste(selector$batch_factors(), collapse = ", "))),
+								tags$li(sprintf("Strategy: %s", selector$correction_strategy())),
+								tags$li(sprintf("Suffix: %s", input$combat_assay_suffix))
+							),
+							if (isTRUE(input$auto_run_multi)) {
+								p(
+									icon("sync", style = "color: #337ab7;"),
+									tags$em("Auto-run is enabled - will process automatically when settings change")
+								)
+							} else {
+								p(
+									icon("hand-pointer", style = "color: #f0ad4e;"),
+									tags$em("Click 'Apply Batch Correction' button to start")
+								)
+							}
 						)
 					)
 				}
-				return(NULL)
+				
+				# ✅ Not ready - show what's missing
+				missing_items <- c()
+				
+				if (!has_expset) {
+					missing_items <- c(missing_items, "ExpressionSet data not loaded")
+				}
+				
+				if (!has_batch) {
+					missing_items <- c(missing_items, "No batch factors selected (configure in Batch Correction tab)")
+				}
+				
+				if (!has_assays) {
+					missing_items <- c(missing_items, "No target assays selected")
+				}
+				
+				if (!has_suffix) {
+					missing_items <- c(missing_items, "No assay suffix specified")
+				}
+				
+				return(
+					div(
+						class = "alert alert-warning",
+						icon("exclamation-triangle"),
+						strong(" Not ready to run - missing requirements: "),
+						tags$ul(
+							lapply(missing_items, function(item) {
+								tags$li(icon("times", style = "color: #d9534f;"), " ", item)
+							})
+						),
+						p(tags$small("Complete the requirements above to enable batch correction. "))
+					)
+				)
 			}
 			
+			# ✅ COMPLETED STATES (existing code)
+			
+			# No assays corrected
 			if (log$corrected_count == 0) {
-				div(
-					class = "alert alert-danger",
-					icon("times-circle"),
-					strong(" No assays were corrected"),
-					if (length(log$failed_assays) > 0) {
-						tagList(
-							p("Failed assays: "),
-							tags$ul(
-								lapply(log$failed_assays, function(x) tags$li(x))
+				return(
+					div(
+						class = "alert alert-danger",
+						icon("times-circle"),
+						strong(" No assays were corrected"),
+						if (length(log$failed_assays) > 0) {
+							tagList(
+								p("Reasons: "),
+								tags$ul(
+									lapply(log$failed_assays, function(x) {
+										tags$li(icon("exclamation-circle"), " ", x)
+									})
+								),
+								p(tags$small("Check the Correction Log below for detailed information."))
 							)
-						)
-					}
-				)
-			} else if (length(log$failed_assays) > 0) {
-				div(
-					class = "alert alert-warning",
-					icon("exclamation-triangle"),
-					strong(sprintf(" Partially completed: %d/%d assays corrected", 
-												 log$corrected_count, log$total_count)),
-					tags$ul(
-						tags$li("Suffix: ", tags$code(log$suffix)),
-						tags$li("Strategy: ", tags$code(log$strategy)),
-						tags$li("Batch factors:  ", tags$code(paste(log$batch_factors, collapse = " × "))),
-						tags$li("Updated ExpressionSets: ", log$updated_expsets_count),
-						tags$li("Completed:  ", format(log$timestamp, "%Y-%m-%d %H:%M:%S"))
-					),
-					p(strong("Failed assays:")),
-					tags$ul(
-						lapply(log$failed_assays, function(x) tags$li(x))
-					)
-				)
-			} else {
-				div(
-					class = "alert alert-success",
-					icon("check-circle"),
-					strong(sprintf(" Success!  %d/%d assays corrected", 
-												 log$corrected_count, log$total_count)),
-					tags$ul(
-						tags$li("Suffix: ", tags$code(log$suffix)),
-						tags$li("Strategy: ", tags$code(log$strategy)),
-						tags$li("Batch factors: ", tags$code(paste(log$batch_factors, collapse = " × "))),
-						tags$li("Updated ExpressionSets: ", log$updated_expsets_count),
-						tags$li("Completed: ", format(log$timestamp, "%Y-%m-%d %H:%M:%S"))
+						} else {
+							p("No errors reported.  This may indicate a configuration issue.")
+						}
 					)
 				)
 			}
+			
+			# Partial success
+			if (length(log$failed_assays) > 0) {
+				return(
+					div(
+						class = "alert alert-warning",
+						icon("exclamation-triangle"),
+						strong(sprintf(" Partially completed: %d/%d assays corrected", 
+													 log$corrected_count, log$total_count)),
+						tags$ul(
+							tags$li("Suffix: ", tags$code(log$suffix)),
+							tags$li("Strategy: ", tags$code(log$strategy)),
+							tags$li("Batch factors:  ", tags$code(paste(log$batch_factors, collapse = " × "))),
+							tags$li("Updated ExpressionSets:  ", log$updated_expsets_count),
+							tags$li("Completed: ", format(log$timestamp, "%Y-%m-%d %H:%M:%S"))
+						),
+						hr(),
+						p(strong(icon("times-circle"), " Failed assays:")),
+						tags$ul(
+							lapply(log$failed_assays, function(x) {
+								tags$li(tags$code(x))
+							})
+						),
+						p(tags$small("Check the Correction Log below for detailed error messages."))
+					)
+				)
+			}
+			
+			# Complete success
+			div(
+				class = "alert alert-success",
+				icon("check-circle"),
+				strong(sprintf(" Success!  %d/%d assays corrected", 
+											 log$corrected_count, log$total_count)),
+				tags$ul(
+					tags$li("Suffix: ", tags$code(log$suffix)),
+					tags$li("Strategy: ", tags$code(log$strategy)),
+					tags$li("Batch factors: ", tags$code(paste(log$batch_factors, collapse = " × "))),
+					tags$li("Updated ExpressionSets: ", log$updated_expsets_count),
+					tags$li("Completed: ", format(log$timestamp, "%Y-%m-%d %H:%M:%S"))
+				),
+				p(
+					icon("download", style = "color: #5cb85c;"),
+					tags$em("Corrected ExpressionSets are ready for export.")
+				)
+			)
 		})
+		
+		
 		
 		# Detailed correction log
 		output$correction_log <- renderUI({
@@ -2586,8 +2666,8 @@ mod_combat_multi_assay_server <- function(id,
 			box(
 				title = "Correction Log",
 				width = 12,
-				status = "primary",
-				solidHeader = FALSE,
+				#status = "primary",
+				#solidHeader = FALSE,
 				collapsible = TRUE,
 				collapsed = TRUE,
 				

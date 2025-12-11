@@ -37,11 +37,18 @@ mod_expset_export_ui <- function(id) {
 					)
 				)
 			),
-			
-			hr(),
-			
-			h4("Current ExpressionSet List Contents:"),
-			verbatimTextOutput(ns("expset_list_summary"))
+			fluidRow(
+				box(
+					title = "ExpressionSet List Contents",
+					width = 12,
+					#status = "primary",
+					solidHeader = TRUE,
+					collapsible = TRUE,
+					collapsed = TRUE,
+
+					verbatimTextOutput(ns("expset_list_summary"))
+				)
+			)
 		)
 	)
 }
