@@ -296,12 +296,19 @@ server <- function(input, output, session) {
 	
 	# MULTI ####
 	
+	default_assays_to_correct <- c(
+		'clinical_loess_normalised',
+		'clinical_loess_normalised_PN',
+		'sample_loess_normalised'
+	)
+	
 	mod_combat_multi_assay_server(
 		id = "combat_multi",
 		ExpSet_list = ExpSet_list,
 		update_ExpSet_list = update_ExpSet_list,
 		sample_group_column = sample_group_module$selected_column,
 		selector = combat_selector,
+		default_target_assays = default_assays_to_correct,
 		debug = run_debug
 	)
 	
