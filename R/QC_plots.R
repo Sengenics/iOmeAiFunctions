@@ -64,14 +64,16 @@ TR_Protein_CV_function = function(TR_df, feature_column = 'Protein', data_column
 #' Generate Cy3 BSA Lineplot List
 #'
 #' Creates diagnostic QC plots related to Cy3 BSA controls, including:
-#' - line plots per sample and feature
-#' - histogram of log2 mean NetI
-#' - batch vs signal scatter plots
+#' \itemize{
+#'   \item Line plots per sample and feature
+#'   \item Histogram of log2 mean NetI
+#'   \item Batch vs signal scatter plots
+#' }
 #'
 #' @param datCollate A list containing input data, parameters, and manifest.
-#' @param PerSample_data QC results list for PerSample level.
+#' @param PerSample_data QC results list for PerSample level. 
 #' @param PerProtein_data QC results list for PerProtein level.
-#' @param feature_column Character. Column name for features (e.g., "Protein" or "Feature").
+#' @param feature_column Character.  Column name for features (e.g., "Protein" or "Feature").
 #'
 #' @return A named list of ggplot2 objects:
 #' \describe{
@@ -80,7 +82,6 @@ TR_Protein_CV_function = function(TR_df, feature_column = 'Protein', data_column
 #'   \item{NetI_histogram}{Histogram of log2 mean NetI across samples.}
 #'   \item{NetI_Batch}{Scatter plot of NetI vs batch, colored by label.}
 #' }
-#'
 #' @export
 generate_Cy3BSA_lineplot_list <- function(datCollate,
 																					PerSample_data,
@@ -537,10 +538,12 @@ QC_filter_outlier_histogram <- function(flag_sample_order, plot_title, grouping_
 #' Generate IgR2 Lineplot List
 #'
 #' Creates diagnostic QC plots for IgG control antibody R² statistics, including:
-#' - Ratio to first probe replicate
-#' - Mean Net Intensity
-#' - Log2-transformed mean Net Intensity
-#' - Log2-transformed ratio
+#' \itemize{
+#'   \item Ratio to first probe replicate
+#'   \item Mean Net Intensity
+#'   \item Log2-transformed mean Net Intensity
+#'   \item Log2-transformed ratio
+#' }
 #'
 #' @param datCollate A list containing input data, parameters, and manifest.
 #' @param PerSample_data QC results list for PerSample level.

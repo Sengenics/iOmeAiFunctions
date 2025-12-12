@@ -18,7 +18,7 @@ generate_Cy3BSA_lineplot_list(
 
 \item{PerProtein_data}{QC results list for PerProtein level.}
 
-\item{feature_column}{Character. Column name for features (e.g., "Protein" or "Feature").}
+\item{feature_column}{Character.  Column name for features (e.g., "Protein" or "Feature").}
 }
 \value{
 A named list of ggplot2 objects:
@@ -32,8 +32,8 @@ A named list of ggplot2 objects:
 \description{
 Creates diagnostic QC plots related to Cy3 BSA controls, including:
 \itemize{
-\item line plots per sample and feature
-\item histogram of log2 mean NetI
-\item batch vs signal scatter plots
+\item Line plots per sample and feature
+\item Histogram of log2 mean NetI
+\item Batch vs signal scatter plots
 }
 }
