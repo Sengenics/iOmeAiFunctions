@@ -11,6 +11,7 @@ run_combat_correction(
   strategy = "combined",
   combat_model = "null",
   par_prior = TRUE,
+  assay_suffix = "_ComBat",
   debug = FALSE
 )
 }
@@ -26,6 +27,8 @@ run_combat_correction(
 \item{combat_model}{Character, either "null" or "preserve"}
 
 \item{par_prior}{Logical, use parametric priors (default TRUE)}
+
+\item{assay_suffix}{Character, suffix to append to assay name (default "_ComBat")}
 
 \item{debug}{Logical, print debug messages (default FALSE)}
 }
