@@ -11,6 +11,8 @@ QC_protein_cv_histogram_function(data)
 }
 \value{
 A ggplot2 histogram plot object showing the distribution of CV values.
+
+#'
 }
 \description{
 This function creates a histogram of the coefficient of variation (CV) values

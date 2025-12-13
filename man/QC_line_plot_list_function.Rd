@@ -17,7 +17,7 @@ QC_line_plot_list_function(
 \arguments{
 \item{Data}{Raw or filtered input data frame (typically probe-level).}
 
-\item{data}{Full QC object list (with nested [\link{QC}][\link{data_name}]$data structure).}
+\item{data}{Full QC object list (with nested \code{[[QC]][[data_name]]$data} structure).}
 
 \item{QC}{Character. Name of the QC list entry (e.g., 'ctrl_QC').}
 

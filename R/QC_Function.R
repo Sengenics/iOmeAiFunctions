@@ -12,10 +12,10 @@
 #'  \item{PerSample}
 #'   \item{datCollate$param$BGFilter_ThrPer = 10}
 #'   \item{datCollate$param$BGFilter_ThrPer_Protein = 1}
-#'  \item(PerProtein)
+#'  \item{PerProtein}
 #'    \item{datCollate$param$PerProtein_BGFilter_ThrPer}
 #'    \item{datCollate$param$PerProtein_BGFilter_ThrPer_Protein}
-#'
+#'}
 #' @return A list with two components:
 #' \describe{
 #'   \item{filter_outlier}{Summary of spot filtering and outlier removal}

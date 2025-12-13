@@ -33,13 +33,8 @@
 #'   \item \code{\link{pFC_UI}}: Shiny module UI component
 #'   \item \code{\link{pFC_Server}}: Shiny module server component
 #' }
-#'
-#' @name iOmeAIFunctions-pFC
-#' @docType package
-NULL
-
-
-
+#' @keywords internal
+"_PACKAGE"
 #' Process Penetrance Fold Change (pFC) Analysis
 #'
 #' Core processing function for pFC analysis using ExpressionSet objects.

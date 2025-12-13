@@ -98,61 +98,6 @@ for (i in seq_along(desc)) {
 writeLines(cleaned_desc, desc_path)
 message("✔ DESCRIPTION cleaned of base package imports")
 
-# # ✅ Create R/zzz.R for . onLoad and conflict resolution
-# zzz_content <- '
-# #\' @keywords internal
-# .onLoad <- function(libname, pkgname) {
-# 	# Suppress import conflict warnings
-# 	options(
-# 		conflicts.policy = list(
-# 			warn = FALSE,
-# 			error = FALSE
-# 		)
-# 	)
-# }
-# 
-# #\' @keywords internal
-# .onAttach <- function(libname, pkgname) {
-# 	# Set package-level conflict preferences
-# 	if (requireNamespace("conflicted", quietly = TRUE)) {
-# 			conflicted::conflict_prefer("exprs", "Biobase", quiet = TRUE)
-# 		conflicted::conflict_prefer("pData", "Biobase", quiet = TRUE)
-# 		conflicted::conflict_prefer("fData", "Biobase", quiet = TRUE)
-# 		conflicted::conflict_prefer("filter", "dplyr", quiet = TRUE)
-# 		conflicted::conflict_prefer("select", "dplyr", quiet = TRUE)
-# 		conflicted::conflict_prefer("mutate", "dplyr", quiet = TRUE)
-# 		conflicted::conflict_prefer("combine", "dplyr", quiet = TRUE)
-# 		conflicted::conflict_prefer("box", "shinydashboard", quiet = TRUE)
-# 		conflicted::conflict_prefer("renderDataTable", "DT", quiet = TRUE)
-# 		conflicted::conflict_prefer("dataTableOutput", "DT", quiet = TRUE)
-# 		conflicted::conflict_prefer("desc", "dplyr", quiet = TRUE)
-# 		conflicted::conflict_prefer("rename", "plyr", quiet = TRUE)
-# 		conflicted::conflict_prefer("combine", "Biobase")
-# 		conflicted::conflict_prefer("dataTableOutput", "DT")
-# 		conflicted::conflict_prefer("renderDataTable", "DT")
-# 		conflicted::conflict_prefer("arrange", "dplyr")
-# 	}
-# }
-# 
-# 
-# .onLoad <- function(libname, pkgname) {
-#   # Force base set operations to be available
-#   # This runs even before . onAttach
-#   ns <- getNamespace(pkgname)
-#   assign("setdiff", base::setdiff, envir = ns)
-#   assign("intersect", base::intersect, envir = ns)
-#   assign("union", base::union, envir = ns)
-#   assign("setequal", base::setequal, envir = ns)
-#   
-#   namespaceExport(ns, c("setdiff", "intersect", "union", "setequal"))
-# }
-# 
-# '
-# 
-# 
-# 
-# if (!dir.exists("R")) dir.create("R")
-# writeLines(zzz_content, "R/zzz.R")
 message("✔ Created R/zzz.R for conflict resolution")
 
 # ✅ Remove problematic @importFrom in R files
@@ -188,28 +133,31 @@ if (requireNamespace("devtools", quietly = TRUE)) {
 message("✔ Documenting package...")
 devtools::document()
 
+# ✅ NEW: Clean up NAMESPACE duplicates
+message("✔ Cleaning NAMESPACE duplicates...")
+
+if (file.exists("NAMESPACE")) {
+	namespace_lines <- readLines("NAMESPACE")
+	
+	# Remove exact duplicates while preserving order
+	cleaned_namespace <- unique(namespace_lines)
+	
+	# Count how many duplicates were removed
+	n_duplicates <- length(namespace_lines) - length(cleaned_namespace)
+	
+	if (n_duplicates > 0) {
+		writeLines(cleaned_namespace, "NAMESPACE")
+		message(sprintf("  ✔ Removed %d duplicate entries from NAMESPACE", n_duplicates))
+	} else {
+		message("  ✔ No duplicates found in NAMESPACE")
+	}
+}
+
 message("✔ Installing package...")
 devtools::install(upgrade = "never")
 
 message("✔ Snapshotting renv...")
 renv::snapshot(prompt = FALSE, force = TRUE)
-
-# --- Manage package conflicts (for interactive use) ---
-# if (!requireNamespace("conflicted", quietly = TRUE)) install.packages("conflicted")
-# library(conflicted)
-
-# Set conflict preferences for interactive session
-# conflict_prefer('exprs', 'Biobase')
-# conflict_prefer('pData', 'Biobase')
-# conflict_prefer('filter', 'dplyr')
-# conflict_prefer('select', 'dplyr')
-# conflict_prefer('setdiff', 'base')
-# conflict_prefer('fisher.test','stats')
-# conflicts_prefer(shinydashboard::box)
-# conflicts_prefer(DT::renderDataTable)
-# conflicts_prefer(DT::dataTableOutput)
-
-# Set conflicts in R/zzz.R
 
 message("✔ Package setup complete!")
 message(paste("  Version:", version))

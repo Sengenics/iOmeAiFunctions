@@ -14,6 +14,15 @@ QC_Spot_Filtering_Report(
 \item{datCollate}{A list object containing all relevant assay data, including RawData, Data, parameters, and counts.}
 
 \item{type}{Character, either \code{"PerSample"} (default) or \code{"PerProtein"} to specify the grouping level for filtering.}
+
+\item{thresholds}{\describe{
+\item{PerSample}
+\item{datCollate$param$BGFilter_ThrPer = 10}
+\item{datCollate$param$BGFilter_ThrPer_Protein = 1}
+\item{PerProtein}
+\item{datCollate$param$PerProtein_BGFilter_ThrPer}
+\item{datCollate$param$PerProtein_BGFilter_ThrPer_Protein}
+}}
 }
 \value{
 A list with two components:

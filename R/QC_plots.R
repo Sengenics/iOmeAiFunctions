@@ -154,10 +154,10 @@ generate_Cy3BSA_lineplot_list <- function(datCollate,
     		PerProtein_data,
     		QC,
     		data_name,
-    		#'Protein',
+    		#Protein',
     		feature_column,
     		'Sample',
-    		#'Sample',
+    		#Sample',
     		feature_column
     	) +
     		geom_hline(yintercept = datCollate$param$Cy3BSA_log2RFU,
@@ -196,7 +196,7 @@ generate_Cy3BSA_lineplot_list <- function(datCollate,
 #' Prepares and formats data for line-based QC plots using provided grouping.
 #'
 #' @param Data Raw or filtered input data frame (typically probe-level).
-#' @param data Full QC object list (with nested [[QC]][[data_name]]$data structure).
+#' @param data Full QC object list (with nested \code{[[QC]][[data_name]]$data} structure).
 #' @param QC Character. Name of the QC list entry (e.g., 'ctrl_QC').
 #' @param data_name Character. Name of the sub-data entry (e.g., 'Cy3AvgCV').
 #' @param grouping_column Character. Column for grouping traces (e.g., 'Sample' or 'Feature').
@@ -327,11 +327,11 @@ QC_line_plotly_function <- function(plot_data,
 #'
 #' @return A ggplot2 histogram plot object showing the distribution of CV values.
 #'
-#' @export
-#'
+#'#'
 #' @note
 #' Version 1.0.0 from
 #' QC_Plots.R
+#' @export
 QC_protein_cv_histogram_function <- function(data) {
 	## QC_Plots.R ##
 	protein_cv_histogram <- ggplot(data) +
@@ -362,11 +362,11 @@ QC_protein_cv_histogram_function <- function(data) {
 #'
 #' @return A list with components: `data`, `QC`, `data_name`, and `grouping_column`. The `data` sublist contains `plot_list` with relevant plots.
 #'
-#' @export
-#'
 #' @note
 #' Version 1.0.0 from
 #' QC_Plots.R
+#' @export
+
 QC_data_list_function <- function(data, QC, data_name, grouping_column,
 																	plot_title = 'title', type = 'Percentage',
 																	Data = '', CV_threshold = '') {
@@ -466,11 +466,11 @@ QC_data_list_function <- function(data, QC, data_name, grouping_column,
 #'
 #' @return A ggplot object representing the barplot.
 #'
-#' @export
-#'
 #' @note
 #' Version 1.0.0 from
 #' QC_Plots.R
+#' @export
+
 QC_filter_outlier_plot_function <- function(flag_count, plot_title, Avg, grouping_column, col_name = 'Percentage') {
 	## QC_Plots.R ##
 
@@ -508,11 +508,11 @@ QC_filter_outlier_plot_function <- function(flag_count, plot_title, Avg, groupin
 #'
 #' @return A ggplot2 histogram plot object.
 #'
-#' @export
-#'
 #' @note
 #' Version 1.0.0 from
 #' QC_Plots.R
+#' @export
+
 QC_filter_outlier_histogram <- function(flag_sample_order, plot_title, grouping_column, col_name = 'Percentage') {
 	## QC_Plots.R ##
 	filter_outlier_histogram <- ggplot(flag_sample_order) +
