@@ -4,7 +4,7 @@
 \alias{darrow}
 \title{Debug Arrow Message}
 \usage{
-darrow(..., debug = FALSE, level = 0)
+darrow(..., debug = FALSE, level = 0, id = NULL)
 }
 \arguments{
 \item{...}{Message components}
@@ -12,6 +12,8 @@ darrow(..., debug = FALSE, level = 0)
 \item{debug}{Enable debug output}
 
 \item{level}{Indentation level}
+
+\item{id}{Module ID (optional)}
 }
 \description{
 Debug Arrow Message

@@ -27,5 +27,5 @@ mod_eset_selector_standalone_ui(
 \item{show_status}{Show status boxes (default TRUE)}
 }
 \description{
-Complete data preparation pipeline: Select → Subset → Transform
+Complete data preparation pipeline: Select â Subset â Transform
 }

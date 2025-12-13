@@ -4,7 +4,7 @@
 \alias{derror}
 \title{Debug Error Message}
 \usage{
-derror(..., debug = FALSE, level = 0)
+derror(..., debug = FALSE, level = 0, id = NULL)
 }
 \arguments{
 \item{...}{Message components}
@@ -12,6 +12,8 @@ derror(..., debug = FALSE, level = 0)
 \item{debug}{Enable debug output}
 
 \item{level}{Indentation level}
+
+\item{id}{Module ID (optional)}
 }
 \description{
 Debug Error Message

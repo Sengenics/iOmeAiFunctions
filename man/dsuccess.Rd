@@ -4,7 +4,7 @@
 \alias{dsuccess}
 \title{Debug Success Message}
 \usage{
-dsuccess(..., debug = FALSE, level = 0)
+dsuccess(..., debug = FALSE, level = 0, id = NULL)
 }
 \arguments{
 \item{...}{Message components}
@@ -12,6 +12,8 @@ dsuccess(..., debug = FALSE, level = 0)
 \item{debug}{Enable debug output}
 
 \item{level}{Indentation level}
+
+\item{id}{Module ID (optional)}
 }
 \description{
 Debug Success Message

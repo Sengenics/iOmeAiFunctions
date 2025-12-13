@@ -4,16 +4,18 @@
 \alias{dmsg}
 \title{Debug Message}
 \usage{
-dmsg(..., debug = FALSE, prefix = "🔍", level = 0)
+dmsg(..., debug = FALSE, prefix = "🔍", level = 0, id = NULL)
 }
 \arguments{
 \item{...}{Message components to paste together}
 
 \item{debug}{Enable debug output (default FALSE)}
 
-\item{prefix}{Prefix for the message (default "🔍")}
+\item{prefix}{Prefix for the message (default "ð")}
 
 \item{level}{Indentation level (default 0)}
+
+\item{id}{Module ID to include in output (optional)}
 }
 \description{
 Print a message only when debug mode is enabled

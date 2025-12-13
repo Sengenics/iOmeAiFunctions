@@ -134,104 +134,148 @@ mod_eset_selector_standalone_ui <- function(id,
 																						show_transform = TRUE,
 																						show_info = TRUE,
 																						debug = FALSE) {
-	ns <- NS(id)
 	
-	tagList(
-		# ✅ Minimal inline selector with info icon
-		# ✅ Selector with optional info icon
-		fluidRow(
-			column(
-				width = if (show_info) 11 else 12,  # ✅ Full width if no info icon
-				mod_eset_selector_ui(ns("eset_select"))
-			),
-			if (show_info) {  # ✅ Only show info icon if enabled
+	dstart("mod_eset_selector_standalone_ui", id = id, debug = debug)
+	
+	# ✅ Show configuration
+	dmsg(paste("show_summary =", show_summary), debug = debug, level = 1, id = id)
+	dmsg(paste("show_subset =", show_subset), debug = debug, level = 1, id = id)
+	dmsg(paste("show_transform =", show_transform), debug = debug, level = 1, id = id)
+	dmsg(paste("show_info =", show_info), debug = debug, level = 1, id = id)
+	
+	darrow("Creating namespace", debug = debug, level = 1, id = id)
+	ns <- NS(id)
+	dsuccess(paste("Namespace created:", id), debug = debug, level = 1, id = id)
+	
+	# ✅ Build UI structure
+	darrow("Building UI structure", debug = debug, level = 1, id = id)
+	
+	ui_output <- tagList(
+		# ✅ Selector row
+		{
+			darrow("Building selector row", debug = debug, level = 2, id = id)
+			selector_row <- fluidRow(
 				column(
-					width = 1,
-					style = "padding-top: 25px;",
-					actionLink(
-						ns("toggle_details"),
-						icon("info-circle", class = "fa-lg"),
-						style = "color: #337ab7;"
+					width = if (show_info) 11 else 12,
+					{
+						darrow("Adding mod_eset_selector_ui", debug = debug, level = 3, id = id)
+						mod_eset_selector_ui(ns("eset_select"))
+					}
+				),
+				if (show_info) {
+					darrow("Adding info icon", debug = debug, level = 3, id = id)
+					column(
+						width = 1,
+						style = "padding-top: 25px;",
+						actionLink(
+							ns("toggle_details"),
+							icon("info-circle", class = "fa-lg"),
+							style = "color: #337ab7;",
+							title = "Show/hide data details and options"
+						)
+					)
+				}
+			)
+			dsuccess("Selector row complete", debug = debug, level = 2, id = id)
+			selector_row
+		},
+		
+		# ✅ Collapsible details panel
+		if (show_info) {
+			darrow("Building collapsible details panel", debug = debug, level = 2, id = id)
+			
+			details_panel <- conditionalPanel(
+				condition = "input.toggle_details % 2 == 1",
+				ns = ns,
+				
+				fluidRow(
+					column(
+						width = 12,
+						
+						tagList(
+							# ✅ Data Summary
+							if (show_summary) {
+								darrow("Adding summary box", debug = debug, level = 3, id = id)
+								summary_ui <- box(
+									title = "Data Summary",
+									width = 12,
+									status = "info",
+									solidHeader = TRUE,
+									collapsible = TRUE,
+									collapsed = TRUE,
+									verbatimTextOutput(ns("eset_summary"))
+								)
+								dsuccess("Summary box added", debug = debug, level = 3, id = id)
+								summary_ui
+							},
+							
+							# ✅ Subset Section
+							if (show_subset) {
+								darrow("Adding subset module UI", debug = debug, level = 3, id = id)
+								subset_ui <- box(
+									title = "Subset Data",
+									width = 12,
+									status = "primary",
+									solidHeader = TRUE,
+									collapsible = TRUE,
+									collapsed = TRUE,
+									mod_eset_subset_ui(ns("subset"), debug = debug)
+								)
+								dsuccess("Subset module UI added", debug = debug, level = 3, id = id)
+								subset_ui
+							},
+							
+							# ✅ Transform Section
+							if (show_transform) {
+								darrow("Adding transform module UI", debug = debug, level = 3, id = id)
+								transform_ui <- box(
+									title = "Transform Data",
+									width = 12,
+									status = "primary",
+									solidHeader = TRUE,
+									collapsible = TRUE,
+									collapsed = TRUE,
+									mod_eset_transform_ui(ns("transform"), debug = debug)
+								)
+								dsuccess("Transform module UI added", debug = debug, level = 3, id = id)
+								transform_ui
+							},
+							
+							# ✅ Debug button
+							if (debug) {
+								darrow("Adding debug button", debug = debug, level = 3, id = id)
+								debug_btn <- fluidRow(
+									column(
+										width = 12,
+										style = "margin-top: 10px;",
+										actionButton(
+											ns("debug"),
+											"Debug:  mod_eset_selector_standalone",
+											icon = icon("bug"),
+											class = "btn-warning btn-sm",
+											style = "width: 100%;"
+										)
+									)
+								)
+								dsuccess("Debug button added", debug = debug, level = 3, id = id)
+								debug_btn
+							}
+						)
 					)
 				)
-			}
-		),
-		
-		# ✅ Collapsible details (no visible box)
-		conditionalPanel(
-			condition = "input.toggle_details % 2 == 1",
-			ns = ns,
-			
-			# tags$div(
-			# 	style = "margin-top: 15px;",
-			fluidRow(
-				column(
-					width = 12,
-					box(
-						#title = "Data Information",
-						width = NULL,
-						#status = "info",
-						#solidHeader = TRUE,
-						#collapsible = TRUE,
-						#collapsed = FALSE,	
-			
-			
-				# Data Summary
-				if (show_summary) {
-					fluidRow(
-						column(
-							width = 12,
-							box(
-								title = "Data Summary",
-								width = NULL,
-								collapsible = TRUE,
-								collapsed = TRUE,
-								
-								verbatimTextOutput(ns("eset_summary"))
-							)
-						)
-					)
-				},
-				
-				
-				# Subset Section
-				if (show_subset) {
-					fluidRow(
-						column(
-							width = 12,
-							mod_eset_subset_ui(ns("subset"), debug = debug)
-						)
-					)
-				},
-				
-				# Transform Section
-				if (show_transform) {
-					fluidRow(
-						column(
-							width = 12,
-							mod_eset_transform_ui(ns("transform"), debug = debug)
-						)
-					)
-				},
-				# ✅ Debug button (always visible if debug = TRUE)
-				if (debug) {
-					fluidRow(
-						column(
-							width = 12,
-							style = "margin-top: 10px;",
-							actionButton(
-								ns("debug"),
-								"Debug:  mod_eset_selector_standalone",
-								icon = icon("bug"),
-								class = "btn-warning btn-sm",
-								style = "width: 100%;"
-							)
-						)
-					)
-				},
 			)
-				)))
+			
+			dsuccess("Collapsible details panel complete", debug = debug, level = 2, id = id)
+			details_panel
+		} else {
+			dmsg("Info panel disabled (show_info = FALSE)", debug = debug, level = 2, id = id)
+		}
 	)
+	
+	dsuccess("UI structure complete", debug = debug, level = 1, id = id)
+	dend("mod_eset_selector_standalone_ui", id = id, debug = debug)
+	
+	return(ui_output)
 }
 
 #' Standalone ExpressionSet Selector Server with Subset & Transform
@@ -249,102 +293,146 @@ mod_eset_selector_standalone_ui <- function(id,
 mod_eset_selector_standalone_server <- function(id, 
 																								ExpSet_list,
 																								default_selection = reactive(NULL),
-																								source = reactive("unknown"),
+																								#source = reactive("unknown"),
 																								enable_subset = TRUE,
 																								enable_transform = TRUE,
 																								debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		
+		dstart("ExpressionSet Selector Standalone", id = id, debug = debug)
+		
 		# ✅ Debug observer
 		if (debug) {
 			observeEvent(input$debug, {
-				message("🔍 DEBUG MODE - mod_eset_selector_standalone")
+				dmsg("Manual debug triggered - entering browser()", debug = TRUE, id = id)
 				browser()
 			})
 		}
 		
-		# Observer to update selection when default_selection changes
+		### 1. Handle Default Selection Updates ####
+		darrow("Setting up default selection observer", debug = debug, level = 1, id = id)
 		observe({
+			darrow("Checking default_selection update", debug = debug, level = 2, id = id)
+			
 			if (is.function(default_selection)) {
 				new_default <- default_selection()
+				dmsg("default_selection is reactive, value:", new_default, debug = debug, level = 3, id = id)
 			} else {
 				new_default <- default_selection
+				dmsg("default_selection is static, value:", new_default, debug = debug, level = 3, id = id)
 			}
 			
 			if (! is.null(new_default) && length(new_default) > 0) {
-				# Update the picker/select input
+				dmsg("Updating picker selection to:", new_default, debug = debug, level = 3, id = id)
 				updatePickerInput(session, "eset_select", selected = new_default)
-				# OR updateSelectInput depending on your input type
+				dsuccess("Picker updated", debug = debug, level = 3, id = id)
+			} else {
+				dwarn("No default selection provided", debug = debug, level = 3, id = id)
 			}
 		})
+		dsuccess("Default selection observer ready", debug = debug, level = 1, id = id)
 		
-		# ExpSet Selection Module
+		### 2. ExpSet Selection Module ####
+		darrow("Initializing ExpSet selection module", debug = debug, level = 1, id = id)
 		eset_selected_module <- mod_eset_selector_server(
 			"eset_select",
 			ExpSet_list = ExpSet_list,
 			default_selection = default_selection
 		)
+		dsuccess("ExpSet selection module initialized", debug = debug, level = 1, id = id)
 		
 		# Extract selected ExpressionSet
+		darrow("Creating eset_selected reactive", debug = debug, level = 1, id = id)
 		eset_selected <- reactive({
+			darrow("eset_selected reactive triggered", debug = debug, level = 2, id = id)
 			req(eset_selected_module$eset())
-			eset_selected_module$eset()
+			
+			eset <- eset_selected_module$eset()
+			dsuccess(paste0("ExpressionSet loaded:  ", nrow(eset), " features × ", ncol(eset), " samples"), 
+							 debug = debug, level = 2, id = id)
+			eset
 		})
+		dsuccess("eset_selected reactive created", debug = debug, level = 1, id = id)
 		
-
-		### 2.  Subset Module (optional) ####
+		### 3. Subset Module (optional) ####
 		if (enable_subset) {
+			darrow("Initializing subset module", debug = debug, level = 1, id = id)
+			
 			subset_module <- mod_eset_subset_server(
 				"subset",
 				eset = eset_selected,
 				debug = debug
 			)
+			dsuccess("Subset module initialized", debug = debug, level = 1, id = id)
 			
 			# Reset subset when new data is loaded
+			darrow("Setting up subset reset observer", debug = debug, level = 1, id = id)
 			observe({
+				darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
 				req(eset_selected())
+				
+				dmsg("Resetting subset module with new data", debug = debug, level = 2, id = id)
 				subset_module$subset_eset(eset_selected())
+				dsuccess("Subset module reset complete", debug = debug, level = 2, id = id)
 			}, priority = 100)
 			
 			eset_after_subset <- subset_module$subset_eset
+			dsuccess("Subset module ready", debug = debug, level = 1, id = id)
 		} else {
+			dmsg("Subset module disabled - using original data", debug = debug, level = 1, id = id)
 			eset_after_subset <- eset_selected
 		}
 		
-
-		### 3.  Transform Module (optional) #####
-
+		### 4. Transform Module (optional) ####
 		if (enable_transform) {
+			darrow("Initializing transform module", debug = debug, level = 1, id = id)
+			
 			transform_module <- mod_eset_transform_server(
 				"transform",
 				eset = eset_after_subset,
 				debug = debug
 			)
+			dsuccess("Transform module initialized", debug = debug, level = 1, id = id)
 			
 			# Reset transform when subset changes
+			darrow("Setting up transform reset observer", debug = debug, level = 1, id = id)
 			observe({
+				darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
 				req(eset_after_subset())
+				
+				dmsg("Resetting transform module with new data", debug = debug, level = 2, id = id)
 				transform_module$transformed_eset(eset_after_subset())
+				dsuccess("Transform module reset complete", debug = debug, level = 2, id = id)
 			}, priority = 100)
 			
 			final_eset <- transform_module$transformed_eset
+			dsuccess("Transform module ready", debug = debug, level = 1, id = id)
 		} else {
+			dmsg("Transform module disabled - using subset data", debug = debug, level = 1, id = id)
 			final_eset <- eset_after_subset
 		}
 		
+		### 5. Output Renderers ####
 		
-		# ExpSet info
+		# ExpSet info (short version)
+		darrow("Setting up eset_info output", debug = debug, level = 1, id = id)
 		output$eset_info <- renderPrint({
+			darrow("Rendering eset_info", debug = debug, level = 2, id = id)
 			req(eset_selected())
 			
-			cat("Assay: ", eset_selected_module$name(), "\n")
+			cat("Assay:  ", eset_selected_module$name(), "\n")
 			cat("Samples: ", ncol(eset_selected()), "\n")
 			cat("Features: ", nrow(eset_selected()), "\n")
 			cat("Available Assays: ", paste(Biobase::assayDataElementNames(eset_selected()), collapse = ", "), "\n")
+			
+			dsuccess("eset_info rendered", debug = debug, level = 2, id = id)
 		})
+		dsuccess("eset_info output ready", debug = debug, level = 1, id = id)
 		
 		# Complete ExpSet summary
+		darrow("Setting up eset_summary output", debug = debug, level = 1, id = id)
 		output$eset_summary <- renderPrint({
+			darrow("Rendering eset_summary", debug = debug, level = 2, id = id)
 			req(eset_selected())
 			
 			cat("═══════════════════════════════════════════════════════════\n")
@@ -369,28 +457,33 @@ mod_eset_selector_standalone_server <- function(id,
 				}
 			}, error = function(e) {
 				cat("Feature Metadata: Not available\n")
+				dwarn("Error reading fData:", e$message, debug = debug, level = 3, id = id)
 			})
+			
+			dsuccess("eset_summary rendered", debug = debug, level = 2, id = id)
 		})
+		dsuccess("eset_summary output ready", debug = debug, level = 1, id = id)
 		
-
-		### Return Values ####
-
-		return(list(
+		### 6. Return Values ####
+		darrow("Preparing return values", debug = debug, level = 1, id = id)
+		
+		return_list <- list(
 			assay_names = eset_selected_module$assay_names,
 			# Final processed data
-			
 			eset = final_eset,
 			eset_name = eset_selected_module$name,
-			
 			# Intermediate stages (if needed)
 			eset_original = eset_selected,
 			eset_subset = if (enable_subset) eset_after_subset else NULL,
-			
 			# Access to sub-modules (if needed)
 			subset_module = if (enable_subset) subset_module else NULL,
 			transform_module = if (enable_transform) transform_module else NULL
-		))
-
+		)
+		
+		dsuccess("Return values prepared", debug = debug, level = 1, id = id)
+		dend("ExpressionSet Selector Standalone", id = id, debug = debug)
+		
+		return(return_list)
 	})
 }
 

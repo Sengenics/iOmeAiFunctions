@@ -4,7 +4,7 @@
 \alias{dwarn}
 \title{Debug Warning Message}
 \usage{
-dwarn(..., debug = FALSE, level = 0)
+dwarn(..., debug = FALSE, level = 0, id = NULL)
 }
 \arguments{
 \item{...}{Message components}
@@ -12,6 +12,8 @@ dwarn(..., debug = FALSE, level = 0)
 \item{debug}{Enable debug output}
 
 \item{level}{Indentation level}
+
+\item{id}{Module ID (optional)}
 }
 \description{
 Debug Warning Message

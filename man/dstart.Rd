@@ -4,10 +4,12 @@
 \alias{dstart}
 \title{Debug Section Start}
 \usage{
-dstart(title, debug = FALSE)
+dstart(title, id = NULL, debug = FALSE)
 }
 \arguments{
 \item{title}{Section title}
+
+\item{id}{Module ID (optional)}
 
 \item{debug}{Enable debug output}
 }

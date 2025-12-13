@@ -8,7 +8,6 @@ mod_eset_selector_standalone_server(
   id,
   ExpSet_list,
   default_selection = reactive(NULL),
-  source = reactive("unknown"),
   enable_subset = TRUE,
   enable_transform = TRUE,
   debug = FALSE
@@ -21,13 +20,13 @@ mod_eset_selector_standalone_server(
 
 \item{default_selection}{Default ExpSet name to select}
 
-\item{source}{Reactive returning data source ("uploaded", "package", etc.)}
-
 \item{enable_subset}{Enable subsetting (default TRUE)}
 
 \item{enable_transform}{Enable transformation (default TRUE)}
 
 \item{debug}{Enable debug mode (default FALSE)}
+
+\item{source}{Reactive returning data source ("uploaded", "package", etc.)}
 }
 \description{
 Complete data preparation pipeline

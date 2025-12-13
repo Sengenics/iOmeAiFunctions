@@ -48,7 +48,7 @@ server <- function(input, output, session) {
 		"initial_select",
 		ExpSet_list = ExpSet_list,
 		default_selection = "clinical_loess_normalised_PN",
-		source = expset_data$source,
+		#source = expset_data$source,
 		enable_subset = TRUE,
 		enable_transform = TRUE,
 		debug = run_debug
@@ -58,7 +58,7 @@ server <- function(input, output, session) {
 		"combat_data",
 		ExpSet_list = ExpSet_list,
 		default_selection = "sample_loess_normalised",
-		source = expset_data$source,
+		#source = expset_data$source,
 		enable_subset = TRUE,
 		enable_transform = TRUE,
 		debug = run_debug

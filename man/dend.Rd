@@ -4,10 +4,12 @@
 \alias{dend}
 \title{Debug Section End}
 \usage{
-dend(title, debug = FALSE)
+dend(title, id = NULL, debug = FALSE)
 }
 \arguments{
 \item{title}{Section title}
+
+\item{id}{Module ID (optional)}
 
 \item{debug}{Enable debug output}
 }

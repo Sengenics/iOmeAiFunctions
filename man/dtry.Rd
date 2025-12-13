@@ -4,7 +4,14 @@
 \alias{dtry}
 \title{Debug Try-Catch Wrapper}
 \usage{
-dtry(expr, desc = "operation", debug = FALSE, level = 0, on_error = "stop")
+dtry(
+  expr,
+  desc = "operation",
+  debug = FALSE,
+  level = 0,
+  id = NULL,
+  on_error = "stop"
+)
 }
 \arguments{
 \item{expr}{Expression to evaluate}
@@ -14,6 +21,8 @@ dtry(expr, desc = "operation", debug = FALSE, level = 0, on_error = "stop")
 \item{debug}{Enable debug output}
 
 \item{level}{Indentation level}
+
+\item{id}{Module ID (optional)}
 
 \item{on_error}{What to return on error:  "stop" (re-throw), "null" (return NULL), or "expr" (return expr unevaluated)}
 }
