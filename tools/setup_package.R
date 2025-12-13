@@ -1,7 +1,8 @@
 # tools/setup_package.R
-version = "0.1.3"
-release_data = '2025-12-08'
+version = "0.1.4"
+release_data = '2025-12-11'
 
+install.packages('devtools')
 options(
 	renv.consent = TRUE,
 	renv.config.install.prompt = FALSE,
@@ -97,39 +98,61 @@ for (i in seq_along(desc)) {
 writeLines(cleaned_desc, desc_path)
 message("✔ DESCRIPTION cleaned of base package imports")
 
-# ✅ Create R/zzz.R for . onLoad and conflict resolution
-zzz_content <- '
-#\' @keywords internal
-.onLoad <- function(libname, pkgname) {
-	# Suppress import conflict warnings
-	options(
-		conflicts.policy = list(
-			warn = FALSE,
-			error = FALSE
-		)
-	)
-}
-
-#\' @keywords internal
-.onAttach <- function(libname, pkgname) {
-	# Set package-level conflict preferences
-	if (requireNamespace("conflicted", quietly = TRUE)) {
-		conflicted::conflict_prefer("exprs", "Biobase", quiet = TRUE)
-		conflicted::conflict_prefer("pData", "Biobase", quiet = TRUE)
-		conflicted::conflict_prefer("fData", "Biobase", quiet = TRUE)
-		conflicted::conflict_prefer("filter", "dplyr", quiet = TRUE)
-		conflicted::conflict_prefer("select", "dplyr", quiet = TRUE)
-		conflicted::conflict_prefer("mutate", "dplyr", quiet = TRUE)
-		conflicted::conflict_prefer("combine", "dplyr", quiet = TRUE)
-		conflicted::conflict_prefer("box", "shinydashboard", quiet = TRUE)
-		conflicted::conflict_prefer("renderDataTable", "DT", quiet = TRUE)
-		conflicted::conflict_prefer("dataTableOutput", "DT", quiet = TRUE)
-	}
-}
-'
-
-if (!dir.exists("R")) dir.create("R")
-writeLines(zzz_content, "R/zzz.R")
+# # ✅ Create R/zzz.R for . onLoad and conflict resolution
+# zzz_content <- '
+# #\' @keywords internal
+# .onLoad <- function(libname, pkgname) {
+# 	# Suppress import conflict warnings
+# 	options(
+# 		conflicts.policy = list(
+# 			warn = FALSE,
+# 			error = FALSE
+# 		)
+# 	)
+# }
+# 
+# #\' @keywords internal
+# .onAttach <- function(libname, pkgname) {
+# 	# Set package-level conflict preferences
+# 	if (requireNamespace("conflicted", quietly = TRUE)) {
+# 			conflicted::conflict_prefer("exprs", "Biobase", quiet = TRUE)
+# 		conflicted::conflict_prefer("pData", "Biobase", quiet = TRUE)
+# 		conflicted::conflict_prefer("fData", "Biobase", quiet = TRUE)
+# 		conflicted::conflict_prefer("filter", "dplyr", quiet = TRUE)
+# 		conflicted::conflict_prefer("select", "dplyr", quiet = TRUE)
+# 		conflicted::conflict_prefer("mutate", "dplyr", quiet = TRUE)
+# 		conflicted::conflict_prefer("combine", "dplyr", quiet = TRUE)
+# 		conflicted::conflict_prefer("box", "shinydashboard", quiet = TRUE)
+# 		conflicted::conflict_prefer("renderDataTable", "DT", quiet = TRUE)
+# 		conflicted::conflict_prefer("dataTableOutput", "DT", quiet = TRUE)
+# 		conflicted::conflict_prefer("desc", "dplyr", quiet = TRUE)
+# 		conflicted::conflict_prefer("rename", "plyr", quiet = TRUE)
+# 		conflicted::conflict_prefer("combine", "Biobase")
+# 		conflicted::conflict_prefer("dataTableOutput", "DT")
+# 		conflicted::conflict_prefer("renderDataTable", "DT")
+# 		conflicted::conflict_prefer("arrange", "dplyr")
+# 	}
+# }
+# 
+# 
+# .onLoad <- function(libname, pkgname) {
+#   # Force base set operations to be available
+#   # This runs even before . onAttach
+#   ns <- getNamespace(pkgname)
+#   assign("setdiff", base::setdiff, envir = ns)
+#   assign("intersect", base::intersect, envir = ns)
+#   assign("union", base::union, envir = ns)
+#   assign("setequal", base::setequal, envir = ns)
+#   
+#   namespaceExport(ns, c("setdiff", "intersect", "union", "setequal"))
+# }
+# 
+# '
+# 
+# 
+# 
+# if (!dir.exists("R")) dir.create("R")
+# writeLines(zzz_content, "R/zzz.R")
 message("✔ Created R/zzz.R for conflict resolution")
 
 # ✅ Remove problematic @importFrom in R files
@@ -172,17 +195,21 @@ message("✔ Snapshotting renv...")
 renv::snapshot(prompt = FALSE, force = TRUE)
 
 # --- Manage package conflicts (for interactive use) ---
-if (!requireNamespace("conflicted", quietly = TRUE)) install.packages("conflicted")
-library(conflicted)
+# if (!requireNamespace("conflicted", quietly = TRUE)) install.packages("conflicted")
+# library(conflicted)
 
 # Set conflict preferences for interactive session
-conflict_prefer('exprs', 'Biobase')
-conflict_prefer('pData', 'Biobase')
-conflict_prefer('filter', 'dplyr')
-conflict_prefer('select', 'dplyr')
-conflicts_prefer(shinydashboard::box)
-conflicts_prefer(DT::renderDataTable)
-conflicts_prefer(DT::dataTableOutput)
+# conflict_prefer('exprs', 'Biobase')
+# conflict_prefer('pData', 'Biobase')
+# conflict_prefer('filter', 'dplyr')
+# conflict_prefer('select', 'dplyr')
+# conflict_prefer('setdiff', 'base')
+# conflict_prefer('fisher.test','stats')
+# conflicts_prefer(shinydashboard::box)
+# conflicts_prefer(DT::renderDataTable)
+# conflicts_prefer(DT::dataTableOutput)
+
+# Set conflicts in R/zzz.R
 
 message("✔ Package setup complete!")
 message(paste("  Version:", version))
