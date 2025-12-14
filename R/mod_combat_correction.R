@@ -15,12 +15,12 @@ mod_combat_correction_selector_ui <- function(id,
 		# ✅ Minimal inline selector with optional info icon
 		fluidRow(
 			column(
-				width = if (show_info) 11 else 12,
+				width = if (show_info) 10 else 12,
 				uiOutput(ns("combat_selector_ui"))
 			),
 			if (show_info) {
 				column(
-					width = 1,
+					width = 2,
 					style = "padding-top: 25px;",
 					actionLink(
 						ns("toggle_details"),
@@ -854,6 +854,7 @@ mod_combat_correction_selector_server <- function(id,
 		return(list(
 			batch_factors = reactive({
 				input$batch_factors %||% character(0)
+				#input$batch_factors
 			}),
 			
 			par_prior = reactive({

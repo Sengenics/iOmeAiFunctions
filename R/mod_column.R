@@ -21,12 +21,12 @@ mod_column_selector_ui <- function(id,
 		# ✅ Selector with optional info icon
 		fluidRow(
 			column(
-				width = if (show_info) 11 else 12,
+				width = if (show_info) 10 else 12,
 				uiOutput(ns("column_selector_ui"))
 			),
 			if (show_info) {
 				column(
-					width = 1,
+					width = 2,
 					style = "padding-top: 25px;",
 					actionLink(
 						ns("toggle_details"),

@@ -2548,7 +2548,7 @@ mod_batch_visualization_server <- function(id,
 			if (isTRUE(input$auto_run_viz)) {
 				run_visualization_analysis()
 			}
-		}, ignoreNULL = TRUE, ignoreInit = TRUE)
+		}, ignoreNULL = TRUE, ignoreInit = FALSE)
 		
 		# observeEvent(input$run_analysis, {
 		# 	req(eset_original()) 
@@ -3160,10 +3160,16 @@ mod_batch_visualization_server <- function(id,
 			req(input$color_by)
 			
 			results <- analysis_results()$original
-			corrected_results = analysis_results()$corrected
+			meta_to_use <- if (!is.null(analysis_results()$corrected)) {
+				analysis_results()$corrected$meta
+			} else {
+				results$meta
+			}
+			#corrected_results = analysis_results()$corrected
+			
 			plot_tsne(
 				results$tsne,
-				corrected_results$meta,
+				meta_to_use,
 				color_by = input$color_by,
 				shape_by = input$shape_by,
 				title = "Original Data"
