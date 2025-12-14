@@ -11,7 +11,7 @@ dmsg(..., debug = FALSE, prefix = "🔍", level = 0, id = NULL)
 
 \item{debug}{Enable debug output (default FALSE)}
 
-\item{prefix}{Prefix for the message (default "ð")}
+\item{prefix}{Prefix for the message (default "🔍")}
 
 \item{level}{Indentation level (default 0)}
 

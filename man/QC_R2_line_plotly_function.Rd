@@ -2,7 +2,7 @@
 % Please edit documentation in R/QC_plots.R
 \name{QC_R2_line_plotly_function}
 \alias{QC_R2_line_plotly_function}
-\title{Create RÂ² Line Plot (Interactive-ready ggplot)}
+\title{Create R² Line Plot (Interactive-ready ggplot)}
 \usage{
 QC_R2_line_plotly_function(plot_data, title, subtitle, ylab, log2 = FALSE)
 }
@@ -11,7 +11,7 @@ QC_R2_line_plotly_function(plot_data, title, subtitle, ylab, log2 = FALSE)
 
 \item{title}{Character. Plot title.}
 
-\item{subtitle}{Expression or character. Plot subtitle (typically RÂ² statistics).}
+\item{subtitle}{Expression or character. Plot subtitle (typically R² statistics).}
 
 \item{ylab}{Character. Y-axis label.}
 
@@ -21,7 +21,7 @@ QC_R2_line_plotly_function(plot_data, title, subtitle, ylab, log2 = FALSE)
 A ggplot2 object optimized for plotly conversion.
 }
 \description{
-Generates a ggplot2 line plot for RÂ² QC data suitable for conversion to plotly.
+Generates a ggplot2 line plot for R² QC data suitable for conversion to plotly.
 Uses geom_path for lines and shape 21 points for better interactivity.
 Lines are colored by QC status, points are filled by Labels.
 }
