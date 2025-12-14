@@ -1,0 +1,12 @@
+name: heatmapapp
+title: HeatmapApp
+username: Shaun.Garnett
+account: Shaun.Garnett
+server: rstudioconnect.sladmin.com
+hostUrl: https://rstudioconnect.sladmin.com/__api__
+appId: 689
+bundleId: 3002
+url: https://rstudioconnect.sladmin.com/content/09ffcae8-62c0-4f79-a255-15fde6bca591/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
