@@ -47,25 +47,133 @@ server <- function(input, output, session) {
 			)
 		}
 	})
+	# MODE_SUFFIX <- 'Simple'
+	# source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+	# 
+	# MODE_SUFFIX <- 'Full'
+	# source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
 	
+	initial_loaded <- reactiveVal(FALSE)
 	observe({
-		mode <- input$batch_interface_mode
-		if (is.null(mode)) mode <- "Full"
 		
-		# ✅ Set the suffix based on mode
-		mode_suffix <- tolower(mode)  # "full" or "simple"
-		
-		cat(sprintf("═══ Loading Server with MODE_SUFFIX: '%s' ═══\n", mode_suffix))
-		
-		# ✅ Source server file - it will use MODE_SUFFIX
-		server_file <- "ShinySections/BatchCorrect_Full_server.R"  # Single server file! 
-		
-		if (file.exists(server_file)) {
-			source(server_file, local = TRUE)
-		} else {
-			warning(sprintf("Server file not found:  %s", server_file))
+		# Only run if not already loaded
+		if (!initial_loaded()) {
+			
+			MODE_SUFFIX <- "full"
+			
+			cat(sprintf("═══ Initial load with MODE_SUFFIX = '%s' ═══\n", MODE_SUFFIX))
+			
+			source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+			
+			cat("✓ Loaded\n")
+			
+			# Mark as loaded
+			initial_loaded(TRUE)
 		}
 	})
+	
+	# ═══════════════════════════════════════════════════════════════
+	# ✅ Reload SAME file with DIFFERENT MODE_SUFFIX when mode changes
+	# ═══════════════════════════════════════════════════════════════
+	
+	observeEvent(input$batch_interface_mode, {
+		
+		mode <- input$batch_interface_mode
+		
+		MODE_SUFFIX <- tolower(mode)
+		
+		cat(sprintf("\n═══ Reloading with MODE_SUFFIX = '%s' ═══\n", MODE_SUFFIX))
+		
+		source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+		
+		cat(sprintf("✓ Reloaded with MODE_SUFFIX = '%s'\n\n", MODE_SUFFIX))
+		
+	}, ignoreInit = TRUE)
+	
+	# observeEvent(input$batch_interface_mode,{
+	# 
+	# 	MODE_SUFFIX <- "Full"  # Default
+	# 	if(is.null(input$batch_interface_mode)){
+	# 		MODE_SUFFIX = input$batch_interface_mode
+	# 	}
+	# 
+	# 	cat(sprintf("═══ INITIAL LOAD:  MODE_SUFFIX = '%s' ═══\n", MODE_SUFFIX))
+	# 	print(MODE_SUFFIX)
+	# 	#source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+	
+	# mode_suffix = reactive({
+	# # 	mode = input$batch_interface_mode
+	# # 	if (is.null(mode)) mode <- "Full"
+	# # 	mode
+	# # })
+	# 
+	# observe({
+	# 	
+	# 	cat("═══ INITIAL SERVER LOAD ═══\n")
+	# 	
+	# 	# Default to Full mode
+	# 	MODE_SUFFIX <- "full"
+	# 	
+	# 	server_file <- "ShinySections/BatchCorrect_Full_server.R"
+	# 	
+	# 	if (file.exists(server_file)) {
+	# 		source(server_file, local = TRUE)
+	# 		cat("✓ Initial server loaded\n")
+	# 	}
+	# 	
+	# })  # ✅ Only runs ONCE
+	# 
+	# 
+	# observeEvent(input$batch_interface_mode, {
+	# 	
+	# 	mode <- input$batch_interface_mode
+	# 	req(mode)  # ✅ Don't run if NULL
+	# 	
+	# 	MODE_SUFFIX <- tolower(mode)
+	# 	
+	# 	cat(sprintf("═══ SWITCHING TO %s MODE ═══\n", mode))
+	# 	
+	# 	server_file <- sprintf("ShinySections/BatchCorrect_%s_server.R", mode)
+	# 	
+	# 	if (file.exists(server_file)) {
+	# 		source(server_file, local = TRUE)
+	# 		cat("✓ Server reloaded\n")
+	# 	}
+	# 	
+	# }, ignoreInit = TRUE)  # ✅ Ignore initial load (handled by observe above)
+	
+
+	# observeEvent(input$batch_interface_mode, {
+	# 	
+	# 	# ✅ Inside reactive context - can access input$
+	# 	mode <- input$batch_interface_mode
+	# 	if (is.null(mode)) mode <- "Full"
+	# 	
+	# 	MODE_SUFFIX <- tolower(mode)
+	# 	
+	# 	# ✅ Source the server file with MODE_SUFFIX in scope
+	# 	source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+	# 	
+	# }, ignoreNULL = FALSE, ignoreInit = FALSE)
+	
+	# observe({
+	# 	mode <- input$batch_interface_mode
+	# 	if (is.null(mode)) mode <- "Full"
+	# 	
+	# 	# ✅ Set the suffix based on mode
+	# 	MODE_SUFFIX <- tolower(mode)  # "full" or "simple"
+	# 	
+	# 	cat(sprintf("═══ Loading Server with MODE_SUFFIX: '%s' ═══\n", MODE_SUFFIX))
+	# 	
+	# 	# ✅ Source server file - it will use MODE_SUFFIX
+	# 	server_file <- "ShinySections/BatchCorrect_Full_server.R"  # Single server file! 
+	# 	
+	# 	if (file.exists(server_file)) {
+	# 		source(server_file, local = TRUE)
+	# 	} else {
+	# 		warning(sprintf("Server file not found:  %s", server_file))
+	# 	}
+	# })
 
 	
 	expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
@@ -88,7 +196,7 @@ server <- function(input, output, session) {
 		ExpSet_list = ExpSet_list  # Use the same ExpSet_list from expset_import
 	)
 	
-	source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+
 	# Initial Data Selection #####
 	
 # 	data_module <- mod_eset_selector_standalone_server(

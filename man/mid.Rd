@@ -7,51 +7,14 @@
 mid(base_id, mode_suffix = NULL)
 }
 \arguments{
-\item{base_id}{Character string. The base module ID without any suffix.}
+\item{base_id}{Character string. The base module ID.}
 
-\item{mode_suffix}{Character string. Optional. The suffix to append.  If not
-provided, uses the \code{MODE_SUFFIX} variable from the parent environment.}
+\item{mode_suffix}{Character string. Optional suffix.  If NULL, searches
+for MODE_SUFFIX in calling environment.  Returns base_id if not found.}
 }
 \value{
-Character string. The base ID with the mode suffix appended,
-separated by an underscore.
+Character string. Module ID with suffix (if available).
 }
 \description{
-Generates a module ID with a mode-specific suffix appended. This allows
-the same server logic to work with different UI modes (e.g., "full" vs "simple")
-by creating unique namespaces for each mode's modules.
-}
-\details{
-By default, this function looks for a \code{MODE_SUFFIX} variable in the calling
-environment. This is typically set based on the current interface mode
-before sourcing server logic files.
-
-Alternatively, you can explicitly provide the suffix via the \code{mode_suffix}
-parameter for more control or testing purposes.
-
-This pattern prevents namespace conflicts when dynamically switching between
-different UI modes that share the same underlying server logic but need
-separate reactive contexts.
-}
-\examples{
-\dontrun{
-# Standard usage - relies on MODE_SUFFIX in environment
-MODE_SUFFIX <- "full"
-mid("batch_viz")        # Returns "batch_viz_full"
-
-# Explicit suffix
-mid("batch_viz", mode_suffix = "simple")  # Returns "batch_viz_simple"
-
-# Use in module server calls
-mod_batch_visualization_server(
-  id = mid("batch_viz"),
-  eset = my_eset,
-  debug = TRUE
-)
-}
-
-}
-\seealso{
-Used in dynamic server sourcing patterns where UI mode selection
-determines which interface variant is loaded.
+Create Mode-Specific Module ID
 }
