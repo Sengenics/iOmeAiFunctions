@@ -55,10 +55,10 @@ ui_content = 	fluidRow(
 					 					 
 					 					 
 					 					 column(12,
-					 					 			 mod_batch_combined_analysis_ui(mid("batch_combined",mode), debug = run_debug),
-					 					 			 mod_batch_testing_ui(mid("batch_testing",mode), debug = run_debug),
-					 					 			 mod_batch_distribution_test_ui(mid("distribution_test",mode), debug = run_debug),
-					 					 			 mod_annotation_analysis_ui(mid("annotation_analysis",mode), debug = run_debug),
+					 					 			 mod_batch_combined_analysis_ui(mid("batch_combined",mode), debug = run_debug)#,
+					 					 			 #mod_batch_testing_ui(mid("batch_testing",mode), debug = run_debug),
+					 					 			 #mod_batch_distribution_test_ui(mid("distribution_test",mode), debug = run_debug),
+					 					 			 #mod_annotation_analysis_ui(mid("annotation_analysis",mode), debug = run_debug),
 					 					 )
 					 					 
 					 	),

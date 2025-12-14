@@ -53,29 +53,6 @@ server <- function(input, output, session) {
 	# MODE_SUFFIX <- 'Full'
 	# source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
 	
-	initial_loaded <- reactiveVal(FALSE)
-	observe({
-		
-		# Only run if not already loaded
-		if (!initial_loaded()) {
-			
-			MODE_SUFFIX <- "full"
-			
-			cat(sprintf("═══ Initial load with MODE_SUFFIX = '%s' ═══\n", MODE_SUFFIX))
-			
-			source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
-			
-			cat("✓ Loaded\n")
-			
-			# Mark as loaded
-			initial_loaded(TRUE)
-		}
-	})
-	
-	# ═══════════════════════════════════════════════════════════════
-	# ✅ Reload SAME file with DIFFERENT MODE_SUFFIX when mode changes
-	# ═══════════════════════════════════════════════════════════════
-	
 	observeEvent(input$batch_interface_mode, {
 		
 		mode <- input$batch_interface_mode
@@ -88,7 +65,44 @@ server <- function(input, output, session) {
 		
 		cat(sprintf("✓ Reloaded with MODE_SUFFIX = '%s'\n\n", MODE_SUFFIX))
 		
-	}, ignoreInit = TRUE)
+	})
+	
+	# initial_loaded <- reactiveVal(FALSE)
+	# observe({
+	# 	
+	# 	# Only run if not already loaded
+	# 	if (!initial_loaded()) {
+	# 		
+	# 		MODE_SUFFIX <- "full"
+	# 		
+	# 		cat(sprintf("═══ Initial load with MODE_SUFFIX = '%s' ═══\n", MODE_SUFFIX))
+	# 		
+	# 		source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+	# 		
+	# 		cat("✓ Loaded\n")
+	# 		
+	# 		# Mark as loaded
+	# 		initial_loaded(TRUE)
+	# 	}
+	# })
+	# 
+	# # ═══════════════════════════════════════════════════════════════
+	# # ✅ Reload SAME file with DIFFERENT MODE_SUFFIX when mode changes
+	# # ═══════════════════════════════════════════════════════════════
+	# 
+	# observeEvent(input$batch_interface_mode, {
+	# 	
+	# 	mode <- input$batch_interface_mode
+	# 	
+	# 	MODE_SUFFIX <- tolower(mode)
+	# 	
+	# 	cat(sprintf("\n═══ Reloading with MODE_SUFFIX = '%s' ═══\n", MODE_SUFFIX))
+	# 	
+	# 	source("ShinySections/BatchCorrect_Full_server.R", local = TRUE)
+	# 	
+	# 	cat(sprintf("✓ Reloaded with MODE_SUFFIX = '%s'\n\n", MODE_SUFFIX))
+	# 	
+	# }, ignoreInit = TRUE)
 	
 	# observeEvent(input$batch_interface_mode,{
 	# 
