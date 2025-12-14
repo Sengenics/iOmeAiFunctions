@@ -853,8 +853,9 @@ mod_combat_correction_selector_server <- function(id,
 		### Return with defaults ####
 		return(list(
 			batch_factors = reactive({
-				input$batch_factors %||% character(0)
-				#input$batch_factors
+				#input$batch_factors %||% character(0)
+				#input$batch_factors %||% "Labels"
+				input$batch_factors
 			}),
 			
 			par_prior = reactive({

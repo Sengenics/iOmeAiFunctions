@@ -210,12 +210,12 @@ batch_viz <- mod_batch_visualization_server(
 	# }),
 	batch_factors = reactive({
 		# ✅ Don't require batch factors - allow empty
-		factors <- combat_selector$batch_factors() %||% character(0)
+		factors <- combat_selector$batch_factors()
 		
 		if (length(factors) > 0) {
 			c(factors, 'ComBat')  # Add ComBat if there are batch factors
 		} else {
-			character(0)  # Return empty vector if none
+			"Labels"  # Return empty vector if none
 		}
 	}),
 	ExpSet_list = ExpSet_list,

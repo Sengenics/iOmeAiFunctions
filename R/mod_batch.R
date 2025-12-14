@@ -2123,54 +2123,58 @@ mod_batch_visualization_server <- function(id,
 				# ✅ Use ComBat from this session - extract the corrected assay using suffix
 				message("🔍 BATCH VIZ: Using session ComBat with suffix")
 				
-				req(eset_corrected())
-				session_eset <- eset_corrected()
-				
-				if (is.null(session_eset)) {
-					message("  ❌ Session corrected data is NULL")
-					return(NULL)
+				if(!is.null(eset_corrected())){
+						req(eset_corrected())
+						session_eset <- eset_corrected()
+						
+						if (is.null(session_eset)) {
+							message("  ❌ Session corrected data is NULL")
+							return(NULL)
+						}
+						
+						# Get the base assay name that was corrected
+						notes <- Biobase::notes(session_eset)
+						combat_info <- notes$combat_correction
+						
+						if (is.null(combat_info)) {
+							message("  ❌ No combat_correction info in session data")
+							return(NULL)
+						}
+						
+						# Build expected corrected assay name
+						original_assay <- combat_info$original_assay %||% "exprs"
+						corrected_assay_name <- combat_info$corrected_assay %||% paste0(original_assay, suffix)
+						
+						message("  Original assay: ", original_assay)
+						message("  Corrected assay: ", corrected_assay_name)
+						
+						# Check if it exists
+						all_assays <- Biobase::assayDataElementNames(session_eset)
+						
+						if (! corrected_assay_name %in% all_assays) {
+							message("  ❌ Assay '", corrected_assay_name, "' not found in session data")
+							message("  Available assays: ", paste(all_assays, collapse = ", "))
+							return(NULL)
+						}
+						
+						message("  ✅ Found assay: ", corrected_assay_name)
+						
+						# Create ExpressionSet with corrected data as exprs
+						corrected_ExpSet <- session_eset
+						Biobase::exprs(corrected_ExpSet) <- Biobase::assayDataElement(session_eset, corrected_assay_name)
+						
+						# Add visualization note
+						notes$visualization_source <- list(
+							assay_name = corrected_assay_name,
+							base_assay_name = original_assay,
+							loaded_from = "Session ComBat"
+						)
+						Biobase::notes(corrected_ExpSet) <- notes
+						
+						return(corrected_ExpSet)
+				}else{
+					corrected_ExpSet = NULL
 				}
-				
-				# Get the base assay name that was corrected
-				notes <- Biobase::notes(session_eset)
-				combat_info <- notes$combat_correction
-				
-				if (is.null(combat_info)) {
-					message("  ❌ No combat_correction info in session data")
-					return(NULL)
-				}
-				
-				# Build expected corrected assay name
-				original_assay <- combat_info$original_assay %||% "exprs"
-				corrected_assay_name <- combat_info$corrected_assay %||% paste0(original_assay, suffix)
-				
-				message("  Original assay: ", original_assay)
-				message("  Corrected assay: ", corrected_assay_name)
-				
-				# Check if it exists
-				all_assays <- Biobase::assayDataElementNames(session_eset)
-				
-				if (! corrected_assay_name %in% all_assays) {
-					message("  ❌ Assay '", corrected_assay_name, "' not found in session data")
-					message("  Available assays: ", paste(all_assays, collapse = ", "))
-					return(NULL)
-				}
-				
-				message("  ✅ Found assay: ", corrected_assay_name)
-				
-				# Create ExpressionSet with corrected data as exprs
-				corrected_ExpSet <- session_eset
-				Biobase::exprs(corrected_ExpSet) <- Biobase::assayDataElement(session_eset, corrected_assay_name)
-				
-				# Add visualization note
-				notes$visualization_source <- list(
-					assay_name = corrected_assay_name,
-					base_assay_name = original_assay,
-					loaded_from = "Session ComBat"
-				)
-				Biobase::notes(corrected_ExpSet) <- notes
-				
-				return(corrected_ExpSet)
 				
 			} else if (input$corrected_source == "assay") {
 				# ✅ Load from original ExpressionSet assay using suffix
@@ -2532,7 +2536,7 @@ mod_batch_visualization_server <- function(id,
 		# ✅ Manual run button (always works)
 		observeEvent(input$run_analysis, {
 			run_visualization_analysis()
-		})
+		}) 
 		
 		# ✅ Auto-run logic (only when toggle is ON)
 		observeEvent(list(
@@ -2733,10 +2737,11 @@ mod_batch_visualization_server <- function(id,
 		
 		# Correlation matrix plots
 		output$correlation_matrix_original <- renderPlot({
+			
 			req(correlation_results())
 			
 			expr_orig <- correlation_results()$original$expr_orig
-			plot_correlation_matrix(expr_orig, "Original Data")
+			try(plot_correlation_matrix(expr_orig, "Original Data"))
 		})
 		
 		output$correlation_matrix_corrected <- renderPlot({
@@ -2744,14 +2749,14 @@ mod_batch_visualization_server <- function(id,
 			req(correlation_results()$corrected)
 			
 			expr_corr <- correlation_results()$corrected$expr_corr
-			plot_correlation_matrix(expr_corr, "ComBat Corrected Data")
+			try(plot_correlation_matrix(expr_corr, "ComBat Corrected Data"))
 		})
 		
 		# Correlation histogram
 		output$correlation_histogram <- renderPlot({
 			req(correlation_results())
 			
-			plot_correlation_histogram(correlation_results())
+			try(plot_correlation_histogram(correlation_results()))
 		})
 		
 		# Correlation by batch
@@ -2762,12 +2767,12 @@ mod_batch_visualization_server <- function(id,
 			
 			#correlation_results, meta, batch_column, tr_samples
 			
-			plot_correlation_by_batch(
+			try(plot_correlation_by_batch(
 				correlation_results = correlation_results(),
 				meta = tr_data()$meta,
 				batch_column = input$color_by,
 				tr_samples = tr_data()$tr_samples
-			)
+			))
 		})
 		
 		# Intra vs Inter batch correlation
@@ -2776,12 +2781,12 @@ mod_batch_visualization_server <- function(id,
 			req(tr_data())
 			req(input$color_by)
 			
-			plot_correlation_intra_inter(
+			try(plot_correlation_intra_inter(
 				correlation_results(),
 				tr_data()$meta,
 				batch_column = input$color_by,
 				tr_samples = tr_data()$tr_samples
-			)
+			))
 		})
 		
 		output$correlation_summary_table <- DT::renderDataTable({
@@ -2970,7 +2975,7 @@ mod_batch_visualization_server <- function(id,
 			
 			stats <- sample_correlation_results()$original
 			
-			hist(
+			try({hist(
 				stats$values,
 				breaks = 50,
 				main = "Original Data",
@@ -2987,7 +2992,7 @@ mod_batch_visualization_server <- function(id,
 						 col = c("red", "blue"),
 						 lty = 2,
 						 lwd = 2,
-						 bty = "n")
+						 bty = "n")})
 		})
 		
 		output$sample_correlation_hist_corrected <- renderPlot({
@@ -2996,7 +3001,7 @@ mod_batch_visualization_server <- function(id,
 			
 			stats <- sample_correlation_results()$corrected
 			
-			hist(
+			try({hist(
 				stats$values,
 				breaks = 50,
 				main = "Corrected Data",
@@ -3014,6 +3019,7 @@ mod_batch_visualization_server <- function(id,
 						 lty = 2,
 						 lwd = 2,
 						 bty = "n")
+			})
 		})
 		
 		##  Sample correlation by batch ####
@@ -3029,12 +3035,12 @@ mod_batch_visualization_server <- function(id,
 			all_samples <- colnames(analysis_results()$original$expr)
 			non_tr_samples <- setdiff(all_samples, tr_info$tr_samples)
 			
-			plot_sample_correlation_by_batch(
+			try(plot_sample_correlation_by_batch(
 				results,
 				meta,
 				batch_column = input$color_by,
 				samples = non_tr_samples
-			)
+			))
 		})
 		
 		# Sample correlation intra vs inter batch
@@ -3050,12 +3056,12 @@ mod_batch_visualization_server <- function(id,
 			all_samples <- colnames(analysis_results()$original$expr)
 			non_tr_samples <- setdiff(all_samples, tr_info$tr_samples)
 			
-			plot_sample_correlation_intra_inter(
+			try(plot_sample_correlation_intra_inter(
 				results,
 				meta,
 				batch_column = input$color_by,
 				samples = non_tr_samples
-			)
+			))
 		})
 		
 		output$sample_correlation_intra_inter_table <- DT::renderDataTable({
@@ -3088,13 +3094,13 @@ mod_batch_visualization_server <- function(id,
 			
 			
 			#try(dev.off())
-			plot_dendrogram(
+			try(plot_dendrogram(
 				hclust_obj = results$hclust,
 				meta = results$meta,
 				color_by = input$label_column,
 				qc_column = input$qc_column,
 				title = "Original Data - Hierarchical Clustering"
-			)
+			))
 		})
 		
 		# Dendrogram - Corrected ####
@@ -3107,13 +3113,13 @@ mod_batch_visualization_server <- function(id,
 			results <- analysis_results()$corrected
 			
 			#try(dev.off())
-			plot_dendrogram(
+			try(plot_dendrogram(
 				results$hclust,
 				results$meta,
 				color_by = input$label_column,
 				qc_column = input$qc_column,
 				title = "ComBat Corrected Data - Hierarchical Clustering"
-			)
+			))
 		})
 		
 		# Dendrogram - Original ####
@@ -3126,13 +3132,13 @@ mod_batch_visualization_server <- function(id,
 			
 			
 			#try(dev.off())
-			plot_dendrogram(
+			try(plot_dendrogram(
 				hclust_obj = results$hclust,
 				meta = results$meta,
 				color_by = input$label_column,
 				qc_column = input$qc_column,
 				title = "Original Data - Hierarchical Clustering"
-			)
+			))
 		})
 		
 		# Dendrogram - Corrected ####
@@ -3144,13 +3150,13 @@ mod_batch_visualization_server <- function(id,
 			
 			results <- analysis_results()$corrected
 			#try(dev.off())
-			plot_dendrogram(
+			try(plot_dendrogram(
 				results$hclust,
 				results$meta,
 				color_by = input$label_column,
 				qc_column = input$qc_column,
 				title = "ComBat Corrected Data - Hierarchical Clustering"
-			)
+			))
 		})
 		
 		# t-SNE #####
@@ -3167,13 +3173,13 @@ mod_batch_visualization_server <- function(id,
 			}
 			#corrected_results = analysis_results()$corrected
 			
-			plot_tsne(
+			try(plot_tsne(
 				results$tsne,
 				meta_to_use,
 				color_by = input$color_by,
 				shape_by = input$shape_by,
 				title = "Original Data"
-			)
+			))
 		})
 		
 		# t-SNE - Corrected
@@ -3183,13 +3189,13 @@ mod_batch_visualization_server <- function(id,
 			req(input$color_by)
 			
 			results <- analysis_results()$corrected
-			plot_tsne(
+			try(plot_tsne(
 				results$tsne,
 				results$meta,
 				color_by = input$color_by,
 				shape_by = input$shape_by,
 				title = "ComBat Corrected Data"
-			)
+			))
 		})
 		
 		# t-SNE - Comparison
@@ -3201,12 +3207,12 @@ mod_batch_visualization_server <- function(id,
 			orig <- analysis_results()$original
 			corr <- analysis_results()$corrected
 			
-			plot_tsne_comparison(
+			try(plot_tsne_comparison(
 				orig$tsne, corr$tsne,
 				corr$meta,
 				color_by = input$color_by,
 				shape_by = input$shape_by
-			)
+			))
 		})
 		
 		# PCA - Original
@@ -3215,13 +3221,13 @@ mod_batch_visualization_server <- function(id,
 			req(input$color_by)
 			
 			results <- analysis_results()$original
-			plot_pca(
+			try(plot_pca(
 				results$pca,
 				results$meta,
 				color_by = input$color_by,
 				shape_by = input$shape_by,
 				title = "Original Data"
-			)
+			))
 		})
 		
 		# PCA - Corrected
@@ -3231,13 +3237,13 @@ mod_batch_visualization_server <- function(id,
 			req(input$color_by)
 			
 			results <- analysis_results()$corrected
-			plot_pca(
+			try(plot_pca(
 				results$pca,
 				results$meta,
 				color_by = input$color_by,
 				shape_by = input$shape_by,
 				title = "ComBat Corrected Data"
-			)
+			))
 		})
 		
 		# PCA Variance
@@ -3248,9 +3254,9 @@ mod_batch_visualization_server <- function(id,
 			
 			if (! is.null(analysis_results()$corrected)) {
 				corr_var <- analysis_results()$corrected$pca$sdev^2 / sum(analysis_results()$corrected$pca$sdev^2)
-				plot_pca_variance_comparison(orig_var, corr_var)
+				try(plot_pca_variance_comparison(orig_var, corr_var))
 			} else {
-				plot_pca_variance_single(orig_var)
+				try(plot_pca_variance_single(orig_var))
 			}
 		})
 		
@@ -3259,13 +3265,13 @@ mod_batch_visualization_server <- function(id,
 			req(analysis_results())
 			req(input$color_by)
 			
-			results <- analysis_results()$original
-			plot_distance_heatmap(
+			results <- analysis_results()$original 
+			try(plot_distance_heatmap(
 				results$dist,
 				results$meta,
 				color_by = input$color_by,
 				title = "Original Data"
-			)
+			))
 		})
 		
 		# Heatmap - Corrected
@@ -3275,12 +3281,12 @@ mod_batch_visualization_server <- function(id,
 			req(input$color_by)
 			
 			results <- analysis_results()$corrected
-			plot_distance_heatmap(
+			try(plot_distance_heatmap(
 				results$dist,
 				results$meta,
 				color_by = input$color_by,
 				title = "ComBat Corrected Data"
-			)
+			))
 		})
 	})
 }
