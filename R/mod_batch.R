@@ -1974,7 +1974,7 @@ mod_batch_visualization_server <- function(id,
 																					 ExpSet_list = NULL,
 																					 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
-		ns <- session$ns  
+		ns <- session$ns   
 		# Render debug button
 		# output$debug_ui <- renderUI({
 		# 	if (debug) {
@@ -2462,6 +2462,17 @@ mod_batch_visualization_server <- function(id,
 			# updateSelectInput(session, "replicate_column", choices = c("None" = "", cols), selected = "QC")
 		})
 		
+		tsne_perplexity <- reactive({
+			if (is.null(input$tsne_perplexity)) {
+				# Fallback:  calculate safe default
+				req(eset_original())
+				n_samples <- ncol(eset_original())
+				max_perplexity <- floor((n_samples - 1) / 3)
+				return(min(30, max(5, max_perplexity - 1)))
+			}
+			input$tsne_perplexity
+		})
+		
 		output$tsne_perplexity_ui <- renderUI({
 			req(eset_original())
 			
@@ -2548,7 +2559,7 @@ mod_batch_visualization_server <- function(id,
 				# Original data analysis
 				results$original <- perform_analysis(
 					eset = eset_original(),
-					perplexity = input$tsne_perplexity,
+					perplexity = tsne_perplexity(),
 					iterations = input$tsne_iterations
 				)
 				
@@ -2556,7 +2567,7 @@ mod_batch_visualization_server <- function(id,
 				if (input$show_corrected && !is.null(eset_corrected_dynamic())) {
 					results$corrected <- perform_analysis(
 						eset = eset_corrected_dynamic(),
-						perplexity = input$tsne_perplexity,
+						perplexity = tsne_perplexity(),
 						iterations = input$tsne_iterations
 					)
 				}
@@ -2583,7 +2594,7 @@ mod_batch_visualization_server <- function(id,
 			eset_corrected_dynamic(),
 			input$color_by,
 			input$shape_by,
-			input$tsne_perplexity,
+			tsne_perplexity(),
 			input$tsne_iterations,
 			input$show_corrected
 		), {

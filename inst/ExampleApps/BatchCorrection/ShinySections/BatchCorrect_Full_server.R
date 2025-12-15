@@ -196,11 +196,54 @@ single_combat <- mod_combat_single_server(
 # 	debug = run_debug
 # )
 
+# ✅ Create a reactive that determines if batch correction should even run
+# should_run_batch_correction <- reactive({
+# 	req(combat_data$eset())
+# 	
+# 	# Check if batch factors exist
+# 	batch_factors <- combat_selector$batch_factors()
+# 	
+# 	if (is.null(batch_factors) || length(batch_factors) == 0) {
+# 		return(FALSE)
+# 	}
+# 	# Check if sample group exists - USE THE MODULE REFERENCE
+# 	sample_group <- sample_group_module$selected_column()
+# 	# Check if sample group exists
+# 	if (is.null(sample_group) || sample_group == "") {
+# 		return(FALSE)
+# 	}
+# 	
+# 	TRUE
+# })
+# 
+# # ✅ Reset single_combat when it shouldn't run
+# observe({
+# 	if (!should_run_batch_correction()) {
+# 		# Force reset by triggering the eset change
+# 		# This is a workaround to clear the cached result
+# 		isolate({
+# 			if (! is.null(single_combat$corrected_eset())) {
+# 				showNotification("Batch correction cleared - no batch factors selected", 
+# 												 type = "message", duration = 3)
+# 			}
+# 		})
+# 	}
+# })
+
+
 batch_viz <- mod_batch_visualization_server(
 	mid("batch_viz"),
 	eset_original_name = reactive(combat_data$eset_name()),
 	eset_original = combat_data$eset,
-	eset_corrected = single_combat$corrected_eset,
+	#eset_corrected = single_combat$corrected_eset,
+	eset_corrected = reactive({
+		# ✅ Only pass corrected eset if correction actually happened
+		if (isTRUE(single_combat$was_corrected())) {
+			single_combat$corrected_eset()
+		} else {
+			NULL
+		}
+	}),
 	sample_group_column = sample_group_module$selected_column,
 	#batch_factors = combat_selector$batch_factors,
 	# batch_factors = reactive({
@@ -208,14 +251,25 @@ batch_viz <- mod_batch_visualization_server(
 	# 	req(combat_selector$batch_factors())
 	# 	c(combat_selector$batch_factors(), 'ComBat')
 	# }),
+	# batch_factors = reactive({
+	# 	# ✅ Don't require batch factors - allow empty
+	# 	factors <- combat_selector$batch_factors()
+	# 	
+	# 	if (length(factors) > 0) {
+	# 		c(factors, 'ComBat')  # Add ComBat if there are batch factors
+	# 	} else {
+	# 		character(0)  # Return empty vector if none
+	# 	}
+	# }),
 	batch_factors = reactive({
-		# ✅ Don't require batch factors - allow empty
 		factors <- combat_selector$batch_factors()
 		
-		if (length(factors) > 0) {
-			c(factors, 'ComBat')  # Add ComBat if there are batch factors
+		if (length(factors) > 0 && isTRUE(single_combat$was_corrected())) {
+			c(factors, 'ComBat')
+		} else if (length(factors) > 0) {
+			factors
 		} else {
-			character(0)  # Return empty vector if none
+			character(0)
 		}
 	}),
 	ExpSet_list = ExpSet_list,

@@ -1048,6 +1048,25 @@ mod_combat_single_server <- function(id,
 		correction_in_progress <- reactiveVal(FALSE)
 		correction_error <- reactiveVal(NULL)
 		
+		# ✅ RESET when input eset changes (new dataset loaded)
+		# observeEvent(eset(), {
+		# 	corrected_eset(NULL)
+		# 	correction_error(NULL)
+		# 	correction_in_progress(FALSE)
+		# }, ignoreInit = TRUE)
+		
+		observeEvent(list(eset(), selector$batch_factors()), {
+			# Always clear when eset changes
+			# Also clear when batch factors become empty
+			batch_factors <- selector$batch_factors()
+			
+			if (is.null(batch_factors) || length(batch_factors) == 0) {
+				corrected_eset(NULL)
+				correction_error(NULL)
+				correction_in_progress(FALSE)
+			}
+		}, ignoreNULL = FALSE, ignoreInit = TRUE)
+		
 		# ✅ Status display (thin banner)
 		output$correction_status_display <- renderUI({
 			if (correction_in_progress()) {
@@ -1144,7 +1163,9 @@ mod_combat_single_server <- function(id,
 			sample_group_column(),
 			selector$auto_run_combat()
 		), {
-			if (isTRUE(selector$auto_run_combat())) {  # ✅ Use selector's toggle
+			if (isTRUE(selector$auto_run_combat())) {
+				
+				# ✅ Use selector's toggle
 				req(eset())
 				req(selector$batch_factors())
 				req(sample_group_column())
@@ -1322,7 +1343,12 @@ mod_combat_single_server <- function(id,
 		# Return values
 		return(list(
 			corrected_eset = corrected_eset,
-			correction_complete = reactive(! is.null(corrected_eset()))
+			correction_complete = reactive(! is.null(corrected_eset())),
+			was_corrected = reactive({
+				# ✅ Only TRUE if correction actually ran
+				! is.null(corrected_eset()) && 
+					! identical(eset(), corrected_eset())
+			})
 		))
 	})
 }
