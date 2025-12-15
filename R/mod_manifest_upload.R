@@ -19,24 +19,12 @@ mod_manifest_upload_ui <- function(id, debug = FALSE) {
 			)
 			
 		},
-		column(4,
+		column(12,
 			fileInput(ns("file"), "Upload Excel Manifest", accept = c(".xlsx", ".xls"))
 		),
-		column(4,numericInput(ns("sheet"), "Sheet Number", value = 2, min = 1, max = 10)),
-		column(4,numericInput(ns("header_row"), "Header Row", value = 2, min = 1, max = 100)),
-
-		column(12,h4("Column Selection")),
-		column(6,uiOutput(ns("annotation_columns_ui"))
-		),
-		column(6,uiOutput(ns("batch_columns_ui"))),
-		column(12,tabsetPanel(
-			tabPanel('Plot',
-							 mod_annotation_distribution_ui("annot_dist",debug = debug),
-							 ),
-			tabPanel('Manifest',
-							 DT::dataTableOutput(ns("preview"))
-							 )
-		))
+		column(12,
+			uiOutput(ns("conditional_ui"))
+		)
 
 	)
 }
@@ -61,6 +49,53 @@ mod_manifest_upload_server <- function(id,debug = FALSE) {
 				browser()
 			})
 		}
+		output$conditional_ui <- renderUI({
+			if (is.null(input$file)) {
+				return(
+					div(
+						class = "alert alert-info",
+						style = "margin: 20px;",
+						icon("info-circle"),
+						strong(" Please upload a manifest file and select columns to begin analysis")
+					)
+				)
+			}
+			
+			# Check file type
+			file_ext <- tools::file_ext(input$file$name)
+			if (! file_ext %in% c("xlsx", "xls")) {
+				return(
+					div(
+						class = "alert alert-danger",
+						style = "margin:  20px;",
+						icon("exclamation-triangle"),
+						strong(" Invalid file type! "),
+						p("Please upload an Excel file (. xlsx or .xls)")
+					)
+				)
+			}
+			
+			tagList(
+				fluidRow(
+				
+				
+				column(2,numericInput(ns("sheet"), "Sheet Number", value = 2, min = 1, max = 10)),
+				column(2,numericInput(ns("header_row"), "Header Row", value = 2, min = 1, max = 100)),
+				
+				#column(12,h4("Column Selection")),
+				column(4,uiOutput(ns("annotation_columns_ui"))
+				),
+				column(4,uiOutput(ns("batch_columns_ui"))),
+				column(12,tabsetPanel(
+					tabPanel('Plot',
+									 mod_annotation_distribution_ui("annot_dist",debug = debug),
+					),
+					tabPanel('Manifest',
+									 DT::dataTableOutput(ns("preview"))
+					)
+				))
+				))
+		})
 		
 		manifest_data <- reactive({
 			req(input$file)
@@ -89,7 +124,8 @@ mod_manifest_upload_server <- function(id,debug = FALSE) {
 				"Internal Batches",
 				choices = cols,
 				selected = selected_batch,
-				multiple = TRUE
+				multiple = TRUE,
+				width = 1200
 			)
 		})
 		
@@ -105,7 +141,8 @@ mod_manifest_upload_server <- function(id,debug = FALSE) {
 				"Client Annotations",
 				choices = available_cols,
 				selected = "Sample_Group",
-				multiple = TRUE
+				multiple = TRUE,
+				width = 1200
 			)
 		})
 		
@@ -117,7 +154,7 @@ mod_manifest_upload_server <- function(id,debug = FALSE) {
 	})
 }
 
-
+#. ####
 #' Annotation Distribution Testing Module - UI
 #'
 #' Tests if client annotations are evenly distributed across internal batch columns
@@ -127,45 +164,9 @@ mod_manifest_upload_server <- function(id,debug = FALSE) {
 mod_annotation_distribution_ui <- function(id,debug = FALSE) {
 	ns <- NS(id)
 	
-	tagList(
-		fluidRow(
-			box(
-				title = "Client Annotation Distribution Across Internal Batches",
-				width = 12,
-				status = "info",
-				solidHeader = TRUE,
-				
-				plotOutput(ns("distribution_plot"), height = "600px"),
-				hr(),
-				
-				p("Tests whether client annotations are evenly distributed across internal batch columns. "),
-				p("Uses Fisher's exact test to detect uneven distribution (potential confounding)."),
-				
-				
-				uiOutput(ns("test_status")),
-				
-				hr(),
-				
-				h4("Distribution Test Results"),
-				DTOutput(ns("distribution_table")),
-				
-				hr(),
-				
-				
-				if (debug) {
-					actionButton(
-						ns("debug"),
-						"Debug:  mod_batch_combined_analysis",
-						icon = icon("bug"),
-						class = "btn-warning",
-						style = "width: 100%;"
-					)
-					
-				},
-			)
-		)
-	)
+	uiOutput(ns("conditional_ui"))
 }
+
 
 #' Annotation Distribution Testing Module - Server
 #'
@@ -180,6 +181,8 @@ mod_annotation_distribution_server <- function(id,
 																							 annotation_columns,
 																							 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
+		ns <- session$ns
+		
 		if (debug) {
 			observeEvent(input$debug, {
 				message("\n═══════════════════════════════════════════════")
@@ -188,6 +191,60 @@ mod_annotation_distribution_server <- function(id,
 				browser()
 			})
 		}
+		
+		output$conditional_ui <- renderUI({
+			if (is.null(manifest_data()) || is.null(batch_columns()) || is.null(annotation_columns())) {
+				return(
+					div(
+						class = "alert alert-info",
+						style = "margin: 20px;",
+						icon("info-circle"),
+						strong(" Please upload a manifest file and select columns to begin analysis")
+					)
+				)
+			}
+		
+
+			tagList(
+				fluidRow(
+					box(
+						title = "Client Annotation Distribution Across Internal Batches",
+						width = 12,
+						status = "info",
+						solidHeader = TRUE,
+						
+						plotOutput(ns("distribution_plot"), height = "600px"),
+						hr(),
+						
+						p("Tests whether client annotations are evenly distributed across internal batch columns. "),
+						p("Uses Fisher's exact test to detect uneven distribution (potential confounding)."),
+						
+						
+						uiOutput(ns("test_status")),
+						
+						hr(),
+						
+						h4("Distribution Test Results"),
+						DTOutput(ns("distribution_table")),
+						
+						hr(),
+						
+						
+						if (debug) {
+							actionButton(
+								ns("debug"),
+								"Debug:  mod_batch_combined_analysis",
+								icon = icon("bug"),
+								class = "btn-warning",
+								style = "width: 100%;"
+							)
+							
+						},
+					)
+				)
+			)
+		})
+		
 		
 		# Run distribution tests
 		# distribution_results <- reactive({
