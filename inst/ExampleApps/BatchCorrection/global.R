@@ -32,7 +32,7 @@ if (run_debug) {
 		
 		renv::remove("iOmeAiFunctions")
 		renv::purge("iOmeAiFunctions")
-		iOmeAiFunction_version = 'master'
+		iOmeAiFunction_version = 'BatchCorrect_v1.1.0'
 		options(timeout = 300) 
 		gh_token <- Sys.getenv("GITHUB_PAT")
 		remotes::install_github(

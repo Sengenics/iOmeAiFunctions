@@ -5058,7 +5058,7 @@
       "Repository": null,
       "description": {
         "Package": "iOmeAiFunctions",
-        "Imports": "AUC,\ncallr,\ncaret,\ncirclize,\ncluster,\ncorrelationfunnel,\ncorrplot,\ndata.table,\ndoParallel,\ndplyr,\nDT,\nEnhancedVolcano,\nflextable,\nforeach,\nggforce,\nggplot2,\nggplotify,\nggpubr,\nggrepel,\nglmnet,\ngreekLetters,\ngridExtra,\ngtools,\nhilbertSimilarity,\nHmisc,\nimputeLCMD,\nkableExtra,\nlimma,\nlubridate,\nmagick,\nmagrittr,\nmarkdown,\nmetagenomeSeq,\nnaniar,\nofficer,\nopenxlsx,\nOptimalCutpoints,\npaletteer,\npals,\nparallel,\npcaMethods,\nPerformanceAnalytics,\npheatmap,\nplotly,\nplotROC,\nplyr,\npROC,\npspline,\npsych,\npurrr,\nrandomForest,\nRColorBrewer,\nreadr,\nreadtext,\nreshape,\nROCR,\nRtsne,\nrvg,\nshiny,\nshinyBS,\nshinybusy,\nshinycssloaders,\nshinydashboard,\nshinydisconnect,\nshinyFiles,\nshinyjs,\nshinyWidgets,\nstringr,\nsva,\ntibble,\ntidyr,\ntidyverse,\nuuid,\nvegan,\nviridis,\nwritexl",
+        "Imports": "AUC, callr, caret, circlize, cluster, correlationfunnel,\ncorrplot, data.table, doParallel, dplyr, DT, EnhancedVolcano,\nflextable, foreach, ggforce, ggplot2, ggplotify, ggpubr,\nggrepel, glmnet, greekLetters, gridExtra, gtools,\nhilbertSimilarity, Hmisc, imputeLCMD, kableExtra, limma,\nlubridate, magick, magrittr, markdown, metagenomeSeq, naniar,\nofficer, openxlsx, OptimalCutpoints, paletteer, pals, parallel,\npcaMethods, PerformanceAnalytics, pheatmap, plotly, plotROC,\nplyr, pROC, pspline, psych, purrr, randomForest, RColorBrewer,\nreadr, readtext, reshape, ROCR, Rtsne, rvg, shiny, shinyBS,\nshinybusy, shinycssloaders, shinydashboard, shinydisconnect,\nshinyFiles, shinyjs, shinyWidgets, stringr, sva, tibble, tidyr,\ntidyverse, uuid, vegan, viridis, writexl",
         "Title": "What the Package Does (One Line, Title Case)",
         "Version": "0.0.0.9000",
         "Authors@R": "person(\"Shaun\", \"Garnett\", email = \"shaun.garnett@standardbio.com\", role = c(\"aut\", \"cre\"))",
@@ -5067,8 +5067,23 @@
         "Encoding": "UTF-8",
         "Roxygen": "list(markdown = TRUE)",
         "RoxygenNote": "7.3.3",
-        "Depends": "",
-        "LazyData": "true"
+        "Depends": "R (>= 3.5.0)",
+        "LazyData": "true",
+        "RemoteType": "github",
+        "RemoteHost": "api.github.com",
+        "RemoteRepo": "iOmeAiFunctions",
+        "RemoteUsername": "Sengenics",
+        "RemoteRef": "BatchCorrect_v1.1.0",
+        "RemoteSha": "8a8124a87166265f1ea86ca6947f2bd8a164b304",
+        "GithubRepo": "iOmeAiFunctions",
+        "GithubUsername": "Sengenics",
+        "GithubRef": "BatchCorrect_v1.1.0",
+        "GithubSHA1": "8a8124a87166265f1ea86ca6947f2bd8a164b304",
+        "NeedsCompilation": "no",
+        "Packaged": "2025-12-15 18:10:12 UTC; shaun.garnett",
+        "Author": "Shaun Garnett [aut, cre]",
+        "Maintainer": "Shaun Garnett <shaun.garnett@standardbio.com>",
+        "Built": "R 4.4.3; ; 2025-12-15 18:10:13 UTC; unix"
       }
     },
     "ids": {
@@ -8388,7 +8403,7 @@
         "Maintainer": "Kevin Ushey <kevin@rstudio.com>",
         "Repository": "CRAN",
         "Date/Publication": "2025-03-20 18:10:01 UTC",
-        "Built": "R 4.4.1; ; 2025-03-20 18:19:24 UTC; unix"
+        "Built": "R 4.4.3; ; 2025-12-11 20:47:26 UTC; unix"
       }
     },
     "reprex": {
@@ -10786,13 +10801,25 @@
   },
   "files": {
     "global.R": {
-      "checksum": "8833d0ffd5ae229da8e43a55a5f4f63c"
+      "checksum": "2563830530a8dc85574a27cc29169b17"
     },
     "server.R": {
-      "checksum": "dc157dbf5792a1a21d0594e7e01735b8"
+      "checksum": "52fb40dd89cdeb8512ca7af5be1462cd"
+    },
+    "ShinySections/BatchCorrect_Full_server.R": {
+      "checksum": "5b052bf8abc70de4fcb892f01176f998"
+    },
+    "ShinySections/BatchCorrect_Full_ui.R": {
+      "checksum": "3e39999fcf40287b4731e075ece5ded9"
+    },
+    "ShinySections/BatchCorrect_Simple_ui.R": {
+      "checksum": "04f2a5153e5307851b90a9386ab12396"
+    },
+    "ShinySections/BatchCorrect_Standard_ui.R": {
+      "checksum": "e02c261c487cbbdca37edb46c8d4a5f9"
     },
     "ui.R": {
-      "checksum": "a9f0464beabb2da8dc8a7e7e35b493fb"
+      "checksum": "013d94838b7d2139b5a9473e8bfb38f7"
     }
   },
   "users": null

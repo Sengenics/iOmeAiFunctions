@@ -1,3 +1,10 @@
+
+#' Annotation Distribution Testing Module - UI
+#'
+#' Tests if client annotations are evenly distributed across internal batch columns
+#'
+#' @param id Module namespace ID
+#' @export
 mod_manifest_upload_ui <- function(id, debug = FALSE) {
 	ns <- NS(id)
 	
@@ -34,6 +41,14 @@ mod_manifest_upload_ui <- function(id, debug = FALSE) {
 	)
 }
 
+
+
+#' Annotation Distribution Testing Module - UI
+#'
+#' Tests if client annotations are evenly distributed across internal batch columns
+#'
+#' @param id Module namespace ID
+#' @export
 mod_manifest_upload_server <- function(id,debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
