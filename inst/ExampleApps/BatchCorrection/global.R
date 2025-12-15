@@ -4,7 +4,7 @@
 
 version = "v1.1.1"
 run_debug <- ! is.na(Sys.getenv("RSTUDIO", unset = NA))
-run_debug = F
+#run_debug = F
 print(run_debug)
 
 # Package Management #####

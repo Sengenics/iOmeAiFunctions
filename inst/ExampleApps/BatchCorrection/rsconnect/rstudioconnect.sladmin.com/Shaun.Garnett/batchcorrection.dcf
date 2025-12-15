@@ -5,7 +5,7 @@ account: Shaun.Garnett
 server: rstudioconnect.sladmin.com
 hostUrl: https://rstudioconnect.sladmin.com/__api__
 appId: 693
-bundleId: 3046
+bundleId:
 url: https://rstudioconnect.sladmin.com/KREX_BatchCorrectionApp/
 version: 1
 asMultiple: FALSE

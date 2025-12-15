@@ -1509,7 +1509,9 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 	ns <- NS(id)
 	
 	tagList(
-		
+		fluidRow(
+	
+			),
 		# Advanced Settings Box (Collapsed by default)
 		fluidRow(
 			box(
@@ -1520,6 +1522,8 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				collapsible = TRUE,
 				collapsed = TRUE,  # ✅ Collapsed by default
 				
+				
+	
 				textOutput(ns('eset_name_text')),
 				
 				# Auto-run toggle
@@ -1528,7 +1532,7 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 						width = 6,
 						shinyWidgets::prettySwitch(
 							inputId = ns("auto_run_viz"),
-							label = "Auto-generate visualizations",
+							label = "Auto-generate visualizations 2",
 							value = TRUE,
 							status = "success",
 							fill = TRUE
@@ -1597,10 +1601,12 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 					
 					hr(),
 					
-					uiOutput(ns("corrected_data_status"))
+					uiOutput(ns("corrected_data_status")),
+					uiOutput('correction_info')
 				),
 				
 				hr(),
+				
 				
 				# Column Selection
 				h4("Visualization Column Selection"),
@@ -1650,13 +1656,14 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				fluidRow(
 					column(
 						width = 4,
-						numericInput(
-							ns("tsne_perplexity"),
-							"Perplexity:",
-							value = 30,
-							min = 5,
-							max = 50
-						)
+						uiOutput(ns("tsne_perplexity_ui"))
+						# numericInput(
+						# 	ns("tsne_perplexity"),
+						# 	"Perplexity:",
+						# 	value = 30,
+						# 	min = 5,
+						# 	max = 50
+						# )
 					),
 					column(
 						width = 4,
@@ -1681,9 +1688,19 @@ mod_batch_visualization_ui <- function(id, debug = FALSE) {
 				),
 				
 				hr(),
-				
-				# Debug button at bottom
-				uiOutput(ns("debug_ui"))
+				#Debug button at bottom
+				if (debug) {
+					actionButton(
+						ns("debug"),
+						"Debug:  mod_batch_combined_analysis",
+						icon = icon("bug"),
+						class = "btn-warning",
+						style = "width: 100%;"
+					)
+
+				},
+
+				#uiOutput(ns("debug_ui"))
 			)
 		),
 		
@@ -1957,21 +1974,21 @@ mod_batch_visualization_server <- function(id,
 																					 ExpSet_list = NULL,
 																					 debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
-		ns <- session$ns 
+		ns <- session$ns  
 		# Render debug button
-		output$debug_ui <- renderUI({
-			if (debug) {
-				tagList(
-					actionButton(
-						session$ns("debug"),
-						"Debug",
-						icon = icon("bug"),
-						class = "btn-warning btn-sm"
-					),
-					hr()
-				)
-			}
-		})
+		# output$debug_ui <- renderUI({
+		# 	if (debug) {
+		# 		tagList(
+		# 			actionButton(
+		# 				session$ns("debug"),
+		# 				"Debug",
+		# 				icon = icon("bug"),
+		# 				class = "btn-warning btn-sm"
+		# 			),
+		# 			hr()
+		# 		)
+		# 	}
+		# })
 		
 		output$eset_name_text = renderText({
 			print(eset_original_name())
@@ -2402,7 +2419,8 @@ mod_batch_visualization_server <- function(id,
 			
 			sample_group <- sample_group_column()
 			batch_cols <- batch_factors()
-			
+			 
+			color_default = NULL
 			color_default <- if (! is.null(batch_cols) && length(batch_cols) > 0) {
 				# Use first batch factor that was corrected
 				batch_cols[1]
@@ -2413,6 +2431,7 @@ mod_batch_visualization_server <- function(id,
 			} else {
 				cols[1]
 			}
+			color_default
 			
 			# Determine default for shape_by
 			shape_default <- if (!is.null(sample_group) && length(sample_group) > 1) {
@@ -2443,10 +2462,30 @@ mod_batch_visualization_server <- function(id,
 			# updateSelectInput(session, "replicate_column", choices = c("None" = "", cols), selected = "QC")
 		})
 		
-		# Display what's being visualized
+		output$tsne_perplexity_ui <- renderUI({
+			req(eset_original())
+			
+			n_samples <- ncol(eset_original())
+			max_perplexity <- floor((n_samples - 1) / 3)
+			
+			# Set safe default and max
+			default_perp <- min(30, max(5, max_perplexity - 1))
+			max_allowed <- max(5, max_perplexity)
+			
+			numericInput(
+				ns("tsne_perplexity"),
+				label = sprintf("Perplexity (max %d for %d samples):", max_allowed, n_samples),
+				value = default_perp,
+				min = 5,
+				max = max_allowed,
+				step = 1
+			)
+		})
+		
+		# Display what's being visualized 
 		output$correction_info <- renderUI({
-			sample_group <- sample_group_column()
-			batch_cols <- batch_factors()
+			(sample_group <- sample_group_column())
+			(batch_cols <- batch_factors())
 			
 			if (is.null(batch_cols) || length(batch_cols) == 0) {
 				return(
@@ -2508,7 +2547,7 @@ mod_batch_visualization_server <- function(id,
 				
 				# Original data analysis
 				results$original <- perform_analysis(
-					eset_original(),
+					eset = eset_original(),
 					perplexity = input$tsne_perplexity,
 					iterations = input$tsne_iterations
 				)
@@ -2516,7 +2555,7 @@ mod_batch_visualization_server <- function(id,
 				# Corrected data analysis (if available)
 				if (input$show_corrected && !is.null(eset_corrected_dynamic())) {
 					results$corrected <- perform_analysis(
-						eset_corrected_dynamic(),
+						eset = eset_corrected_dynamic(),
 						perplexity = input$tsne_perplexity,
 						iterations = input$tsne_iterations
 					)
@@ -2604,6 +2643,9 @@ mod_batch_visualization_server <- function(id,
 			
 			# t-SNE
 			set.seed(42)
+			
+
+			
 			tsne_res <- Rtsne::Rtsne(
 				t(expr_scaled),
 				dims = 2,

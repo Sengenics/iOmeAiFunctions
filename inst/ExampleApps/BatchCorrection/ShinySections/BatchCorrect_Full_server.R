@@ -215,7 +215,7 @@ batch_viz <- mod_batch_visualization_server(
 		if (length(factors) > 0) {
 			c(factors, 'ComBat')  # Add ComBat if there are batch factors
 		} else {
-			"Labels"  # Return empty vector if none
+			character(0)  # Return empty vector if none
 		}
 	}),
 	ExpSet_list = ExpSet_list,
