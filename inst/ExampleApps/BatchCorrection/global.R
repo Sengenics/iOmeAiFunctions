@@ -2,9 +2,9 @@
 #'
 #' @export
 
-version = "v1.0.1"
+version = "v1.1.0"
 run_debug <- ! is.na(Sys.getenv("RSTUDIO", unset = NA))
-#run_debug = F
+run_debug = F
 print(run_debug)
 
 # Package Management #####
@@ -12,7 +12,7 @@ print(run_debug)
 ## iOmeAiFunctions ####
 if (run_debug) {
 	### Local Development ###
-	local_path <- "../../"
+	local_path <- "../../../../iOmeAiFunctions/"
 	file.exists(local_path)
 	message("→ Using LOCAL iOmeAiFunctions at ", local_path)
 	

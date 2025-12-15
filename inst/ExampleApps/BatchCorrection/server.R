@@ -210,6 +210,26 @@ server <- function(input, output, session) {
 		ExpSet_list = ExpSet_list  # Use the same ExpSet_list from expset_import
 	)
 	
+	# Manifest #####
+	
+	# Call the module
+	manifest_data <- mod_manifest_upload_server(
+		"manifest_uploader",
+		debug = run_debug
+	)
+	
+	annot_dist <- mod_annotation_distribution_server(
+		"annot_dist",
+		manifest_data = manifest_data$data,
+		batch_columns = manifest_data$batch_columns,
+		annotation_columns = manifest_data$annotation_columns,
+		debug = run_debug
+	)
+	
+
+	
+	
+	
 
 	# Initial Data Selection #####
 	

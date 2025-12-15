@@ -9,6 +9,7 @@ ui <- dashboardPage(
 			menuItem("ComBat Correction", tabName = "combat_tab", icon = icon("magic")),
 			#menuItem("Batch Visualization", tabName = "viz_tab", icon = icon("chart-area")),
 			menuItem("Export Data", tabName = "export_tab", icon = icon("download")),#,
+			menuItem('Manifest Test', tabName = "manifest_tab", icon = icon("magic")),
 			# ✅ Interface selector
 			div(
 				style = "padding: 10px;",
@@ -137,6 +138,11 @@ ui <- dashboardPage(
 				tabName = "export_tab",
 				mod_combat_multi_assay_ui("combat_multi",debug = run_debug),
 				mod_expset_export_ui("expset_export")
+			),
+			tabItem(
+				tabName = "manifest_tab",
+				mod_manifest_upload_ui("manifest_uploader",debug = run_debug)#,
+				#mod_annotation_distribution_ui("annot_dist")
 			)
 		)
 	)
