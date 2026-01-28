@@ -1,5 +1,7 @@
+# Base APP ####
+
 ui <- dashboardPage(
-	dashboardHeader(title = "Batch Testing App"),
+	dashboardHeader(title = "Base App"),
 	dashboardSidebar(
 		sidebarMenu(
 			menuItem("Data Selection", tabName = "data_tab", icon = icon("database")),
@@ -10,6 +12,23 @@ ui <- dashboardPage(
 	),
 	dashboardBody(
 		tabItems(
+			
+			tabItem(
+				tabName = "data_tab",
+				fluidRow(
+					box(
+						title = "Upload ExpSet_list. rds",
+						width = 12,
+						status = "success",
+						solidHeader = TRUE,
+						mod_expset_import_ui("expset_import", debug = run_debug)
+					)
+				),
+				
+				mod_expset_viewer_ui("expset_viewer")
+				
+			),
+			
 			tabItem(
 				tabName = "data_tab",
 				mod_app_data_selection_ui("data_select", debug = run_debug)

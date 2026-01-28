@@ -14,7 +14,8 @@ print(run_debug)
 ## iOmeAiFunctions ####
 if (run_debug) {
   ### Local Development ###
-  local_path <- "../../../iOmeAiFunctions/"
+	local_path <- "../../../../iOmeAiFunctions/"
+  #local_path <- "../../../iOmeAiFunctions/"
   file.exists(local_path)
   message("→ Using LOCAL iOmeAiFunctions at ", local_path)
 
@@ -59,8 +60,8 @@ if (run_debug) {
 library(iOmeAiFunctions)
 exists("mod_pn_limma_ui")
 
-source('../../R/denoise_ShinyModule.R')
-source('../../R/mod_pn_limma.R')
+#source('../../R/denoise_ShinyModule.R')
+#source('../../R/mod_pn_limma.R')
 
 # Development mode: reload package functions
 # if (interactive()) {

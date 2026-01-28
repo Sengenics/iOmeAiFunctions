@@ -4,12 +4,27 @@
 \alias{mod_expset_viewer_server}
 \title{ExpressionSet Viewer Module - Server}
 \usage{
-mod_expset_viewer_server(id, ExpSet_list)
+mod_expset_viewer_server(
+  id,
+  ExpSet_list,
+  default_selection = NULL,
+  enable_subset = TRUE,
+  enable_transform = TRUE,
+  debug = FALSE
+)
 }
 \arguments{
 \item{id}{Module namespace ID}
 
 \item{ExpSet_list}{Reactive returning named list of ExpressionSets}
+
+\item{default_selection}{Default ExpSet to select (optional)}
+
+\item{enable_subset}{Enable subsetting (default TRUE)}
+
+\item{enable_transform}{Enable transformation (default TRUE)}
+
+\item{debug}{Enable debug mode (default FALSE)}
 }
 \description{
 ExpressionSet Viewer Module - Server

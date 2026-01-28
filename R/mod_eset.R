@@ -290,10 +290,21 @@ mod_eset_selector_standalone_ui <- function(id,
 #' @param enable_transform Enable transformation (default TRUE)
 #' @param debug Enable debug mode (default FALSE)
 #' @export
+# eset_selector_standalone #####
+#' Standalone ExpressionSet Selector Server with Subset & Transform
+#'
+#' Complete data preparation pipeline
+#'
+#' @param id Module namespace ID
+#' @param ExpSet_list Reactive returning named list of ExpressionSets
+#' @param default_selection Default ExpSet name to select
+#' @param enable_subset Enable subsetting (default TRUE)
+#' @param enable_transform Enable transformation (default TRUE)
+#' @param debug Enable debug mode (default FALSE)
+#' @export
 mod_eset_selector_standalone_server <- function(id, 
 																								ExpSet_list,
 																								default_selection = reactive(NULL),
-																								#source = reactive("unknown"),
 																								enable_subset = TRUE,
 																								enable_transform = TRUE,
 																								debug = FALSE) {
@@ -316,15 +327,15 @@ mod_eset_selector_standalone_server <- function(id,
 			
 			if (is.function(default_selection)) {
 				new_default <- default_selection()
-				dmsg("default_selection is reactive, value:", new_default, debug = debug, level = 3, id = id)
+				dmsg(paste("default_selection is reactive, value:", new_default), debug = debug, level = 3, id = id)
 			} else {
 				new_default <- default_selection
-				dmsg("default_selection is static, value:", new_default, debug = debug, level = 3, id = id)
+				dmsg(paste("default_selection is static, value:", new_default), debug = debug, level = 3, id = id)
 			}
 			
 			if (! is.null(new_default) && length(new_default) > 0) {
-				dmsg("Updating picker selection to:", new_default, debug = debug, level = 3, id = id)
-				updatePickerInput(session, "eset_select", selected = new_default)
+				dmsg(paste("Updating picker selection to:", new_default), debug = debug, level = 3, id = id)
+				updateSelectInput(session, "eset_select-eset_select", selected = new_default)
 				dsuccess("Picker updated", debug = debug, level = 3, id = id)
 			} else {
 				dwarn("No default selection provided", debug = debug, level = 3, id = id)
@@ -348,7 +359,7 @@ mod_eset_selector_standalone_server <- function(id,
 			req(eset_selected_module$eset())
 			
 			eset <- eset_selected_module$eset()
-			dsuccess(paste0("ExpressionSet loaded:  ", nrow(eset), " features × ", ncol(eset), " samples"), 
+			dsuccess(paste0("ExpressionSet loaded: ", nrow(eset), " features × ", ncol(eset), " samples"), 
 							 debug = debug, level = 2, id = id)
 			eset
 		})
@@ -365,18 +376,35 @@ mod_eset_selector_standalone_server <- function(id,
 			)
 			dsuccess("Subset module initialized", debug = debug, level = 1, id = id)
 			
-			# Reset subset when new data is loaded
+			# ✅ FIX: Only reset when dataset actually changes (not on every invalidation)
 			darrow("Setting up subset reset observer", debug = debug, level = 1, id = id)
+			last_eset_name <- reactiveVal(NULL)
+			
 			observe({
 				darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
 				req(eset_selected())
+				req(eset_selected_module$name())
 				
-				dmsg("Resetting subset module with new data", debug = debug, level = 2, id = id)
-				subset_module$subset_eset(eset_selected())
-				dsuccess("Subset module reset complete", debug = debug, level = 2, id = id)
+				current_name <- eset_selected_module$name()
+				
+				# Only reset if dataset name changed (user selected different data)
+				if (is.null(last_eset_name()) || last_eset_name() != current_name) {
+					dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name), 
+							 debug = debug, level = 2, id = id)
+					subset_module$subset_eset(eset_selected())
+					last_eset_name(current_name)
+					dsuccess("Subset reset complete", debug = debug, level = 2, id = id)
+				} else {
+					dmsg("Same dataset - keeping current subset", debug = debug, level = 2, id = id)
+				}
 			}, priority = 100)
 			
-			eset_after_subset <- subset_module$subset_eset
+			# ✅ Wrap reactiveVal in reactive() for consistent access
+			eset_after_subset <- reactive({
+				req(subset_module$subset_eset)
+				subset_module$subset_eset()
+			})
+			
 			dsuccess("Subset module ready", debug = debug, level = 1, id = id)
 		} else {
 			dmsg("Subset module disabled - using original data", debug = debug, level = 1, id = id)
@@ -394,18 +422,34 @@ mod_eset_selector_standalone_server <- function(id,
 			)
 			dsuccess("Transform module initialized", debug = debug, level = 1, id = id)
 			
-			# Reset transform when subset changes
+			# ✅ FIX: Track subset dimensions to detect actual changes
 			darrow("Setting up transform reset observer", debug = debug, level = 1, id = id)
+			last_subset_dims <- reactiveVal(NULL)
+			
 			observe({
 				darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
 				req(eset_after_subset())
 				
-				dmsg("Resetting transform module with new data", debug = debug, level = 2, id = id)
-				transform_module$transformed_eset(eset_after_subset())
-				dsuccess("Transform module reset complete", debug = debug, level = 2, id = id)
+				current_dims <- paste(dim(eset_after_subset()), collapse = "x")
+				
+				# Only reset if dimensions changed (subset was applied)
+				if (is.null(last_subset_dims()) || last_subset_dims() != current_dims) {
+					dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims), 
+							 debug = debug, level = 2, id = id)
+					transform_module$transformed_eset(eset_after_subset())
+					last_subset_dims(current_dims)
+					dsuccess("Transform reset complete", debug = debug, level = 2, id = id)
+				} else {
+					dmsg("Same subset - keeping current transform", debug = debug, level = 2, id = id)
+				}
 			}, priority = 100)
 			
-			final_eset <- transform_module$transformed_eset
+			# ✅ Wrap reactiveVal in reactive() for consistent access
+			final_eset <- reactive({
+				req(transform_module$transformed_eset)
+				transform_module$transformed_eset()
+			})
+			
 			dsuccess("Transform module ready", debug = debug, level = 1, id = id)
 		} else {
 			dmsg("Transform module disabled - using subset data", debug = debug, level = 1, id = id)
@@ -420,7 +464,7 @@ mod_eset_selector_standalone_server <- function(id,
 			darrow("Rendering eset_info", debug = debug, level = 2, id = id)
 			req(eset_selected())
 			
-			cat("Assay:  ", eset_selected_module$name(), "\n")
+			cat("Assay: ", eset_selected_module$name(), "\n")
 			cat("Samples: ", ncol(eset_selected()), "\n")
 			cat("Features: ", nrow(eset_selected()), "\n")
 			cat("Available Assays: ", paste(Biobase::assayDataElementNames(eset_selected()), collapse = ", "), "\n")
@@ -433,22 +477,31 @@ mod_eset_selector_standalone_server <- function(id,
 		darrow("Setting up eset_summary output", debug = debug, level = 1, id = id)
 		output$eset_summary <- renderPrint({
 			darrow("Rendering eset_summary", debug = debug, level = 2, id = id)
-			req(eset_selected())
+			req(final_eset())  # ✅ Show FINAL data (after subset/transform)
 			
 			cat("═══════════════════════════════════════════════════════════\n")
-			cat("EXPRESSIONSET SUMMARY\n")
-			cat("═══════════════════════════════════════════════════════════\n")
-			cat("Selected Assay: ", eset_selected_module$name(), "\n")
-			cat("Dimensions: ", nrow(eset_selected()), " features × ", ncol(eset_selected()), " samples\n\n")
+			cat("EXPRESSIONSET SUMMARY (FINAL PROCESSED DATA)\n")
+			cat("════════════════════════════��══════════════════════════════\n")
+			cat("Original Assay: ", eset_selected_module$name(), "\n")
+			cat("Dimensions: ", nrow(final_eset()), " features × ", ncol(final_eset()), " samples\n\n")
+			
+			# Show if subset was applied
+			if (enable_subset) {
+				orig_dims <- paste(nrow(eset_selected()), "×", ncol(eset_selected()))
+				final_dims <- paste(nrow(final_eset()), "×", ncol(final_eset()))
+				if (orig_dims != final_dims) {
+					cat("⚠️ SUBSET APPLIED: ", orig_dims, " → ", final_dims, "\n\n")
+				}
+			}
 			
 			cat("Available Assays:\n")
-			cat("  ", paste(Biobase::assayDataElementNames(eset_selected()), collapse = ", "), "\n\n")
+			cat("  ", paste(Biobase::assayDataElementNames(final_eset()), collapse = ", "), "\n\n")
 			
 			cat("Sample Metadata (pData) Columns:\n")
-			cat("  ", paste(colnames(Biobase::pData(eset_selected())), collapse = ", "), "\n\n")
+			cat("  ", paste(colnames(Biobase::pData(final_eset())), collapse = ", "), "\n\n")
 			
 			tryCatch({
-				fdata <- Biobase::fData(eset_selected())
+				fdata <- Biobase::fData(final_eset())
 				if (!is.null(fdata) && ncol(fdata) > 0) {
 					cat("Feature Metadata (fData) Columns:\n")
 					cat("  ", paste(colnames(fdata), collapse = ", "), "\n")
@@ -457,7 +510,7 @@ mod_eset_selector_standalone_server <- function(id,
 				}
 			}, error = function(e) {
 				cat("Feature Metadata: Not available\n")
-				dwarn("Error reading fData:", e$message, debug = debug, level = 3, id = id)
+				dwarn(paste("Error reading fData:", e$message), debug = debug, level = 3, id = id)
 			})
 			
 			dsuccess("eset_summary rendered", debug = debug, level = 2, id = id)
@@ -469,13 +522,13 @@ mod_eset_selector_standalone_server <- function(id,
 		
 		return_list <- list(
 			assay_names = eset_selected_module$assay_names,
-			# Final processed data
+			# Final processed data (after subset + transform)
 			eset = final_eset,
 			eset_name = eset_selected_module$name,
 			# Intermediate stages (if needed)
 			eset_original = eset_selected,
 			eset_subset = if (enable_subset) eset_after_subset else NULL,
-			# Access to sub-modules (if needed)
+			# Access to sub-modules (if needed for advanced use)
 			subset_module = if (enable_subset) subset_module else NULL,
 			transform_module = if (enable_transform) transform_module else NULL
 		)
@@ -486,7 +539,204 @@ mod_eset_selector_standalone_server <- function(id,
 		return(return_list)
 	})
 }
-
+# mod_eset_selector_standalone_server <- function(id, 
+# 																								ExpSet_list,
+# 																								default_selection = reactive(NULL),
+# 																								#source = reactive("unknown"),
+# 																								enable_subset = TRUE,
+# 																								enable_transform = TRUE,
+# 																								debug = FALSE) {
+# 	moduleServer(id, function(input, output, session) {
+# 		
+# 		dstart("ExpressionSet Selector Standalone", id = id, debug = debug)
+# 		
+# 		# ✅ Debug observer
+# 		if (debug) {
+# 			observeEvent(input$debug, {
+# 				dmsg("Manual debug triggered - entering browser()", debug = TRUE, id = id)
+# 				browser()
+# 			})
+# 		}
+# 		
+# 		### 1. Handle Default Selection Updates ####
+# 		darrow("Setting up default selection observer", debug = debug, level = 1, id = id)
+# 		observe({
+# 			darrow("Checking default_selection update", debug = debug, level = 2, id = id)
+# 			
+# 			if (is.function(default_selection)) {
+# 				new_default <- default_selection()
+# 				dmsg("default_selection is reactive, value:", new_default, debug = debug, level = 3, id = id)
+# 			} else {
+# 				new_default <- default_selection
+# 				dmsg("default_selection is static, value:", new_default, debug = debug, level = 3, id = id)
+# 			}
+# 			
+# 			if (! is.null(new_default) && length(new_default) > 0) {
+# 				dmsg("Updating picker selection to:", new_default, debug = debug, level = 3, id = id)
+# 				updatePickerInput(session, "eset_select", selected = new_default)
+# 				dsuccess("Picker updated", debug = debug, level = 3, id = id)
+# 			} else {
+# 				dwarn("No default selection provided", debug = debug, level = 3, id = id)
+# 			}
+# 		})
+# 		dsuccess("Default selection observer ready", debug = debug, level = 1, id = id)
+# 		
+# 		### 2. ExpSet Selection Module ####
+# 		darrow("Initializing ExpSet selection module", debug = debug, level = 1, id = id)
+# 		eset_selected_module <- mod_eset_selector_server(
+# 			"eset_select",
+# 			ExpSet_list = ExpSet_list,
+# 			default_selection = default_selection
+# 		)
+# 		dsuccess("ExpSet selection module initialized", debug = debug, level = 1, id = id)
+# 		
+# 		# Extract selected ExpressionSet
+# 		darrow("Creating eset_selected reactive", debug = debug, level = 1, id = id)
+# 		eset_selected <- reactive({
+# 			darrow("eset_selected reactive triggered", debug = debug, level = 2, id = id)
+# 			req(eset_selected_module$eset())
+# 			
+# 			eset <- eset_selected_module$eset()
+# 			dsuccess(paste0("ExpressionSet loaded:  ", nrow(eset), " features × ", ncol(eset), " samples"), 
+# 							 debug = debug, level = 2, id = id)
+# 			eset
+# 		})
+# 		dsuccess("eset_selected reactive created", debug = debug, level = 1, id = id)
+# 		
+# 		### 3. Subset Module (optional) ####
+# 		if (enable_subset) {
+# 			darrow("Initializing subset module", debug = debug, level = 1, id = id)
+# 			
+# 			subset_module <- mod_eset_subset_server(
+# 				"subset",
+# 				eset = eset_selected,
+# 				debug = debug
+# 			)
+# 			dsuccess("Subset module initialized", debug = debug, level = 1, id = id)
+# 			
+# 			# Reset subset when new data is loaded
+# 			darrow("Setting up subset reset observer", debug = debug, level = 1, id = id)
+# 			observe({
+# 				darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
+# 				req(eset_selected())
+# 				
+# 				dmsg("Resetting subset module with new data", debug = debug, level = 2, id = id)
+# 				subset_module$subset_eset(eset_selected())
+# 				dsuccess("Subset module reset complete", debug = debug, level = 2, id = id)
+# 			}, priority = 100)
+# 			
+# 			eset_after_subset <- subset_module$subset_eset
+# 			dsuccess("Subset module ready", debug = debug, level = 1, id = id)
+# 		} else {
+# 			dmsg("Subset module disabled - using original data", debug = debug, level = 1, id = id)
+# 			eset_after_subset <- eset_selected
+# 		}
+# 		
+# 		### 4. Transform Module (optional) ####
+# 		if (enable_transform) {
+# 			darrow("Initializing transform module", debug = debug, level = 1, id = id)
+# 			
+# 			transform_module <- mod_eset_transform_server(
+# 				"transform",
+# 				eset = eset_after_subset,
+# 				debug = debug
+# 			)
+# 			dsuccess("Transform module initialized", debug = debug, level = 1, id = id)
+# 			
+# 			# Reset transform when subset changes
+# 			darrow("Setting up transform reset observer", debug = debug, level = 1, id = id)
+# 			observe({
+# 				darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
+# 				req(eset_after_subset())
+# 				
+# 				dmsg("Resetting transform module with new data", debug = debug, level = 2, id = id)
+# 				transform_module$transformed_eset(eset_after_subset())
+# 				dsuccess("Transform module reset complete", debug = debug, level = 2, id = id)
+# 			}, priority = 100)
+# 			
+# 			final_eset <- transform_module$transformed_eset
+# 			dsuccess("Transform module ready", debug = debug, level = 1, id = id)
+# 		} else {
+# 			dmsg("Transform module disabled - using subset data", debug = debug, level = 1, id = id)
+# 			final_eset <- eset_after_subset
+# 		}
+# 		
+# 		### 5. Output Renderers ####
+# 		
+# 		# ExpSet info (short version)
+# 		darrow("Setting up eset_info output", debug = debug, level = 1, id = id)
+# 		output$eset_info <- renderPrint({
+# 			darrow("Rendering eset_info", debug = debug, level = 2, id = id)
+# 			req(eset_selected())
+# 			
+# 			cat("Assay:  ", eset_selected_module$name(), "\n")
+# 			cat("Samples: ", ncol(eset_selected()), "\n")
+# 			cat("Features: ", nrow(eset_selected()), "\n")
+# 			cat("Available Assays: ", paste(Biobase::assayDataElementNames(eset_selected()), collapse = ", "), "\n")
+# 			
+# 			dsuccess("eset_info rendered", debug = debug, level = 2, id = id)
+# 		})
+# 		dsuccess("eset_info output ready", debug = debug, level = 1, id = id)
+# 		
+# 		# Complete ExpSet summary
+# 		darrow("Setting up eset_summary output", debug = debug, level = 1, id = id)
+# 		output$eset_summary <- renderPrint({
+# 			darrow("Rendering eset_summary", debug = debug, level = 2, id = id)
+# 			req(eset_selected())
+# 			
+# 			cat("═══════════════════════════════════════════════════════════\n")
+# 			cat("EXPRESSIONSET SUMMARY\n")
+# 			cat("═══════════════════════════════════════════════════════════\n")
+# 			cat("Selected Assay: ", eset_selected_module$name(), "\n")
+# 			cat("Dimensions: ", nrow(eset_selected()), " features × ", ncol(eset_selected()), " samples\n\n")
+# 			
+# 			cat("Available Assays:\n")
+# 			cat("  ", paste(Biobase::assayDataElementNames(eset_selected()), collapse = ", "), "\n\n")
+# 			
+# 			cat("Sample Metadata (pData) Columns:\n")
+# 			cat("  ", paste(colnames(Biobase::pData(eset_selected())), collapse = ", "), "\n\n")
+# 			
+# 			tryCatch({
+# 				fdata <- Biobase::fData(eset_selected())
+# 				if (!is.null(fdata) && ncol(fdata) > 0) {
+# 					cat("Feature Metadata (fData) Columns:\n")
+# 					cat("  ", paste(colnames(fdata), collapse = ", "), "\n")
+# 				} else {
+# 					cat("Feature Metadata: Not available\n")
+# 				}
+# 			}, error = function(e) {
+# 				cat("Feature Metadata: Not available\n")
+# 				dwarn("Error reading fData:", e$message, debug = debug, level = 3, id = id)
+# 			})
+# 			
+# 			dsuccess("eset_summary rendered", debug = debug, level = 2, id = id)
+# 		})
+# 		dsuccess("eset_summary output ready", debug = debug, level = 1, id = id)
+# 		
+# 		### 6. Return Values ####
+# 		darrow("Preparing return values", debug = debug, level = 1, id = id)
+# 		
+# 		return_list <- list(
+# 			assay_names = eset_selected_module$assay_names,
+# 			# Final processed data
+# 			eset = final_eset,
+# 			eset_name = eset_selected_module$name,
+# 			# Intermediate stages (if needed)
+# 			eset_original = eset_selected,
+# 			eset_subset = if (enable_subset) eset_after_subset else NULL,
+# 			# Access to sub-modules (if needed)
+# 			subset_module = if (enable_subset) subset_module else NULL,
+# 			transform_module = if (enable_transform) transform_module else NULL
+# 		)
+# 		
+# 		dsuccess("Return values prepared", debug = debug, level = 1, id = id)
+# 		dend("ExpressionSet Selector Standalone", id = id, debug = debug)
+# 		
+# 		return(return_list)
+# 	})
+# }
+#. #####
+# eset_subset ####
 # eset_subset ####
 
 #' ExpressionSet Subsetting Module - UI
@@ -504,12 +754,10 @@ mod_eset_subset_ui <- function(id, debug = FALSE) {
 			box(
 				title = "Subset ExpressionSet",
 				width = 12,
-				#status = "primary",
-				#solidHeader = TRUE,
 				collapsible = TRUE,
-				collapsed = T,
+				collapsed = TRUE,
 				
-				p("Filter samples or features based on metadata columns. "),
+				p("Filter samples or features based on metadata columns."),
 				
 				uiOutput(ns("debug_ui")),
 				
@@ -637,6 +885,7 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 		})
 		
 		# Storage for selected filters
+		# Structure: list(column_name = list(values = c(...), action = "keep"/"remove"))
 		selected_pdata_filters <- reactiveVal(list())
 		selected_fdata_filters <- reactiveVal(list())
 		
@@ -654,7 +903,25 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 					choices = c("None" = "", cols),
 					selected = ""
 				),
+				
+				# ✅ ADD: Keep vs Remove toggle
+				conditionalPanel(
+					condition = "input.pdata_column != ''",
+					ns = ns,
+					radioButtons(
+						ns("pdata_action"),
+						"Action:",
+						choices = c(
+							"Keep selected values" = "keep",
+							"Remove selected values" = "remove"
+						),
+						selected = "keep",
+						inline = TRUE
+					)
+				),
+				
 				uiOutput(ns("pdata_values_ui")),
+				
 				actionButton(
 					ns("add_pdata_filter"),
 					"Add Filter",
@@ -674,13 +941,27 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 			pdata <- Biobase::pData(original_eset())
 			
 			values <- unique(pdata[[col]])
-			values <- values[! is.na(values)]
+			values <- values[!is.na(values)]
+			
+			# ✅ CHANGE: Default selection based on action
+			default_selected <- if (input$pdata_action == "keep") {
+				values  # Select all for "keep"
+			} else {
+				NULL    # Select none for "remove"
+			}
+			
+			# ✅ CHANGE: Label changes based on action
+			label <- if (input$pdata_action == "keep") {
+				paste("Select values to KEEP from", col, ":")
+			} else {
+				paste("Select values to REMOVE from", col, ":")
+			}
 			
 			selectInput(
 				ns("pdata_values"),
-				paste("Select values to KEEP from", col, ":"),
+				label,
 				choices = values,
-				selected = values,
+				selected = default_selected,
 				multiple = TRUE
 			)
 		})
@@ -689,13 +970,22 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 		observeEvent(input$add_pdata_filter, {
 			req(input$pdata_column)
 			req(input$pdata_values)
+			req(input$pdata_action)
 			
 			current_filters <- selected_pdata_filters()
-			current_filters[[input$pdata_column]] <- input$pdata_values
+			
+			# ✅ Store both values AND action
+			current_filters[[input$pdata_column]] <- list(
+				values = input$pdata_values,
+				action = input$pdata_action
+			)
+			
 			selected_pdata_filters(current_filters)
 			
+			action_text <- ifelse(input$pdata_action == "keep", "KEEP", "REMOVE")
 			showNotification(
-				paste("Added filter:", input$pdata_column),
+				paste0("Added filter: ", input$pdata_column, " (", action_text, " ", 
+							 length(input$pdata_values), " values)"),
 				type = "message",
 				duration = 3
 			)
@@ -718,7 +1008,25 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 					choices = c("None" = "", fcols),
 					selected = ""
 				),
+				
+				# ✅ ADD: Keep vs Remove toggle
+				conditionalPanel(
+					condition = "input.fdata_column != ''",
+					ns = ns,
+					radioButtons(
+						ns("fdata_action"),
+						"Action:",
+						choices = c(
+							"Keep selected values" = "keep",
+							"Remove selected values" = "remove"
+						),
+						selected = "keep",
+						inline = TRUE
+					)
+				),
+				
 				uiOutput(ns("fdata_values_ui")),
+				
 				actionButton(
 					ns("add_fdata_filter"),
 					"Add Filter",
@@ -740,11 +1048,25 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 			values <- unique(fdata[[col]])
 			values <- values[!is.na(values)]
 			
+			# ✅ CHANGE: Default selection based on action
+			default_selected <- if (input$fdata_action == "keep") {
+				values  # Select all for "keep"
+			} else {
+				NULL    # Select none for "remove"
+			}
+			
+			# ✅ CHANGE: Label changes based on action
+			label <- if (input$fdata_action == "keep") {
+				paste("Select values to KEEP from", col, ":")
+			} else {
+				paste("Select values to REMOVE from", col, ":")
+			}
+			
 			selectInput(
 				ns("fdata_values"),
-				paste("Select values to KEEP from", col, ":"),
+				label,
 				choices = values,
-				selected = values,
+				selected = default_selected,
 				multiple = TRUE
 			)
 		})
@@ -753,13 +1075,22 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 		observeEvent(input$add_fdata_filter, {
 			req(input$fdata_column)
 			req(input$fdata_values)
+			req(input$fdata_action)
 			
 			current_filters <- selected_fdata_filters()
-			current_filters[[input$fdata_column]] <- input$fdata_values
+			
+			# ✅ Store both values AND action
+			current_filters[[input$fdata_column]] <- list(
+				values = input$fdata_values,
+				action = input$fdata_action
+			)
+			
 			selected_fdata_filters(current_filters)
 			
+			action_text <- ifelse(input$fdata_action == "keep", "KEEP", "REMOVE")
 			showNotification(
-				paste("Added filter:", input$fdata_column),
+				paste0("Added filter: ", input$fdata_column, " (", action_text, " ", 
+							 length(input$fdata_values), " values)"),
 				type = "message",
 				duration = 3
 			)
@@ -775,7 +1106,11 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 				cat("Active pData Filters:\n")
 				cat("═══════════════════════\n")
 				for (col in names(filters)) {
-					cat(sprintf("%s: %s\n", col, paste(filters[[col]], collapse = ", ")))
+					filter_info <- filters[[col]]
+					action_text <- toupper(filter_info$action)
+					values_text <- paste(filter_info$values, collapse = ", ")
+					
+					cat(sprintf("%s [%s]:\n  %s\n", col, action_text, values_text))
 				}
 			}
 		})
@@ -790,7 +1125,11 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 				cat("Active fData Filters:\n")
 				cat("═══════════════════════\n")
 				for (col in names(filters)) {
-					cat(sprintf("%s: %s\n", col, paste(filters[[col]], collapse = ", ")))
+					filter_info <- filters[[col]]
+					action_text <- toupper(filter_info$action)
+					values_text <- paste(filter_info$values, collapse = ", ")
+					
+					cat(sprintf("%s [%s]:\n  %s\n", col, action_text, values_text))
 				}
 			}
 		})
@@ -804,26 +1143,42 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 				pdata_filters <- selected_pdata_filters()
 				fdata_filters <- selected_fdata_filters()
 				
-				# Apply pData filters (samples)
+				# ✅ UPDATED: Apply pData filters with keep/remove logic
 				if (length(pdata_filters) > 0) {
 					pdata <- Biobase::pData(ExpSet)
 					keep_samples <- rep(TRUE, nrow(pdata))
 					
 					for (col in names(pdata_filters)) {
-						keep_samples <- keep_samples & (pdata[[col]] %in% pdata_filters[[col]])
+						filter_info <- pdata_filters[[col]]
+						
+						if (filter_info$action == "keep") {
+							# KEEP: samples must be IN the selected values
+							keep_samples <- keep_samples & (pdata[[col]] %in% filter_info$values)
+						} else {
+							# REMOVE: samples must NOT be IN the selected values
+							keep_samples <- keep_samples & !(pdata[[col]] %in% filter_info$values)
+						}
 					}
 					
 					ExpSet <- ExpSet[, keep_samples]
 					message(sprintf("Kept %d / %d samples", sum(keep_samples), length(keep_samples)))
 				}
 				
-				# Apply fData filters (features)
+				# ✅ UPDATED: Apply fData filters with keep/remove logic
 				if (length(fdata_filters) > 0) {
 					fdata <- Biobase::fData(ExpSet)
 					keep_features <- rep(TRUE, nrow(fdata))
 					
 					for (col in names(fdata_filters)) {
-						keep_features <- keep_features & (fdata[[col]] %in% fdata_filters[[col]])
+						filter_info <- fdata_filters[[col]]
+						
+						if (filter_info$action == "keep") {
+							# KEEP: features must be IN the selected values
+							keep_features <- keep_features & (fdata[[col]] %in% filter_info$values)
+						} else {
+							# REMOVE: features must NOT be IN the selected values
+							keep_features <- keep_features & !(fdata[[col]] %in% filter_info$values)
+						}
 					}
 					
 					ExpSet <- ExpSet[keep_features, ]
@@ -833,7 +1188,7 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 				subset_eset(ExpSet)
 				
 				showNotification(
-					"✅ Subset applied successfully! ",
+					"✅ Subset applied successfully!",
 					type = "message",
 					duration = 5
 				)
@@ -888,14 +1243,415 @@ mod_eset_subset_server <- function(id, eset, debug = FALSE) {
 		))
 	})
 }
-# eset_transform #####
-#' ExpressionSet Transformation Module - UI
-#'
-#' Transform expression data (log, unlog, row-scale)
-#'
-#' @param id Module namespace ID
-#' @param debug Show debug button
-#' @export
+
+#' #' ExpressionSet Subsetting Module - UI
+#' #'
+#' #' Subset ExpressionSet by pData or fData columns
+#' #'
+#' #' @param id Module namespace ID
+#' #' @param debug Show debug button
+#' #' @export
+#' mod_eset_subset_ui <- function(id, debug = FALSE) {
+#' 	ns <- NS(id)
+#' 	
+#' 	tagList(
+#' 		fluidRow(
+#' 			box(
+#' 				title = "Subset ExpressionSet",
+#' 				width = 12,
+#' 				#status = "primary",
+#' 				#solidHeader = TRUE,
+#' 				collapsible = TRUE,
+#' 				collapsed = T,
+#' 				
+#' 				p("Filter samples or features based on metadata columns. "),
+#' 				
+#' 				uiOutput(ns("debug_ui")),
+#' 				
+#' 				fluidRow(
+#' 					column(
+#' 						width = 6,
+#' 						h4(icon("users"), " Sample Subsetting (pData)"),
+#' 						uiOutput(ns("pdata_subset_ui")),
+#' 						hr(),
+#' 						verbatimTextOutput(ns("pdata_subset_summary"))
+#' 					),
+#' 					column(
+#' 						width = 6,
+#' 						h4(icon("dna"), " Feature Subsetting (fData)"),
+#' 						uiOutput(ns("fdata_subset_ui")),
+#' 						hr(),
+#' 						verbatimTextOutput(ns("fdata_subset_summary"))
+#' 					)
+#' 				),
+#' 				
+#' 				hr(),
+#' 				
+#' 				fluidRow(
+#' 					column(
+#' 						width = 6,
+#' 						actionButton(
+#' 							ns("apply_subset"),
+#' 							"Apply Subset",
+#' 							icon = icon("filter"),
+#' 							class = "btn-success btn-lg btn-block"
+#' 						)
+#' 					),
+#' 					column(
+#' 						width = 6,
+#' 						actionButton(
+#' 							ns("reset_subset"),
+#' 							"Reset to Original",
+#' 							icon = icon("undo"),
+#' 							class = "btn-warning btn-lg btn-block"
+#' 						)
+#' 					)
+#' 				),
+#' 				
+#' 				hr(),
+#' 				
+#' 				uiOutput(ns("subset_status"))
+#' 			)
+#' 		)
+#' 	)
+#' }
+#' 
+#' #' ExpressionSet Subsetting Module - Server
+#' #'
+#' #' @param id Module namespace ID
+#' #' @param eset Reactive ExpressionSet (original)
+#' #' @param debug Enable debug mode
+#' #' @export
+#' mod_eset_subset_server <- function(id, eset, debug = FALSE) {
+#' 	moduleServer(id, function(input, output, session) {
+#' 		
+#' 		# Render debug button
+#' 		output$debug_ui <- renderUI({
+#' 			if (debug) {
+#' 				tagList(
+#' 					actionButton(
+#' 						session$ns("debug"),
+#' 						"Debug",
+#' 						icon = icon("bug"),
+#' 						class = "btn-warning btn-sm"
+#' 					),
+#' 					hr()
+#' 				)
+#' 			}
+#' 		})
+#' 		
+#' 		# Debug observer
+#' 		if (debug) {
+#' 			observeEvent(input$debug, {
+#' 				message("\n═══════════════════════════════════════════════")
+#' 				message("🔍 DEBUG MODE - ExpressionSet Subset Module")
+#' 				message("═══════════════════════════════════════════════")
+#' 				message("\nAvailable objects:")
+#' 				message("  • eset() - Original ExpressionSet")
+#' 				message("  • subset_eset() - Subsetted ExpressionSet")
+#' 				message("  • selected_pdata_filters() - pData filters")
+#' 				message("  • selected_fdata_filters() - fData filters")
+#' 				message("\nUseful commands:")
+#' 				message("  dim(eset())")
+#' 				message("  dim(subset_eset())")
+#' 				message("  selected_pdata_filters()")
+#' 				message("═══════════════════════════════════════════════\n")
+#' 				browser()
+#' 			})
+#' 		}
+#' 		
+#' 		# Store original and subset ExpressionSets
+#' 		original_eset <- reactive({ eset() })
+#' 		subset_eset <- reactiveVal(NULL)
+#' 		
+#' 		# Initialize with original
+#' 		observe({
+#' 			req(original_eset())
+#' 			if (is.null(subset_eset())) {
+#' 				subset_eset(original_eset())
+#' 			}
+#' 		})
+#' 		
+#' 		# Get pData columns
+#' 		pdata_columns <- reactive({
+#' 			req(original_eset())
+#' 			colnames(Biobase::pData(original_eset()))
+#' 		})
+#' 		
+#' 		# Get fData columns
+#' 		fdata_columns <- reactive({
+#' 			req(original_eset())
+#' 			tryCatch({
+#' 				fd <- Biobase::fData(original_eset())
+#' 				if (!is.null(fd) && ncol(fd) > 0) {
+#' 					colnames(fd)
+#' 				} else {
+#' 					NULL
+#' 				}
+#' 			}, error = function(e) NULL)
+#' 		})
+#' 		
+#' 		# Storage for selected filters
+#' 		selected_pdata_filters <- reactiveVal(list())
+#' 		selected_fdata_filters <- reactiveVal(list())
+#' 		
+#' 		# Render pData subsetting UI
+#' 		output$pdata_subset_ui <- renderUI({
+#' 			req(pdata_columns())
+#' 			
+#' 			ns <- session$ns
+#' 			cols <- pdata_columns()
+#' 			
+#' 			tagList(
+#' 				selectInput(
+#' 					ns("pdata_column"),
+#' 					"Select pData Column:",
+#' 					choices = c("None" = "", cols),
+#' 					selected = ""
+#' 				),
+#' 				uiOutput(ns("pdata_values_ui")),
+#' 				actionButton(
+#' 					ns("add_pdata_filter"),
+#' 					"Add Filter",
+#' 					icon = icon("plus"),
+#' 					class = "btn-primary btn-sm"
+#' 				)
+#' 			)
+#' 		})
+#' 		
+#' 		# Render pData values based on selected column
+#' 		output$pdata_values_ui <- renderUI({
+#' 			req(input$pdata_column)
+#' 			req(input$pdata_column != "")
+#' 			
+#' 			ns <- session$ns
+#' 			col <- input$pdata_column
+#' 			pdata <- Biobase::pData(original_eset())
+#' 			
+#' 			values <- unique(pdata[[col]])
+#' 			values <- values[! is.na(values)]
+#' 			
+#' 			selectInput(
+#' 				ns("pdata_values"),
+#' 				paste("Select values to KEEP from", col, ":"),
+#' 				choices = values,
+#' 				selected = values,
+#' 				multiple = TRUE
+#' 			)
+#' 		})
+#' 		
+#' 		# Add pData filter
+#' 		observeEvent(input$add_pdata_filter, {
+#' 			req(input$pdata_column)
+#' 			req(input$pdata_values)
+#' 			
+#' 			current_filters <- selected_pdata_filters()
+#' 			current_filters[[input$pdata_column]] <- input$pdata_values
+#' 			selected_pdata_filters(current_filters)
+#' 			
+#' 			showNotification(
+#' 				paste("Added filter:", input$pdata_column),
+#' 				type = "message",
+#' 				duration = 3
+#' 			)
+#' 		})
+#' 		
+#' 		# Render fData subsetting UI
+#' 		output$fdata_subset_ui <- renderUI({
+#' 			ns <- session$ns
+#' 			
+#' 			fcols <- fdata_columns()
+#' 			
+#' 			if (is.null(fcols) || length(fcols) == 0) {
+#' 				return(p("No fData available for subsetting"))
+#' 			}
+#' 			
+#' 			tagList(
+#' 				selectInput(
+#' 					ns("fdata_column"),
+#' 					"Select fData Column:",
+#' 					choices = c("None" = "", fcols),
+#' 					selected = ""
+#' 				),
+#' 				uiOutput(ns("fdata_values_ui")),
+#' 				actionButton(
+#' 					ns("add_fdata_filter"),
+#' 					"Add Filter",
+#' 					icon = icon("plus"),
+#' 					class = "btn-primary btn-sm"
+#' 				)
+#' 			)
+#' 		})
+#' 		
+#' 		# Render fData values based on selected column
+#' 		output$fdata_values_ui <- renderUI({
+#' 			req(input$fdata_column)
+#' 			req(input$fdata_column != "")
+#' 			
+#' 			ns <- session$ns
+#' 			col <- input$fdata_column
+#' 			fdata <- Biobase::fData(original_eset())
+#' 			
+#' 			values <- unique(fdata[[col]])
+#' 			values <- values[!is.na(values)]
+#' 			
+#' 			selectInput(
+#' 				ns("fdata_values"),
+#' 				paste("Select values to KEEP from", col, ":"),
+#' 				choices = values,
+#' 				selected = values,
+#' 				multiple = TRUE
+#' 			)
+#' 		})
+#' 		
+#' 		# Add fData filter
+#' 		observeEvent(input$add_fdata_filter, {
+#' 			req(input$fdata_column)
+#' 			req(input$fdata_values)
+#' 			
+#' 			current_filters <- selected_fdata_filters()
+#' 			current_filters[[input$fdata_column]] <- input$fdata_values
+#' 			selected_fdata_filters(current_filters)
+#' 			
+#' 			showNotification(
+#' 				paste("Added filter:", input$fdata_column),
+#' 				type = "message",
+#' 				duration = 3
+#' 			)
+#' 		})
+#' 		
+#' 		# pData filter summary
+#' 		output$pdata_subset_summary <- renderPrint({
+#' 			filters <- selected_pdata_filters()
+#' 			
+#' 			if (length(filters) == 0) {
+#' 				cat("No pData filters applied\n")
+#' 			} else {
+#' 				cat("Active pData Filters:\n")
+#' 				cat("═══════════════════════\n")
+#' 				for (col in names(filters)) {
+#' 					cat(sprintf("%s: %s\n", col, paste(filters[[col]], collapse = ", ")))
+#' 				}
+#' 			}
+#' 		})
+#' 		
+#' 		# fData filter summary
+#' 		output$fdata_subset_summary <- renderPrint({
+#' 			filters <- selected_fdata_filters()
+#' 			
+#' 			if (length(filters) == 0) {
+#' 				cat("No fData filters applied\n")
+#' 			} else {
+#' 				cat("Active fData Filters:\n")
+#' 				cat("═══════════════════════\n")
+#' 				for (col in names(filters)) {
+#' 					cat(sprintf("%s: %s\n", col, paste(filters[[col]], collapse = ", ")))
+#' 				}
+#' 			}
+#' 		})
+#' 		
+#' 		# Apply subset
+#' 		observeEvent(input$apply_subset, {
+#' 			req(original_eset())
+#' 			
+#' 			tryCatch({
+#' 				ExpSet <- original_eset()
+#' 				pdata_filters <- selected_pdata_filters()
+#' 				fdata_filters <- selected_fdata_filters()
+#' 				
+#' 				# Apply pData filters (samples)
+#' 				if (length(pdata_filters) > 0) {
+#' 					pdata <- Biobase::pData(ExpSet)
+#' 					keep_samples <- rep(TRUE, nrow(pdata))
+#' 					
+#' 					for (col in names(pdata_filters)) {
+#' 						keep_samples <- keep_samples & (pdata[[col]] %in% pdata_filters[[col]])
+#' 					}
+#' 					
+#' 					ExpSet <- ExpSet[, keep_samples]
+#' 					message(sprintf("Kept %d / %d samples", sum(keep_samples), length(keep_samples)))
+#' 				}
+#' 				
+#' 				# Apply fData filters (features)
+#' 				if (length(fdata_filters) > 0) {
+#' 					fdata <- Biobase::fData(ExpSet)
+#' 					keep_features <- rep(TRUE, nrow(fdata))
+#' 					
+#' 					for (col in names(fdata_filters)) {
+#' 						keep_features <- keep_features & (fdata[[col]] %in% fdata_filters[[col]])
+#' 					}
+#' 					
+#' 					ExpSet <- ExpSet[keep_features, ]
+#' 					message(sprintf("Kept %d / %d features", sum(keep_features), length(keep_features)))
+#' 				}
+#' 				
+#' 				subset_eset(ExpSet)
+#' 				
+#' 				showNotification(
+#' 					"✅ Subset applied successfully! ",
+#' 					type = "message",
+#' 					duration = 5
+#' 				)
+#' 				
+#' 			}, error = function(e) {
+#' 				showNotification(
+#' 					paste("❌ Subset failed:", e$message),
+#' 					type = "error",
+#' 					duration = 10
+#' 				)
+#' 			})
+#' 		})
+#' 		
+#' 		# Reset to original
+#' 		observeEvent(input$reset_subset, {
+#' 			subset_eset(original_eset())
+#' 			selected_pdata_filters(list())
+#' 			selected_fdata_filters(list())
+#' 			
+#' 			showNotification(
+#' 				"Reset to original ExpressionSet",
+#' 				type = "message",
+#' 				duration = 3
+#' 			)
+#' 		})
+#' 		
+#' 		# Status display
+#' 		output$subset_status <- renderUI({
+#' 			req(original_eset())
+#' 			req(subset_eset())
+#' 			
+#' 			orig_samples <- ncol(original_eset())
+#' 			orig_features <- nrow(original_eset())
+#' 			sub_samples <- ncol(subset_eset())
+#' 			sub_features <- nrow(subset_eset())
+#' 			
+#' 			div(
+#' 				class = "alert alert-info",
+#' 				h4("Subset Status:"),
+#' 				p(sprintf("Samples: %d / %d (%.1f%%)", 
+#' 									sub_samples, orig_samples, 
+#' 									100 * sub_samples / orig_samples)),
+#' 				p(sprintf("Features: %d / %d (%.1f%%)", 
+#' 									sub_features, orig_features, 
+#' 									100 * sub_features / orig_features))
+#' 			)
+#' 		})
+#' 		
+#' 		# Return subset ExpressionSet
+#' 		return(list(
+#' 			subset_eset = subset_eset
+#' 		))
+#' 	})
+#' }
+#' #. ####
+#' # eset_transform #####
+#' #' ExpressionSet Transformation Module - UI
+#' #'
+#' #' Transform expression data (log, unlog, row-scale)
+#' #'
+#' #' @param id Module namespace ID
+#' #' @param debug Show debug button
+#' #' @export
 mod_eset_transform_ui <- function(id, debug = FALSE) {
 	ns <- NS(id)
 	

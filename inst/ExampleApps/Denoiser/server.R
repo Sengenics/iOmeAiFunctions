@@ -220,28 +220,62 @@ server <- function(input, output, session) {
 	})
 	
 	# Raw/NetI ExpressionSet selector
-	eset_raw_selected <- mod_eset_selector_server(
+	# eset_raw_selected <- mod_eset_selector_server(
+	# 	"eset_raw",
+	# 	ExpSet_list = ExpSet_list,
+	# 	default_selection = "sample_ImputedlogMeanNetI"
+	# )
+	# 
+	# # Normalized ExpressionSet selector
+	# eset_norm_selected <- mod_eset_selector_server(
+	# 	"eset_norm",
+	# 	ExpSet_list = ExpSet_list,
+	# 	default_selection = "sample_loess_normalised"
+	# )
+	# 
+	# # Extract the actual ExpressionSets
+	# eset_raw <- reactive({
+	# 	req(eset_raw_selected$eset())
+	# 	eset_raw_selected$eset()
+	# })
+	# 
+	# eset_norm <- reactive({
+	# 	if (!is.null(eset_norm_selected$eset())) {
+	# 		eset_norm_selected$eset()
+	# 	} else {
+	# 		NULL
+	# 	}
+	# })
+	
+	# Raw/NetI ExpressionSet selector with subsetting
+	eset_raw_selected <- mod_eset_selector_standalone_server(
 		"eset_raw",
 		ExpSet_list = ExpSet_list,
-		default_selection = "sample_ImputedlogMeanNetI"
+		default_selection = "sample_ImputedlogMeanNetI",
+		enable_subset = TRUE,      # ✅ Enable subsetting
+		enable_transform = FALSE,  # Don't need transform for raw data
+		debug = run_debug
 	)
 	
-	# Normalized ExpressionSet selector
-	eset_norm_selected <- mod_eset_selector_server(
+	# Normalized ExpressionSet selector with subsetting
+	eset_norm_selected <- mod_eset_selector_standalone_server(
 		"eset_norm",
 		ExpSet_list = ExpSet_list,
-		default_selection = "sample_loess_normalised"
+		default_selection = "sample_loess_normalised",
+		enable_subset = TRUE,      # ✅ Enable subsetting
+		enable_transform = FALSE,
+		debug = run_debug
 	)
 	
-	# Extract the actual ExpressionSets
+	# ✅ Update how you access the ExpressionSets
 	eset_raw <- reactive({
 		req(eset_raw_selected$eset())
-		eset_raw_selected$eset()
+		eset_raw_selected$eset()  # This is now the FINAL data (after subsetting)
 	})
 	
 	eset_norm <- reactive({
 		if (!is.null(eset_norm_selected$eset())) {
-			eset_norm_selected$eset()
+			eset_norm_selected$eset()  # This is now the FINAL data (after subsetting)
 		} else {
 			NULL
 		}
@@ -331,7 +365,7 @@ server <- function(input, output, session) {
 	output$raw_info <- renderPrint({
 		req(eset_raw())
 		
-		cat("Assay: ", eset_raw_selected$name(), "\n")
+		cat("Assay: ", eset_raw_selected$eset_name(), "\n")
 		cat("Samples: ", ncol(eset_raw()), "\n")
 		cat("Features: ", nrow(eset_raw()), "\n")
 	})
@@ -339,7 +373,7 @@ server <- function(input, output, session) {
 	# Normalized data info
 	output$norm_info <- renderPrint({
 		if (!is.null(eset_norm())) {
-			cat("Assay: ", eset_norm_selected$name(), "\n")
+			cat("Assay: ", eset_norm_selected$eset_name(), "\n")
 			cat("Samples: ", ncol(eset_norm()), "\n")
 			cat("Features: ", nrow(eset_norm()), "\n")
 		} else {
@@ -363,7 +397,7 @@ server <- function(input, output, session) {
 		
 		cat("\nRAW/NETI DATA\n")
 		cat("═══════════════════════════════════════════════════════════\n")
-		cat("Selected Assay: ", eset_raw_selected$name(), "\n")
+		cat("Selected Assay: ", eset_raw_selected$eset_name(), "\n")
 		cat("Dimensions: ", nrow(eset_raw()), " features × ", ncol(eset_raw()), " samples\n")
 		cat("Available Assays: ", paste(Biobase::assayDataElementNames(eset_raw()), collapse = ", "), "\n")
 		cat("Metadata Columns: ", paste(colnames(Biobase::pData(eset_raw())), collapse = ", "), "\n")

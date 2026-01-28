@@ -2,15 +2,164 @@
 % Please edit documentation in R/mod_eset.R
 \name{mod_eset_transform_ui}
 \alias{mod_eset_transform_ui}
-\title{ExpressionSet Transformation Module - UI}
+\title{#' ExpressionSet Subsetting Module - UI
+#'
+#' Subset ExpressionSet by pData or fData columns
+#'
+#' @param id Module namespace ID
+#' @param debug Show debug button
+#' @export
+mod_eset_subset_ui <- function(id, debug = FALSE) {
+ns <- NS(id)
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{tagList(
+	fluidRow(
+		box(
+			title = "Subset ExpressionSet",
+			width = 12,
+			#status = "primary",
+			#solidHeader = TRUE,
+			collapsible = TRUE,
+			collapsed = T,
+			
+			p("Filter samples or features based on metadata columns. "),
+			
+			uiOutput(ns("debug_ui")),
+			
+			fluidRow(
+				column(
+					width = 6,
+					h4(icon("users"), " Sample Subsetting (pData)"),
+					uiOutput(ns("pdata_subset_ui")),
+					hr(),
+					verbatimTextOutput(ns("pdata_subset_summary"))
+				),
+				column(
+					width = 6,
+					h4(icon("dna"), " Feature Subsetting (fData)"),
+					uiOutput(ns("fdata_subset_ui")),
+					hr(),
+					verbatimTextOutput(ns("fdata_subset_summary"))
+				)
+			),
+			
+			hr(),
+			
+			fluidRow(
+				column(
+					width = 6,
+					actionButton(
+						ns("apply_subset"),
+						"Apply Subset",
+						icon = icon("filter"),
+						class = "btn-success btn-lg btn-block"
+					)
+				),
+				column(
+					width = 6,
+					actionButton(
+						ns("reset_subset"),
+						"Reset to Original",
+						icon = icon("undo"),
+						class = "btn-warning btn-lg btn-block"
+					)
+				)
+			),
+			
+			hr(),
+			
+			uiOutput(ns("subset_status"))
+		)
+	)
+)
+}\if{html}{\out{</div>}}
+
+}}
 \usage{
 mod_eset_transform_ui(id, debug = FALSE)
 }
-\arguments{
-\item{id}{Module namespace ID}
-
-\item{debug}{Show debug button}
-}
 \description{
-Transform expression data (log, unlog, row-scale)
+#' ExpressionSet Subsetting Module - UI
+#'
+#' Subset ExpressionSet by pData or fData columns
+#'
+#' @param id Module namespace ID
+#' @param debug Show debug button
+#' @export
+mod_eset_subset_ui <- function(id, debug = FALSE) {
+ns <- NS(id)
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{tagList(
+	fluidRow(
+		box(
+			title = "Subset ExpressionSet",
+			width = 12,
+			#status = "primary",
+			#solidHeader = TRUE,
+			collapsible = TRUE,
+			collapsed = T,
+			
+			p("Filter samples or features based on metadata columns. "),
+			
+			uiOutput(ns("debug_ui")),
+			
+			fluidRow(
+				column(
+					width = 6,
+					h4(icon("users"), " Sample Subsetting (pData)"),
+					uiOutput(ns("pdata_subset_ui")),
+					hr(),
+					verbatimTextOutput(ns("pdata_subset_summary"))
+				),
+				column(
+					width = 6,
+					h4(icon("dna"), " Feature Subsetting (fData)"),
+					uiOutput(ns("fdata_subset_ui")),
+					hr(),
+					verbatimTextOutput(ns("fdata_subset_summary"))
+				)
+			),
+			
+			hr(),
+			
+			fluidRow(
+				column(
+					width = 6,
+					actionButton(
+						ns("apply_subset"),
+						"Apply Subset",
+						icon = icon("filter"),
+						class = "btn-success btn-lg btn-block"
+					)
+				),
+				column(
+					width = 6,
+					actionButton(
+						ns("reset_subset"),
+						"Reset to Original",
+						icon = icon("undo"),
+						class = "btn-warning btn-lg btn-block"
+					)
+				)
+			),
+			
+			hr(),
+			
+			uiOutput(ns("subset_status"))
+		)
+	)
+)
+}\if{html}{\out{</div>}}
+
 }
+}
+\section{eset_transform}{
+#' ExpressionSet Transformation Module - UI
+#'
+#' Transform expression data (log, unlog, row-scale)
+#'
+#' @param id Module namespace ID
+#' @param debug Show debug button
+#' @export
+}
+

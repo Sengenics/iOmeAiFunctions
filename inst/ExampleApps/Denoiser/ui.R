@@ -120,7 +120,16 @@ ui <- dashboardPage(
 									solidHeader = TRUE,
 									
 									p("Select the raw or NetI data for denoising:"),
-									mod_eset_selector_ui("eset_raw"),
+									#mod_eset_selector_ui("eset_raw"),
+									mod_eset_selector_standalone_ui(
+										"eset_raw",
+										show_summary = TRUE,
+										show_subset = TRUE,      # ✅ Enable subsetting
+										show_transform = FALSE,  # Probably don't need transform for raw data
+										show_info = TRUE,
+										debug = run_debug
+									),
+									
 									
 									hr(),
 									
@@ -137,7 +146,15 @@ ui <- dashboardPage(
 									solidHeader = TRUE,
 									
 									p("Select normalized data for background visualization:"),
-									mod_eset_selector_ui("eset_norm"),
+									#mod_eset_selector_ui("eset_norm"),
+									mod_eset_selector_standalone_ui(
+										"eset_norm",
+										show_summary = TRUE,
+										show_subset = TRUE,      # ✅ Enable subsetting
+										show_transform = FALSE,
+										show_info = TRUE,
+										debug = run_debug
+									),
 									
 									hr(),
 									
