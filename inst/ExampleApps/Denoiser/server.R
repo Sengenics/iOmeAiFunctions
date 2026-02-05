@@ -1,4 +1,4 @@
-# Server ####
+# Server : Denoiser ####
 server <- function(input, output, session) {
 	
 	
@@ -383,7 +383,7 @@ server <- function(input, output, session) {
 	
 	# Complete ExpressionSet summary
 	output$eset_summary <- renderPrint({
-		req(eset_raw())
+		req(eset_raw()) 
 		
 		cat("═══════════════════════════════════════════════════════════\n")
 		
@@ -419,7 +419,7 @@ server <- function(input, output, session) {
 			cat("\n═══════════════════════════════════════════════════════════\n")
 			cat("NORMALIZED DATA\n")
 			cat("═══════════════════════════════════════════════════════════\n")
-			cat("Selected Assay: ", eset_norm_selected$name(), "\n")
+			cat("Selected Assay: ", eset_norm_selected$eset_name(), "\n")
 			cat("Dimensions: ", nrow(eset_norm()), " features × ", ncol(eset_norm()), " samples\n")
 			cat("Available Assays: ", paste(Biobase::assayDataElementNames(eset_norm()), collapse = ", "), "\n")
 		}
