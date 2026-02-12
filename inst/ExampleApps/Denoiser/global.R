@@ -102,12 +102,31 @@ library(Biobase)
 library(DT)
 library(ggplot2)
 library(pheatmap)
+library(limma)
+library(tidyverse)
+library(ggrepel)
 
 # If not in development, load the package normally
 # if (!interactive()) {
 # 	library(iOmeAiFunctions)
 # }
 
+
+# Basic mode (Public app)
+features_basic <- list(
+	generate_heatmaps = FALSE,
+	generate_roc = FALSE,
+	generate_violins = TRUE,
+	allow_continuous = FALSE
+)
+
+# Advanced mode (InHouse app)
+features_advanced <- list(
+	generate_heatmaps = TRUE,
+	generate_roc = TRUE,
+	generate_violins = TRUE,
+	allow_continuous = TRUE
+)
 
 # Run app
 message("\n═══════════════════════════════════════════════════════════")

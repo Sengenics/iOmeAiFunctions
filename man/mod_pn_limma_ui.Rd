@@ -7,7 +7,7 @@
 mod_pn_limma_ui(id)
 }
 \arguments{
-\item{id}{Namespace ID}
+\item{id}{Character string. Namespace identifier.}
 }
 \description{
 PN Limma Analysis Module - UI
