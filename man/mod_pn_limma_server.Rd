@@ -59,7 +59,7 @@ Based on limma_func_dev pipeline function
 }
 \examples{
 \dontrun{
-# Basic usage (Public app)
+# Basic usage (Public app) - only show up-regulated features
 pn_limma_results <- mod_pn_limma_server(
   "pn_limma",
   eset_raw = reactive(my_eset),
@@ -73,7 +73,7 @@ pn_limma_results <- mod_pn_limma_server(
   )
 )
 
-# Advanced usage (InHouse app)
+# Advanced usage (InHouse app) - full control
 pn_limma_results <- mod_pn_limma_server(
   "pn_limma",
   eset_raw = reactive(my_eset),

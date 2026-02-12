@@ -105,6 +105,8 @@ library(pheatmap)
 library(limma)
 library(tidyverse)
 library(ggrepel)
+library(ggforce)
+library(reshape2)
 
 # If not in development, load the package normally
 # if (!interactive()) {

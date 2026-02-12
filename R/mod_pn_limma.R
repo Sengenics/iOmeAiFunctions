@@ -162,13 +162,24 @@ mod_pn_limma_ui <- function(id) {
 				
 				fluidRow(
 					column(3,
+								 radioButtons(
+								 	ns("fc_direction"),
+								 	"Fold Change Direction",
+								 	choices = c(
+								 		"Up-regulated (positive FC)" = "up",
+								 		"Down-regulated (negative FC)" = "down",
+								 		"Both directions" = "both"
+								 	),
+								 	selected = "up"
+								 )
+					),
+					column(3,
+								 br(),
 								 checkboxInput(
 								 	ns("plot_violins"),
 								 	"Generate Violin Plots",
 								 	value = TRUE
-								 )
-					),
-					column(3,
+								 ),
 								 checkboxInput(
 								 	ns("eb_trend"),
 								 	"eBayes Trend",
@@ -176,6 +187,7 @@ mod_pn_limma_ui <- function(id) {
 								 )
 					),
 					column(3,
+								 br(),
 								 checkboxInput(
 								 	ns("eb_robust"),
 								 	"eBayes Robust",
@@ -321,7 +333,7 @@ mod_pn_limma_ui <- function(id) {
 #'
 #' @examples
 #' \dontrun{
-#' # Basic usage (Public app)
+#' # Basic usage (Public app) - only show up-regulated features
 #' pn_limma_results <- mod_pn_limma_server(
 #'   "pn_limma",
 #'   eset_raw = reactive(my_eset),
@@ -335,7 +347,7 @@ mod_pn_limma_ui <- function(id) {
 #'   )
 #' )
 #'
-#' # Advanced usage (InHouse app)
+#' # Advanced usage (InHouse app) - full control
 #' pn_limma_results <- mod_pn_limma_server(
 #'   "pn_limma",
 #'   eset_raw = reactive(my_eset),
@@ -569,7 +581,11 @@ mod_pn_limma_server <- function(id,
 				
 				if (length(rv_eset$excluded_samples) > 0) {
 					cat("\n\nExcluded Samples (", length(rv_eset$excluded_samples), "):\n", sep = "")
-					cat(paste(rv_eset$excluded_samples, collapse = ", "), "\n")
+					cat(paste(head(rv_eset$excluded_samples, 20), collapse = ", "))
+					if (length(rv_eset$excluded_samples) > 20) {
+						cat(", ... (", length(rv_eset$excluded_samples) - 20, " more)", sep = "")
+					}
+					cat("\n")
 				}
 			} else {
 				cat("No custom grouping created yet.\n\n")
@@ -635,7 +651,18 @@ mod_pn_limma_server <- function(id,
 			metadata_filtered = NULL
 		)
 		
-		# Run limma analysis (rest of the function remains the same as before)
+		# Helper function to filter by FC direction
+		filter_by_fc_direction <- function(data, logFC_col = "logFC", direction = "up") {
+			if (direction == "up") {
+				return(data[data[[logFC_col]] > 0, , drop = FALSE])
+			} else if (direction == "down") {
+				return(data[data[[logFC_col]] < 0, , drop = FALSE])
+			} else {
+				return(data)  # both
+			}
+		}
+		
+		# Run limma analysis
 		observeEvent(input$run_limma, {
 			req(eset())
 			
@@ -653,6 +680,7 @@ mod_pn_limma_server <- function(id,
 				continuous <- input$continuous
 				fc_cutoff <- input$fc_cutoff
 				p_val <- input$p_val
+				fc_direction <- input$fc_direction
 				
 				# For categorical, get classes
 				class1 <- if (!continuous) input$class1 else NULL
@@ -734,9 +762,10 @@ mod_pn_limma_server <- function(id,
 				TT <- TT[feature_select, ]
 				TT <- TT %>% arrange(P.Value)
 				
-				# Store results
+				# Store full results (before direction filtering)
 				rv$limma_results <- list(
-					topTable = TT,
+					topTable_full = TT,
+					topTable = TT,  # Will be filtered below
 					design = design,
 					fit = fit2,
 					metadata = metadata,
@@ -746,15 +775,16 @@ mod_pn_limma_server <- function(id,
 					class1 = class1,
 					class2 = class2,
 					fc_cutoff = fc_cutoff,
-					p_val = p_val
+					p_val = p_val,
+					fc_direction = fc_direction
 				)
 				
 				rv$metadata_filtered <- metadata
 				
-				# Check for significant results
-				sig_rows <- which(TT$P.Value < p_val & abs(TT$logFC) > log2(fc_cutoff))
+				# Check for significant results (before direction filtering)
+				sig_rows_all <- which(TT$P.Value < p_val & abs(TT$logFC) > log2(fc_cutoff))
 				
-				if (length(sig_rows) < 1) {
+				if (length(sig_rows_all) < 1) {
 					removeNotification("limma_running")
 					showNotification(
 						"⚠️ No significant features found. Try adjusting cutoffs.",
@@ -764,14 +794,55 @@ mod_pn_limma_server <- function(id,
 					return()
 				}
 				
+				# Apply FC direction filter
+				TT_filtered <- filter_by_fc_direction(TT, "logFC", fc_direction)
+				sig_rows <- which(TT_filtered$P.Value < p_val & abs(TT_filtered$logFC) > log2(fc_cutoff))
+				
+				# Update stored results with filtered version
+				rv$limma_results$topTable <- TT_filtered
+				
+				if (length(sig_rows) < 1) {
+					removeNotification("limma_running")
+					
+					direction_text <- switch(fc_direction,
+																	 "up" = "up-regulated (positive FC)",
+																	 "down" = "down-regulated (negative FC)",
+																	 "both" = "in either direction")
+					
+					showNotification(
+						HTML(paste0(
+							"⚠️ No significant <strong>", direction_text, "</strong> features found.<br>",
+							"Total significant features (both directions): ", length(sig_rows_all), "<br>",
+							"Try changing FC direction filter or adjusting cutoffs."
+						)),
+						type = "warning",
+						duration = 10
+					)
+					return()
+				}
+				
 				# Calculate expected PN AAbs (for compatibility with original module)
-				sig_AAbs <- rownames(TT[sig_rows, ])
+				sig_AAbs <- rownames(TT_filtered[sig_rows, ])
 				n_sig <- length(sig_AAbs)
 				rv$exp_PN_AAbs <- max(1, n_sig - 2):min(nrow(exprs_data), n_sig + 4)
 				rv$PN_AAbs <- sig_AAbs
 				
 				# Generate additional outputs if features enabled
 				feat <- features_reactive()
+				
+				# # Prepare filtered metadata and data
+				# if (!continuous) {
+				# 	meta_filtered <- metadata[metadata[[variable]] %in% c(class1_clean, class2_clean), ]
+				# } else {
+				# 	meta_filtered <- metadata
+				# }
+				# 
+				# if (!is.null(input$add_anno) && length(input$add_anno) > 0) {
+				# 	cols_anno <- unique(c(variable, input$add_anno))
+				# 	meta_2 <- data.frame(meta_filtered[, cols_anno, drop = FALSE])
+				# } else {
+				# 	meta_2 <- meta_filtered[, variable, drop = FALSE]
+				# }
 				
 				# Prepare filtered metadata and data
 				if (!continuous) {
@@ -780,15 +851,43 @@ mod_pn_limma_server <- function(id,
 					meta_filtered <- metadata
 				}
 				
+				# Create meta_2 with EXPLICIT column name preservation
 				if (!is.null(input$add_anno) && length(input$add_anno) > 0) {
 					cols_anno <- unique(c(variable, input$add_anno))
-					meta_2 <- data.frame(meta_filtered[, cols_anno, drop = FALSE])
+					# Ensure all columns exist in meta_filtered
+					cols_anno <- cols_anno[cols_anno %in% colnames(meta_filtered)]
+					
+					if (length(cols_anno) == 0) {
+						stop("No valid annotation columns found")
+					}
+					
+					meta_2 <- as.data.frame(meta_filtered[, cols_anno, drop = FALSE], stringsAsFactors = FALSE)
+					
 				} else {
-					meta_2 <- meta_filtered[, variable, drop = FALSE]
+					# Create single-column data frame - MOST ROBUST METHOD
+					meta_2 <- as.data.frame(meta_filtered[, variable, drop = FALSE], stringsAsFactors = FALSE)
+					
+					# Double-check the column name is correct
+					if (colnames(meta_2)[1] != variable) {
+						colnames(meta_2) <- variable
+					}
 				}
 				
-				# Filter significant features
-				data_sig <- exprs_data[rownames(TT[sig_rows, ]), rownames(meta_2), drop = FALSE]
+				# Final verification
+				if (!variable %in% colnames(meta_2)) {
+					stop("FATAL: Variable '", variable, "' not in meta_2 columns: ", 
+							 paste(colnames(meta_2), collapse = ", "))
+				}
+				
+				cat("\n=== Meta_2 Created ===\n")
+				cat("Columns:", paste(colnames(meta_2), collapse = ", "), "\n")
+				cat("Nrow:", nrow(meta_2), "\n")
+				cat("First few rows of", variable, "column:\n")
+				print(head(meta_2[[variable]]))
+				cat("======================\n\n")
+				
+				# Filter significant features (using direction-filtered results)
+				data_sig <- exprs_data[rownames(TT_filtered[sig_rows, ]), rownames(meta_2), drop = FALSE]
 				data_RC <- data.frame(t(scale(t(exprs_data), scale = FALSE, center = TRUE)), check.names = FALSE)
 				data_sig_RC <- data_RC[rownames(data_sig), colnames(data_sig), drop = FALSE]
 				
@@ -812,29 +911,64 @@ mod_pn_limma_server <- function(id,
 						exprs_data = exprs_data,
 						data_sig = data_sig,
 						meta_2 = meta_2,
-						TT = TT,
+						TT = TT_filtered,
 						variable = variable,
 						class1 = class1_clean,
 						class2 = class2_clean,
-						sig_rows = sig_rows
+						sig_rows = sig_rows,
+						fc_direction = fc_direction
 					)
 				}
+				
+				# # Generate violin plots
+				# if (feat$generate_violins && input$plot_violins && !continuous && nrow(data_sig) > 0) {
+				# 	rv$violin_plots <- generate_violin_plots(
+				# 		exprs_data = exprs_data,
+				# 		merged_results = if (!is.null(rv$merged_results)) rv$merged_results else TT_filtered[sig_rows, ],
+				# 		meta_2 = meta_2,
+				# 		variable = variable
+				# 	)
+				# }
 				
 				# Generate violin plots
 				if (feat$generate_violins && input$plot_violins && !continuous && nrow(data_sig) > 0) {
-					rv$violin_plots <- generate_violin_plots(
-						exprs_data = exprs_data,
-						merged_results = if (!is.null(rv$merged_results)) rv$merged_results else TT[sig_rows, ],
-						meta_2 = meta_2,
-						variable = variable
-					)
+					tryCatch({
+						# Use the filtered significant features directly
+						violin_input <- if (!is.null(rv$merged_results)) {
+							rv$merged_results
+						} else {
+							TT_filtered[sig_rows, ]
+						}
+						
+						rv$violin_plots <- generate_violin_plots(
+							exprs_data = exprs_data,
+							merged_results = violin_input,
+							meta_2 = meta_2,
+							variable = variable
+						)
+						
+						if (is.null(rv$violin_plots) || length(rv$violin_plots) == 0) {
+							warning("Violin plots generated but empty")
+						}
+						
+					}, error = function(e) {
+						warning("Failed to generate violin plots: ", e$message)
+						print(e)
+						rv$violin_plots <- NULL
+					})
 				}
 				
 				removeNotification("limma_running")
+				
+				direction_text <- switch(fc_direction,
+																 "up" = "up-regulated",
+																 "down" = "down-regulated",
+																 "both" = "in both directions")
+				
 				showNotification(
 					HTML(paste0(
 						"<strong>✅ Limma analysis complete!</strong><br>",
-						"Found ", n_sig, " significant features<br>",
+						"Found ", n_sig, " significant ", direction_text, " features<br>",
 						"Expected range: ", min(rv$exp_PN_AAbs), "-", max(rv$exp_PN_AAbs)
 					)),
 					type = "message",
@@ -852,7 +986,11 @@ mod_pn_limma_server <- function(id,
 			})
 		})
 		
-		# Outputs (same as before)
+		
+		
+		
+		
+		# Outputs
 		output$limma_complete <- reactive({
 			!is.null(rv$limma_results)
 		})
@@ -877,7 +1015,11 @@ mod_pn_limma_server <- function(id,
 			req(rv$limma_results)
 			
 			TT <- rv$limma_results$topTable
+			TT_full <- rv$limma_results$topTable_full
+			fc_direction <- rv$limma_results$fc_direction
+			
 			sig_count <- sum(TT$P.Value < rv$limma_results$p_val & abs(TT$logFC) > log2(rv$limma_results$fc_cutoff))
+			sig_count_full <- sum(TT_full$P.Value < rv$limma_results$p_val & abs(TT_full$logFC) > log2(rv$limma_results$fc_cutoff))
 			
 			cat("Limma Analysis Summary\n")
 			cat("======================\n\n")
@@ -888,11 +1030,22 @@ mod_pn_limma_server <- function(id,
 			}
 			cat("Fold Change Cutoff:", rv$limma_results$fc_cutoff, "\n")
 			cat("P-value Cutoff:", rv$limma_results$p_val, "\n")
-			cat("Sample Count:", ncol(rv$limma_results$expression), "\n\n")
-			cat("Significant Features:", sig_count, "\n")
+			cat("Sample Count:", ncol(rv$limma_results$expression), "\n")
+			
+			direction_text <- switch(fc_direction,
+															 "up" = "Up-regulated (positive FC)",
+															 "down" = "Down-regulated (negative FC)",
+															 "both" = "Both directions")
+			
+			cat("FC Direction Filter:", direction_text, "\n\n")
+			cat("Significant Features (filtered):", sig_count, "\n")
+			
+			if (fc_direction != "both") {
+				cat("Total Significant (all directions):", sig_count_full, "\n")
+			}
 			
 			if (!is.null(rv$exp_PN_AAbs)) {
-				cat("Expected PN AAb Count:", paste(rv$exp_PN_AAbs, collapse = ", "), "\n")
+				cat("\nExpected PN AAb Count:", paste(rv$exp_PN_AAbs, collapse = ", "), "\n")
 			}
 		})
 		
@@ -926,17 +1079,30 @@ mod_pn_limma_server <- function(id,
 		output$limma_volcano <- renderPlot({
 			req(rv$limma_results)
 			
-			TT <- rv$limma_results$topTable
+			# Use FULL topTable for volcano (show all, but highlight filtered)
+			TT_full <- rv$limma_results$topTable_full
+			TT_filtered <- rv$limma_results$topTable
 			fc_cut <- rv$limma_results$fc_cutoff
 			p_cut <- rv$limma_results$p_val
+			fc_direction <- rv$limma_results$fc_direction
 			
 			# Prepare volcano plot data
-			sigs_ordered <- TT[order(TT$P.Value), ]
-			sigs_ordered$genelabels <- sigs_ordered$P.Value < p_cut & abs(sigs_ordered$logFC) > log2(fc_cut)
+			sigs_ordered <- TT_full[order(TT_full$P.Value), ]
+			
+			# Mark significance based on direction filter
+			if (fc_direction == "up") {
+				sigs_ordered$genelabels <- sigs_ordered$P.Value < p_cut & sigs_ordered$logFC > log2(fc_cut)
+			} else if (fc_direction == "down") {
+				sigs_ordered$genelabels <- sigs_ordered$P.Value < p_cut & sigs_ordered$logFC < -log2(fc_cut)
+			} else {
+				sigs_ordered$genelabels <- sigs_ordered$P.Value < p_cut & abs(sigs_ordered$logFC) > log2(fc_cut)
+			}
+			
 			sigs_ordered$threshold <- sigs_ordered$genelabels
 			sigs_ordered$symbol <- rownames(sigs_ordered)
 			
-			ggplot(sigs_ordered, aes(x = logFC, y = -log10(P.Value))) +
+			# Create plot
+			p <- ggplot(sigs_ordered, aes(x = logFC, y = -log10(P.Value))) +
 				geom_point(aes(colour = threshold), alpha = 0.6, size = 2) +
 				scale_color_brewer(palette = "Dark2") +
 				geom_text_repel(
@@ -945,19 +1111,42 @@ mod_pn_limma_server <- function(id,
 					max.overlaps = 50
 				) +
 				geom_hline(yintercept = -log10(p_cut), linetype = "dashed", color = "blue") +
-				geom_vline(xintercept = log2(fc_cut), linetype = "dashed", color = "blue") +
-				geom_vline(xintercept = -log2(fc_cut), linetype = "dashed", color = "blue") +
-				labs(
-					title = paste("Volcano Plot:", rv$limma_results$variable),
-					x = "log2 Fold Change",
-					y = "-log10(P-value)"
-				) +
 				theme_minimal() +
 				theme(
 					legend.position = "none",
 					plot.title = element_text(size = rel(1.5), hjust = 0.5),
 					axis.title = element_text(size = rel(1.25))
 				)
+			
+			# Add FC cutoff lines based on direction
+			if (fc_direction == "both") {
+				p <- p +
+					geom_vline(xintercept = log2(fc_cut), linetype = "dashed", color = "blue") +
+					geom_vline(xintercept = -log2(fc_cut), linetype = "dashed", color = "blue") +
+					labs(
+						title = paste("Volcano Plot:", rv$limma_results$variable, "(Both Directions)"),
+						x = "log2 Fold Change",
+						y = "-log10(P-value)"
+					)
+			} else if (fc_direction == "up") {
+				p <- p +
+					geom_vline(xintercept = log2(fc_cut), linetype = "dashed", color = "red") +
+					labs(
+						title = paste("Volcano Plot:", rv$limma_results$variable, "(Up-regulated Only)"),
+						x = "log2 Fold Change",
+						y = "-log10(P-value)"
+					)
+			} else {
+				p <- p +
+					geom_vline(xintercept = -log2(fc_cut), linetype = "dashed", color = "red") +
+					labs(
+						title = paste("Volcano Plot:", rv$limma_results$variable, "(Down-regulated Only)"),
+						x = "log2 Fold Change",
+						y = "-log10(P-value)"
+					)
+			}
+			
+			return(p)
 		})
 		
 		output$heatmap_manual <- renderPlot({
@@ -1027,10 +1216,40 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
+		# Add this output after the other outputs in the server function:
+		
+		output$violin_debug <- renderPrint({
+			if (!is.null(rv$violin_plots)) {
+				cat("Violin plots generated successfully\n")
+				cat("Number of plots:", length(rv$violin_plots), "\n")
+			} else {
+				cat("Violin plots NOT generated\n")
+				cat("Checking conditions:\n")
+				cat("- generate_violins feature:", features_reactive()$generate_violins, "\n")
+				cat("- plot_violins checkbox:", input$plot_violins, "\n")
+				cat("- continuous:", if (!is.null(rv$limma_results)) rv$limma_results$continuous else "NULL", "\n")
+				cat("- merged_results exists:", !is.null(rv$merged_results), "\n")
+				if (!is.null(rv$merged_results)) {
+					cat("- merged_results rows:", nrow(rv$merged_results), "\n")
+					cat("- merged_results rownames:", paste(head(rownames(rv$merged_results), 3), collapse = ", "), "\n")
+				}
+			}
+		})
+		
+		# Add to UI (in the Violin Plots tab, conditionally):
+		conditionalPanel(
+			condition = paste0("input['", ns("denoise_mod_debug"), "'] > 0"),
+			ns = ns,
+			hr(),
+			h5("Debug Info"),
+			verbatimTextOutput(ns("violin_debug"))
+		)
+		
 		# Downloads
 		output$download_toptable <- downloadHandler(
 			filename = function() {
-				paste0("limma_full_table_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+				direction <- rv$limma_results$fc_direction
+				paste0("limma_full_table_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
 			},
 			content = function(file) {
 				req(rv$limma_results)
@@ -1040,7 +1259,8 @@ mod_pn_limma_server <- function(id,
 		
 		output$download_roc <- downloadHandler(
 			filename = function() {
-				paste0("limma_ROC_results_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+				direction <- rv$limma_results$fc_direction
+				paste0("limma_ROC_results_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
 			},
 			content = function(file) {
 				req(rv$merged_results)
@@ -1050,7 +1270,8 @@ mod_pn_limma_server <- function(id,
 		
 		output$download_heatmaps <- downloadHandler(
 			filename = function() {
-				paste0("heatmaps_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
+				direction <- rv$limma_results$fc_direction
+				paste0("heatmaps_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
 			},
 			content = function(file) {
 				req(rv$heatmap_data)
@@ -1085,7 +1306,8 @@ mod_pn_limma_server <- function(id,
 		
 		output$download_violins <- downloadHandler(
 			filename = function() {
-				paste0("violin_plots_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
+				direction <- rv$limma_results$fc_direction
+				paste0("violin_plots_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
 			},
 			content = function(file) {
 				req(rv$violin_plots)
@@ -1116,7 +1338,6 @@ mod_pn_limma_server <- function(id,
 		}))
 	})
 }
-
 
 
 # Helper Functions --------------------------------------------------------
@@ -1226,46 +1447,61 @@ generate_heatmap_data <- function(data_sig, data_sig_RC, meta_2, variable,
 #' @param class1 Character, class 1 name
 #' @param class2 Character, class 2 name
 #' @param sig_rows Integer vector, indices of significant rows
+#' @param fc_direction Character, "up", "down", or "both" (default "both")
 #'
 #' @return Data frame with merged limma + ROC results
 #' @keywords internal
 generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable, 
-																 class1, class2, sig_rows) {
+																 class1, class2, sig_rows, fc_direction = "both") {
 	
-	# Run ROC analysis (assumes ROC_mini function exists)
-	ROC_results_up <- ROC_mini(
-		input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
-		metadata = meta_2,
-		variable = variable,
-		groupPos = class1,
-		groupNeg = class2,
-		descriptor = "up",
-		folder = NULL  # Don't write files in Shiny
-	)
-	ROC_results_up <- data.frame(ROC_results_up)
+	# Run ROC analysis based on direction
+	if (fc_direction == "up" || fc_direction == "both") {
+		ROC_results_up <- ROC_mini(
+			input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
+			metadata = meta_2,
+			variable = variable,
+			groupPos = class1,
+			groupNeg = class2,
+			descriptor = "up",
+			folder = NULL
+		)
+		ROC_results_up <- data.frame(ROC_results_up)
+	}
 	
-	ROC_results_down <- ROC_mini(
-		input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
-		metadata = meta_2,
-		variable = variable,
-		groupPos = class2,
-		groupNeg = class1,
-		descriptor = "down",
-		folder = NULL
-	)
-	ROC_results_down <- data.frame(ROC_results_down)
+	if (fc_direction == "down" || fc_direction == "both") {
+		ROC_results_down <- ROC_mini(
+			input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
+			metadata = meta_2,
+			variable = variable,
+			groupPos = class2,
+			groupNeg = class1,
+			descriptor = "down",
+			folder = NULL
+		)
+		ROC_results_down <- data.frame(ROC_results_down)
+	}
 	
 	# Merge with limma results
 	limma_results <- TT[rownames(data_sig), ]
 	limma_results$Protein <- rownames(limma_results)
 	
-	limma_up <- limma_results[limma_results$logFC > 0, ]
-	limma_down <- limma_results[limma_results$logFC < 0, ]
+	if (fc_direction == "up") {
+		# Only up-regulated features
+		merged_results <- left_join(limma_results, ROC_results_up, by = "Protein")
+	} else if (fc_direction == "down") {
+		# Only down-regulated features
+		merged_results <- left_join(limma_results, ROC_results_down, by = "Protein")
+	} else {
+		# Both directions - merge appropriately
+		limma_up <- limma_results[limma_results$logFC > 0, ]
+		limma_down <- limma_results[limma_results$logFC < 0, ]
+		
+		merged_up <- left_join(limma_up, ROC_results_up, by = "Protein")
+		merged_down <- left_join(limma_down, ROC_results_down, by = "Protein")
+		
+		merged_results <- rbind(merged_up, merged_down)
+	}
 	
-	merged_up <- left_join(limma_up, ROC_results_up, by = "Protein")
-	merged_down <- left_join(limma_down, ROC_results_down, by = "Protein")
-	
-	merged_results <- rbind(merged_up, merged_down)
 	rownames(merged_results) <- merged_results$Protein
 	
 	# Clean up columns
@@ -1278,16 +1514,18 @@ generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable,
 		) %>%
 		arrange(desc(abs(FC)))
 	
-	# Reorder columns
-	merged_results <- merged_results[, c(1, ncol(merged_results), 2:(ncol(merged_results) - 1))]
+	# Reorder columns: logFC, FC, then rest
+	col_order <- c("logFC", "FC", setdiff(names(merged_results), c("logFC", "FC")))
+	merged_results <- merged_results[, col_order]
 	
 	return(merged_results)
 }
 
+
 #' Generate Violin Plots
 #'
 #' @param exprs_data Matrix, full expression data
-#' @param merged_results Data frame, merged limma + ROC results
+#' @param merged_results Data frame, merged limma + ROC results OR topTable subset
 #' @param meta_2 Metadata data frame
 #' @param variable Character, primary variable name
 #'
@@ -1295,44 +1533,105 @@ generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable,
 #' @keywords internal
 generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) {
 	
-	sig_f <- rownames(merged_results)
-	df <- as.matrix(exprs_data[sig_f, rownames(meta_2), drop = FALSE]) %>%
-		reshape2::melt()
-	
-	colnames(df)[1:2] <- c("feature", "Sample")
-	meta_2$Sample <- rownames(meta_2)
-	
-	merge.df <- merge(meta_2, df, by = "Sample")
-	
-	# Grid size selector
-	if (length(sig_f) <= 6) {
-		n_col <- 3
-		n_row <- 2
-	} else {
-		n_col <- 3
-		n_row <- 3
-	}
-	
-	# Colors
-	violin_cols <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2", "coral2", "palevioletred2")
-	color_select <- violin_cols[seq_len(nlevels(as.factor(meta_2[[variable]])))]
-	
-	# Create plots
-	violins <- ggplot(merge.df, aes(x = .data[[variable]], y = value, color = .data[[variable]])) +
-		geom_violin(alpha = 0.5) +
-		scale_colour_manual(values = color_select) +
-		scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
-		theme_minimal() +
-		geom_point(position = position_jitter(seed = 1, width = 0.2)) +
-		theme(legend.position = "none") +
-		facet_wrap_paginate(~ feature, ncol = n_col, nrow = n_row, scales = "free")
-	
-	n_pages <- ggforce::n_pages(violins)
-	
-	# Generate list of plots
-	plot_list <- lapply(seq_len(n_pages), function(i) {
-		violins + facet_wrap_paginate(~ feature, ncol = n_col, nrow = n_row, page = i, scales = "free")
+	tryCatch({
+		# Get feature names
+		sig_f <- rownames(merged_results)
+		
+		if (length(sig_f) == 0) {
+			warning("No significant features to plot")
+			return(NULL)
+		}
+		
+		# Ensure features exist in expression data
+		sig_f <- sig_f[sig_f %in% rownames(exprs_data)]
+		
+		if (length(sig_f) == 0) {
+			warning("No matching features in expression data")
+			return(NULL)
+		}
+		
+		# Extract expression data for significant features
+		plot_data <- exprs_data[sig_f, rownames(meta_2), drop = FALSE]
+		
+		# Check if we have data
+		if (nrow(plot_data) == 0 || ncol(plot_data) == 0) {
+			warning("Empty plot data after filtering")
+			return(NULL)
+		}
+		
+		# Melt data
+		df <- as.matrix(plot_data) %>%
+			reshape2::melt()
+		
+		colnames(df)[1:2] <- c("feature", "Sample")
+		
+		# Add sample info to metadata
+		meta_2$Sample <- rownames(meta_2)
+		
+		# Merge with metadata
+		merge.df <- merge(meta_2, df, by = "Sample")
+		
+		if (nrow(merge.df) == 0) {
+			warning("No data after merging with metadata")
+			return(NULL)
+		}
+		
+		# Grid size selector
+		if (length(sig_f) <= 6) {
+			n_col <- 3
+			n_row <- 2
+		} else if (length(sig_f) <= 12) {
+			n_col <- 3
+			n_row <- 4
+		} else {
+			n_col <- 4
+			n_row <- 4
+		}
+		
+		# Colors
+		violin_cols <- c("#009E73", "#BEAED4", "#80B1D3", "goldenrod2", "coral2", "palevioletred2")
+		n_levels <- nlevels(as.factor(meta_2[[variable]]))
+		color_select <- violin_cols[seq_len(min(n_levels, length(violin_cols)))]
+		
+		# Check if variable exists in merged data
+		if (!variable %in% colnames(merge.df)) {
+			warning("Variable '", variable, "' not found in merged data")
+			return(NULL)
+		}
+		
+		# Create base plot
+		violins <- ggplot(merge.df, aes(x = .data[[variable]], y = value, color = .data[[variable]])) +
+			geom_violin(alpha = 0.5) +
+			scale_colour_manual(values = color_select) +
+			scale_x_discrete(guide = guide_axis(n.dodge = 2)) +
+			theme_minimal() +
+			geom_point(position = position_jitter(seed = 1, width = 0.2)) +
+			theme(legend.position = "none") +
+			facet_wrap_paginate(~ feature, ncol = n_col, nrow = n_row, scales = "free")
+		
+		# Check if ggforce is available
+		if (!requireNamespace("ggforce", quietly = TRUE)) {
+			warning("ggforce package not available, returning single page plot")
+			return(list(violins))
+		}
+		
+		n_pages <- ggforce::n_pages(violins)
+		
+		if (n_pages == 0) {
+			warning("No pages generated for violin plots")
+			return(list(violins))
+		}
+		
+		# Generate list of plots
+		plot_list <- lapply(seq_len(n_pages), function(i) {
+			violins + facet_wrap_paginate(~ feature, ncol = n_col, nrow = n_row, page = i, scales = "free")
+		})
+		
+		return(plot_list)
+		
+	}, error = function(e) {
+		warning("Error in generate_violin_plots: ", e$message)
+		print(e)
+		return(NULL)
 	})
-	
-	return(plot_list)
 }
