@@ -180,27 +180,31 @@ mod_expset_viewer_server <- function(id,
 		
 		## Current ExpSet Reactive ####
 		current_expset <- reactive({
+			#
 			req(ExpSet_list())
-			expsets <- ExpSet_list()
-			
-			# Get selected name from selector module
-			(selected_name <- selector_module$eset_name())
-			
-			if (is.null(selected_name) || selected_name == "") {
-				# Fallback to first available
-				if (length(expsets) > 0) {
-					return(expsets[[1]])
-				} else {
-					return(NULL)
-				}
-			}
-			ExpSet_name = get_ExpSet_name(selected_name,expsets)
-			# Fetch from CURRENT ExpSet_list
-			if (ExpSet_name %in% names(expsets)) {
-				expsets[[ExpSet_name]]
-			} else {
-				NULL
-			}
+			#observe(ExpSet_list())
+			req(selector_module$eset_subset())
+			selector_module$eset_subset()
+			# expsets <- ExpSet_list()
+			# 
+			# # Get selected name from selector module
+			# (selected_name <- selector_module$eset_name())
+			# 
+			# if (is.null(selected_name) || selected_name == "") {
+			# 	# Fallback to first available
+			# 	if (length(expsets) > 0) {
+			# 		return(expsets[[1]])
+			# 	} else {
+			# 		return(NULL)
+			# 	}
+			# }
+			# ExpSet_name = get_ExpSet_name(selected_name,expsets)
+			# # Fetch from CURRENT ExpSet_list
+			# if (ExpSet_name %in% names(expsets)) {
+			# 	expsets[[ExpSet_name]]
+			# } else {
+			# 	NULL
+			# }
 		})
 		
 		## ExpSet Name Reactive ####

@@ -104,57 +104,62 @@ server <- function(input, output, session) {
 	### Raw Data ####
 	eset_raw <- reactive({
 		req(ExpSet_list())
-		expset_list <- ExpSet_list()
-		
-		# Get selected name
-		selected_name <- eset_raw_selected$eset_name()
-		
-		# Handle NULL/empty selection
-		if (is.null(selected_name) || selected_name == "") {
-			if (length(expset_list) > 0) {
-				return(expset_list[[1]])
-			} else {
-				return(NULL)
-			}
-		}
-		
-		# Get ExpSet name (handles nested assayData)
-		ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
-		
-		# Fetch from current list
-		if (ExpSet_name %in% names(expset_list)) {
-			expset_list[[ExpSet_name]]
-		} else {
-			if (length(expset_list) > 0) {
-				expset_list[[1]]
-			} else {
-				NULL
-			}
-		}
+		req(eset_raw_selected)
+		eset_raw_selected$eset_subset()
+		# expset_list <- ExpSet_list()
+		# 
+		# # Get selected name
+		# selected_name <- eset_raw_selected$eset_name()
+		# 
+		# # Handle NULL/empty selection
+		# if (is.null(selected_name) || selected_name == "") {
+		# 	if (length(expset_list) > 0) {
+		# 		return(expset_list[[1]])
+		# 	} else {
+		# 		return(NULL)
+		# 	}
+		# }
+		# 
+		# # Get ExpSet name (handles nested assayData)
+		# ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
+		# 
+		# # Fetch from current list
+		# if (ExpSet_name %in% names(expset_list)) {
+		# 	expset_list[[ExpSet_name]]
+		# } else {
+		# 	if (length(expset_list) > 0) {
+		# 		expset_list[[1]]
+		# 	} else {
+		# 		NULL
+		# 	}
+		# }
 	})
 	
 	### Normalized Data ####
 	eset_norm <- reactive({
 		req(ExpSet_list())
-		expset_list <- ExpSet_list()
-		
-		# Get selected name
-		selected_name <- eset_norm_selected$eset_name()
-		
-		# Handle NULL/empty selection (norm is optional)
-		if (is.null(selected_name) || selected_name == "") {
-			return(NULL)
-		}
-		
-		# Get ExpSet name
-		ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
-		
-		# Fetch from current list
-		if (ExpSet_name %in% names(expset_list)) {
-			expset_list[[ExpSet_name]]
-		} else {
-			NULL
-		}
+		req(eset_norm_selected$eset_subset())
+		eset_norm_selected$eset_subset()
+		# expset_list <- ExpSet_list()
+		# 
+		# # Get selected name
+		# selected_name <- eset_norm_selected$eset_name()
+		# 
+		# # Handle NULL/empty selection (norm is optional)
+		# if (is.null(selected_name) || selected_name == "") {
+		# 	return(NULL)
+		# }
+		# 
+		# # Get ExpSet name
+		# ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
+		# 
+		# # Fetch from current list
+		# #if (ExpSet_name %in% names(expset_list)) {
+		# 	#expset_list[[ExpSet_name]]
+		# eset_norm_selected$eset_subset()
+		#} else {
+		#	NULL
+		#}
 	})
 	
 	# Status Dashboard ####

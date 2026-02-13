@@ -54,9 +54,9 @@ mod_pn_limma_ui <- function(id) {
 								 	"Primary Variable",
 								 	choices = NULL
 								 ),
-								 verbatimTextOutput(ns("variable_summary"))
-					),
-					column(3,
+								 tableOutput(ns("variable_summary")),
+					# ),
+					# column(3,
 								 checkboxInput(
 								 	ns("continuous"),
 								 	"Continuous Variable?",
@@ -72,9 +72,9 @@ mod_pn_limma_ui <- function(id) {
 								 		"Class 1 (Positive)",
 								 		choices = NULL
 								 	)
-								 )
-					),
-					column(3,
+								 ),
+					# ),
+					# column(3,
 								 conditionalPanel(
 								 	condition = paste0("!input['", ns("continuous"), "']"),
 								 	ns = ns,
@@ -84,18 +84,28 @@ mod_pn_limma_ui <- function(id) {
 								 		choices = NULL
 								 	)
 								 )
-					)
-				),
-				
-				fluidRow(
+					),
 					column(3,
 								 selectInput(
 								 	ns("covariates"),
 								 	"Covariates",
 								 	choices = NULL,
 								 	multiple = TRUE
-								 )
-					),
+								 ),
+								 tableOutput(ns("covariates_summary"))
+					)
+				),
+				
+				fluidRow(
+					# column(3,
+					# 			 selectInput(
+					# 			 	ns("covariates"),
+					# 			 	"Covariates",
+					# 			 	choices = NULL,
+					# 			 	multiple = TRUE
+					# 			 ),
+					# 			 tableOutput(ns("covariates_summary"))
+					# ),
 					column(3,
 								 numericInput(
 								 	ns("fc_cutoff"),
@@ -426,7 +436,8 @@ mod_pn_limma_server <- function(id,
 		})
 		
 		### Variable Summary ####
-		output$variable_summary <- renderPrint({
+		### Variable Summary ####
+		output$variable_summary <- renderTable({
 			req(eset_current(), input$variable)
 			
 			metadata <- Biobase::pData(eset_current())
@@ -434,21 +445,65 @@ mod_pn_limma_server <- function(id,
 			if (input$variable %in% colnames(metadata)) {
 				var_data <- metadata[[input$variable]]
 				
-				cat("Variable:", input$variable, "\n")
-				cat("─────────────────────\n")
-				
 				if (is.numeric(var_data)) {
-					cat("Type: Numeric\n")
-					cat("Range:", min(var_data, na.rm = TRUE), "-", max(var_data, na.rm = TRUE), "\n")
-					cat("Mean:", round(mean(var_data, na.rm = TRUE), 2), "\n")
-					cat("NAs:", sum(is.na(var_data)), "\n")
+					data.frame(
+						Statistic = c("Min", "Max", "Mean", "NAs"),
+						Value = c(
+							round(min(var_data, na.rm = TRUE), 2),
+							round(max(var_data, na.rm = TRUE), 2),
+							round(mean(var_data, na.rm = TRUE), 2),
+							sum(is.na(var_data))
+						)
+					)
 				} else {
-					cat("Type: Categorical\n")
-					cat("Levels:\n")
-					print(table(var_data, useNA = "ifany"))
+					# Categorical - create clean table
+					tbl <- table(var_data, useNA = "ifany")
+					data.frame(
+						Group = names(tbl),
+						Count = as.numeric(tbl)
+					)
 				}
 			}
-		})
+		}, striped = TRUE, hover = TRUE, bordered = TRUE, spacing = "xs", width = "100%", align = "lr")
+		
+		### Covariates Summary ####
+		output$covariates_summary <- renderTable({
+			req(eset_current(), input$covariates)
+			
+			if (length(input$covariates) == 0) {
+				return(NULL)
+			}
+			
+			metadata <- Biobase::pData(eset_current())
+			
+			# Build summary for all selected covariates
+			summary_list <- lapply(input$covariates, function(cov) {
+				if (cov %in% colnames(metadata)) {
+					var_data <- metadata[[cov]]
+					
+					if (is.numeric(var_data)) {
+						data.frame(
+							Covariate = cov,
+							Group = c("Range", "NAs"),
+							Count = c(
+								paste0(round(min(var_data, na.rm = TRUE), 1), "-", round(max(var_data, na.rm = TRUE), 1)),
+								as.character(sum(is.na(var_data)))
+							)
+						)
+					} else {
+						tbl <- table(var_data, useNA = "ifany")
+						data.frame(
+							Covariate = cov,
+							Group = names(tbl),
+							Count = as.numeric(tbl)
+						)
+					}
+				}
+			})
+			
+			do.call(rbind, summary_list)
+			
+		}, striped = TRUE, hover = TRUE, bordered = TRUE, spacing = "xs", width = "100%", align = "llr")
 		
 		### AssayData Info UI ####
 		output$assay_info_ui <- renderUI({
