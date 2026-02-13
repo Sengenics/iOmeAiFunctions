@@ -1,318 +1,116 @@
 # Server : Denoiser ####
+
 server <- function(input, output, session) {
 	
-	
-	
+	## App Configuration ####
 	options(shiny.maxRequestSize = 100*1024^2)
 	
-	observeEvent(input$debug,{
+	## Debug Handler ####
+	observeEvent(input$debug, {
 		browser()
 	})
 	
-	# ===================================================================
-	# NEW: FILE UPLOAD AND IMPORT FUNCTIONALITY
-	# ===================================================================
+	# Data Management ####
 	
-	expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
+	## ExpSet List Storage ####
+	ExpSet_list_val <- reactiveVal(NULL)
 	
-	ExpSet_list <- reactive({
-		expset_data$ExpSet_list()
+	## Load Default Data ####
+	observe({
+		# Only load default if nothing loaded yet
+		if (is.null(ExpSet_list_val())) {
+			default_file <- "data/ExpSet_list.rds"
+			
+			if (file.exists(default_file)) {
+				tryCatch({
+					data <- readRDS(default_file)
+					ExpSet_list_val(data)
+					message("✅ Loaded default ExpSet_list from ", default_file)
+				}, error = function(e) {
+					message("⚠️ Failed to load default data: ", e$message)
+				})
+			} else {
+				message("ℹ️ No default data file found at ", default_file)
+			}
+		}
 	})
 	
-	# # Reactive value to store uploaded ExpSet data
-	# uploaded_expset <- reactiveVal(NULL)
-	# upload_status <- reactiveVal("No file uploaded")
-	# upload_success <- reactiveVal(FALSE)
-	# 
-	# # Load ExpSet when button is clicked
-	# observeEvent(input$load_expset, {
-	# 	req(input$expset_file)
-	# 	
-	# 	upload_status("Loading...")
-	# 	upload_success(FALSE)
-	# 	
-	# 	tryCatch({
-	# 		# Read the RDS file
-	# 		message("Loading ExpSet from: ", input$expset_file$name)
-	# 		expset_data <- readRDS(input$expset_file$datapath)
-	# 		print(names(expset_data))
-	# 		
-	# 		# Validate the uploaded data
-	# 		is_valid <- FALSE
-	# 		error_msg <- ""
-	# 		
-	# 		# Check if it's an ExpressionSet object
-	# 		if (inherits(expset_data, "ExpressionSet")) {
-	# 			message("✓ Single ExpressionSet detected")
-	# 			# Wrap in a list with a default name
-	# 			expset_data <- list(uploaded_data = expset_data)
-	# 			is_valid <- TRUE
-	# 		}
-	# 		# Check if it's a list of ExpressionSets
-	# 		else if (is.list(expset_data)) {
-	# 			# Verify all elements are ExpressionSets
-	# 			all_eset <- all(sapply(expset_data, function(x) inherits(x, "ExpressionSet")))
-	# 			
-	# 			if (all_eset && length(expset_data) > 0) {
-	# 				message("✓ List of ", length(expset_data), " ExpressionSets detected")
-	# 				is_valid <- TRUE
-	# 			} else {
-	# 				error_msg <- "List does not contain valid ExpressionSet objects"
-	# 			}
-	# 		} else {
-	# 			error_msg <- paste("Invalid data type:", class(expset_data)[1])
-	# 		}
-	# 		
-	# 		if (is_valid) {
-	# 			# Additional validation: check that ExpressionSets have required components
-	# 			(validation_results <- sapply(expset_data, function(eset) {
-	# 				#has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
-	# 				has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
-	# 				#has_exprs &&
-	# 				has_pdata
-	# 			}))
-	# 			
-	# 			(validation_results_exprs <- sapply(expset_data, function(eset) {
-	# 				has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
-	# 				#has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
-	# 				has_exprs
-	# 				#has_pdata
-	# 			}))
-	# 			
-	# 			if (all(validation_results)) {
-	# 				# Store the loaded ExpSet
-	# 				uploaded_expset(expset_data)
-	# 				upload_status(paste("✅ Successfully loaded:", input$expset_file$name))
-	# 				upload_success(TRUE)
-	# 				
-	# 				showNotification(
-	# 					HTML(paste0(
-	# 						"<strong>✅ ExpSet loaded successfully!</strong><br>",
-	# 						"File: ", input$expset_file$name, "<br>",
-	# 						"Contains: ", length(expset_data), " ExpressionSet(s)"
-	# 					)),
-	# 					type = "message",
-	# 					duration = 8
-	# 				)
-	# 				
-	# 				message("✓ ExpSet validation passed")
-	# 				message("✓ Available assays: ", paste(names(expset_data), collapse = ", "))
-	# 			} else {
-	# 				error_msg <- "ExpressionSets missing required components (exprs or pData)"
-	# 				upload_status(paste("❌ Error:", error_msg))
-	# 				showNotification(error_msg, type = "error", duration = 10)
-	# 			}
-	# 		} else {
-	# 			upload_status(paste("❌ Error:", error_msg))
-	# 			showNotification(
-	# 				HTML(paste0(
-	# 					"<strong>❌ Invalid ExpSet file</strong><br>",
-	# 					error_msg, "<br>",
-	# 					"Please upload a valid ExpressionSet or list of ExpressionSets"
-	# 				)),
-	# 				type = "error",
-	# 				duration = 10
-	# 			)
-	# 		}
-	# 		
-	# 	}, error = function(e) {
-	# 		error_message <- paste("Error loading file:", e$message)
-	# 		upload_status(paste("❌", error_message))
-	# 		upload_success(FALSE)
-	# 		
-	# 		showNotification(
-	# 			HTML(paste0("<strong>❌ Error loading ExpSet:</strong><br>", e$message)),
-	# 			type = "error",
-	# 			duration = 10
-	# 		)
-	# 		
-	# 		message("✗ Error loading ExpSet: ", e$message)
-	# 	})
-	# })
-	# 
-	# # Render upload status with styling
-	# output$expset_status_ui <- renderUI({
-	# 	status <- upload_status()
-	# 	success <- upload_success()
-	# 	
-	# 	if (success) {
-	# 		div(
-	# 			style = "padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;",
-	# 			icon("check-circle"),
-	# 			strong(status)
-	# 		)
-	# 	} else if (grepl("Error|❌", status)) {
-	# 		div(
-	# 			style = "padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;",
-	# 			icon("exclamation-triangle"),
-	# 			strong(status)
-	# 		)
-	# 	} else if (status == "Loading...") {
-	# 		div(
-	# 			style = "padding: 10px; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;",
-	# 			icon("spinner", class = "fa-spin"),
-	# 			strong(" Loading...")
-	# 		)
-	# 	} else {
-	# 		div(
-	# 			style = "padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; color: #6c757d;",
-	# 			icon("info-circle"),
-	# 			status
-	# 		)
-	# 	}
-	# })
-	# 
-	# # ===================================================================
-	# # MODIFIED: Load ExpSet_list (default or uploaded)
-	# # ===================================================================
-	# 
-	# # Load ExpSet_list
-	# # ExpSet_list <- reactive({
-	# # 	# Priority 1: Use uploaded data if available
-	# # 	if (!is.null(uploaded_expset())) {
-	# # 		message("✓ Using uploaded ExpSet data")
-	# # 		return(uploaded_expset())
-	# # 	}
-	# # 	
-	# # 	# Priority 2: Try to load from default locations
-	# # 	possible_paths <- c(
-	# # 		"ExampleData/ExpSet_list.rds",
-	# # 		"../ExampleData/ExpSet_list.rds",
-	# # 		"../../ExampleData/ExpSet_list.rds",
-	# # 		"../../../ExampleData/ExpSet_list.rds",
-	# # 		system.file("extdata", "ExpSet_list.rds", package = "iOmeAiFunctions")
-	# # 	)
-	# # 	
-	# # 	for (path in possible_paths) {
-	# # 		if (file.exists(path)) {
-	# # 			message("✓ Loading ExpSet_list from: ", path)
-	# # 			return(readRDS(path))
-	# # 		}
-	# # 	}
-	# # 	
-	# # 	showNotification(
-	# # 		"ℹ️ No default ExpSet_list.rds found. Please upload an ExpSet.rds file above.",
-	# # 		type = "warning",
-	# # 		duration = 8
-	# # 	)
-	# # 	return(NULL)
-	# # })
-	# 
-	# ExpSet_list <- reactive({
-	# 	# Priority 1: Use uploaded data if available
-	# 	if (!is.null(uploaded_expset())) {
-	# 		message("✓ Using uploaded ExpSet data")
-	# 		return(uploaded_expset())
-	# 	}
-	# 	
-	# 	# Priority 2: Load from package data
-	# 	tryCatch({
-	# 		data(ExpSet, package = "iOmeAiFunctions", envir = environment())
-	# 		if (exists("ExpSet", inherits = FALSE)) {
-	# 			message("✓ Using ExpSet from iOmeAiFunctions package")
-	# 			return(ExpSet)
-	# 		}
-	# 	}, error = function(e) {
-	# 		message("ℹ️ ExpSet not found in package: ", e$message)
-	# 	})
-	# 	
-	# 	# No data available
-	# 	showNotification(
-	# 		"ℹ️ No ExpSet data available. Please upload an ExpSet.rds file above.",
-	# 		type = "warning",
-	# 		duration = 8
-	# 	)
-	# 	return(NULL)
-	# })
+	## Import Module ####
+	expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
 	
-	# Raw/NetI ExpressionSet selector
-	# eset_raw_selected <- mod_eset_selector_server(
-	# 	"eset_raw",
-	# 	ExpSet_list = ExpSet_list,
-	# 	default_selection = "sample_ImputedlogMeanNetI"
-	# )
-	# 
-	# # Normalized ExpressionSet selector
-	# eset_norm_selected <- mod_eset_selector_server(
-	# 	"eset_norm",
-	# 	ExpSet_list = ExpSet_list,
-	# 	default_selection = "sample_loess_normalised"
-	# )
-	# 
-	# # Extract the actual ExpressionSets
-	# eset_raw <- reactive({
-	# 	req(eset_raw_selected$eset())
-	# 	eset_raw_selected$eset()
-	# })
-	# 
-	# eset_norm <- reactive({
-	# 	if (!is.null(eset_norm_selected$eset())) {
-	# 		eset_norm_selected$eset()
-	# 	} else {
-	# 		NULL
-	# 	}
-	# })
+	### Handle Uploaded Data ####
+	observe({
+		req(expset_data$ExpSet_list())
+		ExpSet_list_val(expset_data$ExpSet_list())
+		message("✅ Loaded uploaded ExpSet_list with ", length(expset_data$ExpSet_list()), " ExpressionSets")
+	})
 	
-	# ExpressionSet Viewer Module
-	expset_viewer <- mod_expset_viewer_server(
-		"expset_viewer",
-		ExpSet_list = ExpSet_list,  # Use the same ExpSet_list from expset_import
-		default_selection = 'sample_loess_normalised',
-		debug = TRUE
-	)
+	## Create Reactive Wrapper ####
+	ExpSet_list <- reactive({
+		ExpSet_list_val()
+	})
 	
+	## Update Function ####
+	update_ExpSet_list <- function(new_list) {
+		ExpSet_list_val(new_list)
+		message("✅ ExpSet_list updated with ", length(new_list), " ExpressionSets")
+	}
+	
+	# Metadata Management ####
+	
+	## Metadata Manager Module ####
 	metadata_manager <- mod_expset_metadata_manager_server(
 		"metadata_mgr",
 		ExpSet_list = ExpSet_list,
-		update_ExpSet_list = update_ExpSet_list,  # Your callback function
-		master_eset_name = "RawData_ExpSet"
+		update_ExpSet_list = update_ExpSet_list,
+		master_eset_name = "RawData_ExpSet",
+		debug = run_debug
 	)
 	
-	# Raw/NetI ExpressionSet selector with subsetting
+	# Data Viewing ####
+	
+	## ExpressionSet Viewer Module ####
+	expset_viewer <- mod_expset_viewer_server(
+		"expset_viewer",
+		ExpSet_list = ExpSet_list,
+		default_selection = "sample_loess_normalised",
+		debug = run_debug
+	)
+	
+	# Data Selection ####
+	
+	## Raw/NetI Data Selector ####
 	eset_raw_selected <- mod_eset_selector_standalone_server(
 		"eset_raw",
 		ExpSet_list = ExpSet_list,
 		default_selection = "sample_ImputedlogMeanNetI",
-		enable_subset = TRUE,      # ✅ Enable subsetting
-		enable_transform = FALSE,  # Don't need transform for raw data
-		debug = run_debug
-	)
-	
-	# Normalized ExpressionSet selector with subsetting
-	eset_norm_selected <- mod_eset_selector_standalone_server(
-		"eset_norm",
-		ExpSet_list = ExpSet_list,
-		default_selection = "sample_loess_normalised",
-		enable_subset = TRUE,      # ✅ Enable subsetting
+		enable_subset = TRUE,
 		enable_transform = FALSE,
 		debug = run_debug
 	)
 	
-	# # ✅ Update how you access the ExpressionSets
-	# eset_raw <- reactive({
-	# 	req(eset_raw_selected$eset())
-	# 	eset_raw_selected$eset()  # This is now the FINAL data (after subsetting)
-	# })
-	# 
-	# eset_norm <- reactive({
-	# 	if (!is.null(eset_norm_selected$eset())) {
-	# 		eset_norm_selected$eset()  # This is now the FINAL data (after subsetting)
-	# 	} else {
-	# 		NULL
-	# 	}
-	# })
-	# eset_raw ####
+	## Normalized Data Selector ####
+	eset_norm_selected <- mod_eset_selector_standalone_server(
+		"eset_norm",
+		ExpSet_list = ExpSet_list,
+		default_selection = "sample_loess_normalised",
+		enable_subset = TRUE,
+		enable_transform = FALSE,
+		debug = run_debug
+	)
+	
+	## Selected Data Reactives ####
+	
+	### Raw Data ####
 	eset_raw <- reactive({
-		# ✅ Take explicit dependency on ExpSet_list
 		req(ExpSet_list())
 		expset_list <- ExpSet_list()
 		
-		# ✅ Get selected name (graceful NULL handling, not req!)
+		# Get selected name
 		selected_name <- eset_raw_selected$eset_name()
 		
-		# ✅ If no selection, default to first or fallback
+		# Handle NULL/empty selection
 		if (is.null(selected_name) || selected_name == "") {
-			# Try to get first item from list
 			if (length(expset_list) > 0) {
 				return(expset_list[[1]])
 			} else {
@@ -320,65 +118,51 @@ server <- function(input, output, session) {
 			}
 		}
 		
-		# ✅ Fetch from CURRENT list
-		ExpSet_name = get_ExpSet_name(selected_name,expset_list)
-		# Fetch from CURRENT ExpSet_list
+		# Get ExpSet name (handles nested assayData)
+		ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
+		
+		# Fetch from current list
 		if (ExpSet_name %in% names(expset_list)) {
 			expset_list[[ExpSet_name]]
 		} else {
-			NULL
+			if (length(expset_list) > 0) {
+				expset_list[[1]]
+			} else {
+				NULL
+			}
 		}
-		# if (selected_name %in% names(expset_list)) {
-		# 	return(expset_list[[selected_name]])
-		# } else {
-		# 	# Fallback to first available
-		# 	if (length(expset_list) > 0) {
-		# 		return(expset_list[[1]])
-		# 	} else {
-		# 		return(NULL)
-		# 	}
-		# }
 	})
 	
-	# eset_norm ####
+	### Normalized Data ####
 	eset_norm <- reactive({
-		# ✅ Take explicit dependency on ExpSet_list
 		req(ExpSet_list())
 		expset_list <- ExpSet_list()
 		
-		# ✅ Get selected name (graceful NULL handling)
+		# Get selected name
 		selected_name <- eset_norm_selected$eset_name()
 		
-		# ✅ If no selection, return NULL (norm is optional)
+		# Handle NULL/empty selection (norm is optional)
 		if (is.null(selected_name) || selected_name == "") {
 			return(NULL)
 		}
 		
-		# ✅ Fetch from CURRENT list
-		ExpSet_name = get_ExpSet_name(selected_name,expset_list)
-		# Fetch from CURRENT ExpSet_list
+		# Get ExpSet name
+		ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
+		
+		# Fetch from current list
 		if (ExpSet_name %in% names(expset_list)) {
 			expset_list[[ExpSet_name]]
 		} else {
 			NULL
 		}
-		# if (selected_name %in% names(expset_list)) {
-		# 	return(expset_list[[selected_name]])
-		# } else {
-		# 	# Fallback to first available
-		# 	if (length(expset_list) > 0) {
-		# 		return(expset_list[[1]])
-		# 	} else {
-		# 		return(NULL)
-		# 	}
-		# }
 	})
 	
-	# Status value boxes
+	# Status Dashboard ####
+	
+	## ExpSet List Status ####
 	output$status_eset_list <- renderValueBox({
 		if (!is.null(ExpSet_list())) {
-			# Check if using uploaded data
-			source_label <- if (!is.null(uploaded_expset())) {
+			source_label <- if (!is.null(expset_data$ExpSet_list())) {
 				"Uploaded ExpSets"
 			} else {
 				"ExpressionSets Loaded"
@@ -400,6 +184,7 @@ server <- function(input, output, session) {
 		}
 	})
 	
+	## Raw Data Status ####
 	output$status_raw <- renderValueBox({
 		if (!is.null(eset_raw())) {
 			valueBox(
@@ -418,6 +203,7 @@ server <- function(input, output, session) {
 		}
 	})
 	
+	## Normalized Data Status ####
 	output$status_norm <- renderValueBox({
 		if (!is.null(eset_norm())) {
 			valueBox(
@@ -436,6 +222,7 @@ server <- function(input, output, session) {
 		}
 	})
 	
+	## Ready Status ####
 	output$status_ready <- renderValueBox({
 		if (!is.null(eset_raw())) {
 			valueBox(
@@ -454,7 +241,9 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	# Raw data info
+	# Data Info Outputs ####
+	
+	## Raw Data Info ####
 	output$raw_info <- renderPrint({
 		req(eset_raw())
 		
@@ -463,7 +252,7 @@ server <- function(input, output, session) {
 		cat("Features: ", nrow(eset_raw()), "\n")
 	})
 	
-	# Normalized data info
+	## Normalized Data Info ####
 	output$norm_info <- renderPrint({
 		if (!is.null(eset_norm())) {
 			cat("Assay: ", eset_norm_selected$eset_name(), "\n")
@@ -474,14 +263,14 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	# Complete ExpressionSet summary
+	## Complete Summary ####
 	output$eset_summary <- renderPrint({
-		req(eset_raw()) 
+		req(eset_raw())
 		
 		cat("═══════════════════════════════════════════════════════════\n")
 		
 		# Show data source
-		if (!is.null(uploaded_expset())) {
+		if (!is.null(expset_data$ExpSet_list())) {
 			cat("DATA SOURCE: Uploaded File\n")
 		} else {
 			cat("DATA SOURCE: Default ExpSet_list.rds\n")
@@ -518,11 +307,9 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	# ===================================================================
-	# DEBUG FUNCTIONS
-	# ===================================================================
+	# Debug Functions ####
 	
-	# Debug button - Data Selection
+	## Debug Data Selection ####
 	observeEvent(input$debug_data, {
 		if (!interactive()) {
 			showNotification(
@@ -541,7 +328,7 @@ server <- function(input, output, session) {
 		message("   Date: ", Sys.time())
 		message("\n📍 Available objects:")
 		message("   ✓ ExpSet_list()         : Full list of ExpressionSets")
-		message("   ✓ uploaded_expset()     : Uploaded ExpSet data (if any)")
+		message("   ✓ expset_data           : Import module reactive")
 		message("   ✓ eset_raw()            : Selected raw/NetI ExpressionSet")
 		message("   ✓ eset_norm()           : Selected normalized ExpressionSet")
 		message("   ✓ eset_raw_selected     : Selection module reactive")
@@ -551,8 +338,8 @@ server <- function(input, output, session) {
 		message("   # List all ExpressionSets")
 		message("   names(ExpSet_list())")
 		message("")
-		message("   # Check if using uploaded data")
-		message("   is.null(uploaded_expset())")
+		message("   # Check data source")
+		message("   is.null(expset_data$ExpSet_list())")
 		message("")
 		message("   # Full diagnostics")
 		message("   diagnose_ExpSet_list(ExpSet_list())")
@@ -562,32 +349,25 @@ server <- function(input, output, session) {
 		message("   quick_inspect_eset(eset_norm())")
 		message("")
 		message("   # Check what's selected")
-		message("   eset_raw_selected$name()")
-		message("   eset_norm_selected$name()")
+		message("   eset_raw_selected$eset_name()")
+		message("   eset_norm_selected$eset_name()")
 		message("")
 		message("   # Manual inspection")
 		message("   str(eset_raw())")
-		message("   class(Biobase::exprs(eset_raw()))")
 		message("   dim(Biobase::exprs(eset_raw()))")
-		message("   head(Biobase::exprs(eset_raw())[, 1:5])")
-		message("")
-		message("   # Check metadata")
-		message("   meta <- Biobase::pData(eset_raw())")
-		message("   colnames(meta)")
-		message("   table(meta$Sample_Group)")
+		message("   head(Biobase::pData(eset_raw()))")
 		message("")
 		message("   # Validate")
 		message("   validate_denoise_inputs(eset_raw())")
 		message("\n⌨️  Commands:")
 		message("   c    Continue")
 		message("   Q    Quit browser")
-		message("   n    Next (step through)")
 		message("═══════════════════════════════════════════════════════════\n")
 		
 		browser()
 	})
 	
-	# Run diagnostics button
+	## Run Diagnostics ####
 	observeEvent(input$run_diagnostics, {
 		
 		output$eset_summary <- renderPrint({
@@ -597,7 +377,7 @@ server <- function(input, output, session) {
 			cat("User: DrGarnett\n")
 			cat("Date: ", format(Sys.time(), "%Y-%m-%d %H:%M:%S UTC"), "\n")
 			
-			if (!is.null(uploaded_expset())) {
+			if (!is.null(expset_data$ExpSet_list())) {
 				cat("Data Source: UPLOADED FILE\n")
 			} else {
 				cat("Data Source: DEFAULT ExpSet_list.rds\n")
@@ -642,10 +422,9 @@ server <- function(input, output, session) {
 		)
 	})
 	
-	# Quick check button
+	## Quick Check ####
 	observeEvent(input$quick_check, {
 		
-		# Run quick validation
 		result <- tryCatch({
 			req(eset_raw())
 			validate_denoise_inputs(eset_raw())
@@ -668,7 +447,7 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	# Navigate to denoiser tab
+	## Navigate to Denoiser ####
 	observeEvent(input$goto_denoiser, {
 		updateTabItems(session, "sidebar", "denoise")
 		
@@ -679,19 +458,30 @@ server <- function(input, output, session) {
 		)
 	})
 	
-	# ===================================================================
-	# DENOISER MODULE
-	# ===================================================================
+	# Analysis Modules ####
 	
-	# Call denoiser module
+	## PN Limma Analysis ####
+	pn_limma_results <- mod_pn_limma_server(
+		"pn_limma",
+		eset = eset_norm,
+		mode = "advanced",
+		features = features_advanced,
+		default_assay = reactive({
+			req(eset_norm_selected$eset_name())
+			eset_norm_selected$eset_name()
+		})
+	)
+	
+	## Denoiser Module ####
 	denoiser_results <- mod_denoiser_server(
 		"denoiser",
 		ExpSet_list = ExpSet_list,
 		eset_raw = eset_raw,
-		eset_norm = eset_norm
+		eset_norm = eset_norm,
+		pn_limma_results = pn_limma_results
 	)
 	
-	# Log results when denoising completes
+	### Log Denoising Results ####
 	observe({
 		req(denoiser_results())
 		
@@ -712,56 +502,11 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	## Visualisation Module #####
-	# In the server function, modify the denoiser call to capture results:
-	
-	# Call denoiser module and capture results
-	# denoiser_results <- mod_denoiser_server(
-	# 	"denoiser",
-	# 	eset_raw = eset_raw,
-	# 	eset_norm = eset_norm
-	# )
-	
-	# PC Visualizer module - pass denoiser results
+	## PC Visualizer Module ####
 	pc_viz_results <- mod_pc_visualizer_server(
 		"pc_viz",
 		eset_raw = eset_raw,
-		denoiser_results = denoiser_results  # <-- Pass the denoiser results here
+		denoiser_results = denoiser_results
 	)
-	
-	## PN LIMMA ####
-	
-	# Call PN limma module
-	# pn_limma_results <- mod_pn_limma_server(
-	# 	"pn_limma",
-	# 	eset_raw = eset_raw,
-	# 	eset_norm = eset_norm
-	# )
-	
-	# pn_limma_results <- mod_pn_limma_server(
-	# 	"pn_limma",
-	# 	eset_raw = eset_raw,
-	# 	eset_norm = eset_norm,
-	# 	mode = "advanced",
-	# 	features = features_advanced
-	# )
-	
-	pn_limma_results <- mod_pn_limma_server(
-		"pn_limma",
-		eset = eset_norm,          # ✅ Single eset
-		mode = "advanced",
-		features = features_advanced,
-		default_assay = eset_norm_selected$eset_name()    # ✅ Specify which matrix to use
-	)
-	# 
-	# Pass results to denoiser module
-	denoiser_results <- mod_denoiser_server(
-		"denoiser",
-		ExpSet_list = ExpSet_list,
-		eset_raw = eset_raw,
-		eset_norm = eset_norm,
-		pn_limma_results = pn_limma_results  # <-- Add this
-	)
-	
 	
 }

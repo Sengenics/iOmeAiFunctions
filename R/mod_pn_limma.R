@@ -46,71 +46,6 @@ mod_pn_limma_ui <- function(id) {
 				
 				hr(),
 				
-				## Custom Grouping Section ####
-				box(
-					title = "Custom Group Assignment",
-					width = 12,
-					status = "info",
-					solidHeader = FALSE,
-					collapsible = TRUE,
-					collapsed = TRUE,
-					
-					p("Create a custom grouping variable by selecting which sample groups belong to 'PN' and 'clinical'. All other groups will be excluded from analysis."),
-					
-					fluidRow(
-						column(4,
-									 selectInput(
-									 	ns("source_variable"),
-									 	"Source Variable for Grouping",
-									 	choices = NULL
-									 )
-						),
-						column(4,
-									 selectInput(
-									 	ns("pn_groups"),
-									 	"Groups to Assign to 'PN'",
-									 	choices = NULL,
-									 	multiple = TRUE
-									 )
-						),
-						column(4,
-									 selectInput(
-									 	ns("clinical_groups"),
-									 	"Groups to Assign to 'clinical'",
-									 	choices = NULL,
-									 	multiple = TRUE
-									 )
-						)
-					),
-					
-					fluidRow(
-						column(4,
-									 textInput(
-									 	ns("derived_var_name"),
-									 	"New Variable Name",
-									 	value = "KL_group"
-									 )
-						),
-						column(4,
-									 br(),
-									 actionButton(
-									 	ns("create_grouping"),
-									 	"Create Custom Grouping",
-									 	icon = icon("plus"),
-									 	class = "btn-info"
-									 )
-						),
-						column(4,
-									 br(),
-									 uiOutput(ns("grouping_status"))
-						)
-					),
-					
-					verbatimTextOutput(ns("grouping_summary"))
-				),
-				
-				hr(),
-				
 				## Analysis Parameters ####
 				fluidRow(
 					column(3, 
@@ -118,7 +53,8 @@ mod_pn_limma_ui <- function(id) {
 								 	ns("variable"),
 								 	"Primary Variable",
 								 	choices = NULL
-								 )
+								 ),
+								 verbatimTextOutput(ns("variable_summary"))
 					),
 					column(3,
 								 checkboxInput(
@@ -344,7 +280,7 @@ mod_pn_limma_ui <- function(id) {
 #' @param eset Reactive or static. ExpressionSet object.
 #' @param mode Character or reactive. "basic" or "advanced". Default "basic".
 #' @param features List or reactive. Feature flags controlling functionality.
-#' @param default_assay Character. Default assayData element to select (default "exprs").
+#' @param default_assay Character or reactive. Default assayData element to select (default "exprs").
 #'
 #' @return Reactive list containing limma results
 #' @export
@@ -364,7 +300,7 @@ mod_pn_limma_server <- function(id,
 		## Normalize Inputs ####
 		
 		### Get ExpressionSet ####
-		eset_base <- reactive({
+		eset_current <- reactive({
 			req(eset)
 			if (is.reactive(eset)) {
 				eset()
@@ -391,8 +327,7 @@ mod_pn_limma_server <- function(id,
 				generate_heatmaps = TRUE,
 				generate_roc = TRUE,
 				generate_violins = TRUE,
-				allow_continuous = TRUE,
-				allow_custom_grouping = TRUE
+				allow_continuous = TRUE
 			)
 			
 			for (name in names(default_features)) {
@@ -404,16 +339,18 @@ mod_pn_limma_server <- function(id,
 			return(f)
 		})
 		
+		### Normalize Default Assay ####
+		default_assay_reactive <- reactive({
+			if (is.reactive(default_assay)) {
+				default_assay()
+			} else {
+				default_assay
+			}
+		})
+		
 		## Setup ####
 		
 		### Reactive Values ####
-		rv_eset <- reactiveValues(
-			modified = NULL,
-			has_custom_grouping = FALSE,
-			custom_var_name = NULL,
-			excluded_samples = NULL
-		)
-		
 		rv <- reactiveValues(
 			limma_results = NULL,
 			merged_results = NULL,
@@ -424,28 +361,18 @@ mod_pn_limma_server <- function(id,
 			metadata_filtered = NULL
 		)
 		
-		### Current ExpressionSet ####
-		eset_current <- reactive({
-			if (!is.null(rv_eset$modified)) {
-				rv_eset$modified
-			} else {
-				eset_base()
-			}
-		})
-		
 		## UI Population ####
 		
 		### Populate AssayData Choices ####
 		observe({
-			req(eset_base())
+			req(eset_current())
 			
-			assay_names <- Biobase::assayDataElementNames(eset_base())
+			assay_names <- Biobase::assayDataElementNames(eset_current())
+			selected_assay <- default_assay_reactive()
 			
 			# Select default or first available
-			selected_assay <- if (default_assay %in% assay_names) {
-				default_assay
-			} else {
-				assay_names[1]
+			if (!selected_assay %in% assay_names) {
+				selected_assay <- assay_names[1]
 			}
 			
 			updateSelectInput(
@@ -456,26 +383,6 @@ mod_pn_limma_server <- function(id,
 			)
 		})
 		
-		### Populate Source Variable and Groups ####
-		observe({
-			req(eset_base())
-			
-			metadata <- Biobase::pData(eset_base())
-			col_names <- colnames(metadata)
-			
-			updateSelectInput(session, "source_variable", choices = col_names, selected = "Sample_Group")
-		})
-		
-		observe({
-			req(eset_base(), input$source_variable)
-			
-			metadata <- Biobase::pData(eset_base())
-			unique_groups <- unique(metadata[[input$source_variable]])
-			
-			updateSelectInput(session, "pn_groups", choices = unique_groups)
-			updateSelectInput(session, "clinical_groups", choices = unique_groups)
-		})
-		
 		### Populate Metadata Choices ####
 		observe({
 			req(eset_current())
@@ -483,18 +390,7 @@ mod_pn_limma_server <- function(id,
 			metadata <- Biobase::pData(eset_current())
 			col_names <- colnames(metadata)
 			
-			# Update variable choices
-			if (rv_eset$has_custom_grouping) {
-				updateSelectInput(
-					session,
-					"variable",
-					choices = col_names,
-					selected = rv_eset$custom_var_name
-				)
-			} else {
-				updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
-			}
-			
+			updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
 			updateSelectInput(session, "covariates", choices = col_names)
 			updateSelectInput(session, "add_anno", choices = col_names)
 		})
@@ -505,112 +401,60 @@ mod_pn_limma_server <- function(id,
 			
 			if (!input$continuous) {
 				metadata <- Biobase::pData(eset_current())
+				
+				# Check variable exists
+				if (!input$variable %in% colnames(metadata)) {
+					return()
+				}
+				
 				unique_vals <- unique(metadata[[input$variable]])
 				
-				if (rv_eset$has_custom_grouping && input$variable == rv_eset$custom_var_name) {
-					updateSelectInput(session, "class1", choices = unique_vals, selected = "PN")
-					updateSelectInput(session, "class2", choices = unique_vals, selected = "clinical")
-				} else {
-					updateSelectInput(session, "class1", choices = unique_vals, selected = unique_vals[1])
-					updateSelectInput(session, "class2", choices = unique_vals, selected = unique_vals[min(2, length(unique_vals))])
-				}
+				updateSelectInput(session, "class1", choices = unique_vals, selected = unique_vals[1])
+				updateSelectInput(session, "class2", choices = unique_vals, selected = unique_vals[min(2, length(unique_vals))])
 			}
-		})
-		
-		## Custom Grouping Logic ####
-		
-		### Create Custom Grouping ####
-		observeEvent(input$create_grouping, {
-			req(eset_base(), input$source_variable, input$derived_var_name)
-			req(length(input$pn_groups) > 0 || length(input$clinical_groups) > 0)
-			
-			tryCatch({
-				eset_temp <- eset_base()
-				metadata <- Biobase::pData(eset_temp)
-				
-				var_name <- input$derived_var_name
-				source_var <- input$source_variable
-				
-				metadata[[var_name]] <- NA
-				
-				if (length(input$pn_groups) > 0) {
-					metadata[[var_name]][metadata[[source_var]] %in% input$pn_groups] <- "PN"
-				}
-				
-				if (length(input$clinical_groups) > 0) {
-					metadata[[var_name]][metadata[[source_var]] %in% input$clinical_groups] <- "clinical"
-				}
-				
-				samples_to_keep <- !is.na(metadata[[var_name]])
-				excluded_samples <- rownames(metadata)[!samples_to_keep]
-				
-				metadata_filtered <- metadata[samples_to_keep, ]
-				exprs_filtered <- Biobase::exprs(eset_temp)[, samples_to_keep]
-				
-				metadata_filtered[[var_name]] <- as.factor(metadata_filtered[[var_name]])
-				
-				meta.var <- data.frame(
-					labelDescription = colnames(metadata_filtered),
-					row.names = colnames(metadata_filtered)
-				)
-				meta.PD <- new("AnnotatedDataFrame", data = metadata_filtered, varMetadata = meta.var)
-				eset_modified <- new(
-					"ExpressionSet",
-					exprs = as.matrix(exprs_filtered),
-					annotation = rownames(exprs_filtered),
-					phenoData = meta.PD
-				)
-				
-				if ("cv" %in% names(Biobase::assayData(eset_temp))) {
-					Biobase::assayData(eset_modified)$cv <- Biobase::assayData(eset_temp)$cv[, samples_to_keep]
-				}
-				if ("flag" %in% names(Biobase::assayData(eset_temp))) {
-					Biobase::assayData(eset_modified)$flag <- Biobase::assayData(eset_temp)$flag[, samples_to_keep]
-				}
-				
-				rv_eset$modified <- eset_modified
-				rv_eset$has_custom_grouping <- TRUE
-				rv_eset$custom_var_name <- var_name
-				rv_eset$excluded_samples <- excluded_samples
-				
-				showNotification(
-					HTML(paste0(
-						"<strong>✅ Custom grouping created!</strong><br>",
-						"Variable: <b>", var_name, "</b><br>",
-						"PN samples: ", sum(metadata_filtered[[var_name]] == "PN"), "<br>",
-						"Clinical samples: ", sum(metadata_filtered[[var_name]] == "clinical"), "<br>",
-						"Excluded samples: ", length(excluded_samples)
-					)),
-					type = "message",
-					duration = 10
-				)
-				
-			}, error = function(e) {
-				showNotification(
-					paste("❌ Failed to create custom grouping:", e$message),
-					type = "error",
-					duration = 10
-				)
-				print(e)
-			})
 		})
 		
 		## Outputs ####
 		
 		### ExpSet Info ####
 		output$eset_info <- renderPrint({
-			req(eset_base())
+			req(eset_current())
 			
-			cat("AssayData elements: ", paste(Biobase::assayDataElementNames(eset_base()), collapse = ", "), "\n")
-			cat("Samples: ", ncol(eset_base()), "\n")
-			cat("Features: ", nrow(eset_base()), "\n")
+			cat("AssayData elements: ", paste(Biobase::assayDataElementNames(eset_current()), collapse = ", "), "\n")
+			cat("Samples: ", ncol(eset_current()), "\n")
+			cat("Features: ", nrow(eset_current()), "\n")
+		})
+		
+		### Variable Summary ####
+		output$variable_summary <- renderPrint({
+			req(eset_current(), input$variable)
+			
+			metadata <- Biobase::pData(eset_current())
+			
+			if (input$variable %in% colnames(metadata)) {
+				var_data <- metadata[[input$variable]]
+				
+				cat("Variable:", input$variable, "\n")
+				cat("─────────────────────\n")
+				
+				if (is.numeric(var_data)) {
+					cat("Type: Numeric\n")
+					cat("Range:", min(var_data, na.rm = TRUE), "-", max(var_data, na.rm = TRUE), "\n")
+					cat("Mean:", round(mean(var_data, na.rm = TRUE), 2), "\n")
+					cat("NAs:", sum(is.na(var_data)), "\n")
+				} else {
+					cat("Type: Categorical\n")
+					cat("Levels:\n")
+					print(table(var_data, useNA = "ifany"))
+				}
+			}
 		})
 		
 		### AssayData Info UI ####
 		output$assay_info_ui <- renderUI({
-			req(eset_base(), input$assay_data_select)
+			req(eset_current(), input$assay_data_select)
 			
-			assay_mat <- Biobase::assayDataElement(eset_base(), input$assay_data_select)
+			assay_mat <- Biobase::assayDataElement(eset_current(), input$assay_data_select)
 			
 			div(
 				style = "background-color: #f0f0f0; padding: 10px; border-radius: 4px; margin-top: 25px;",
@@ -618,49 +462,6 @@ mod_pn_limma_server <- function(id,
 				br(),
 				paste0("Dimensions: ", nrow(assay_mat), " features × ", ncol(assay_mat), " samples")
 			)
-		})
-		
-		### Grouping Status ####
-		output$grouping_status <- renderUI({
-			if (rv_eset$has_custom_grouping) {
-				tags$div(
-					style = "color: green; font-weight: bold; margin-top: 5px;",
-					icon("check-circle"),
-					"Custom grouping active"
-				)
-			} else {
-				tags$div(
-					style = "color: grey; margin-top: 5px;",
-					"No custom grouping"
-				)
-			}
-		})
-		
-		### Grouping Summary ####
-		output$grouping_summary <- renderPrint({
-			if (rv_eset$has_custom_grouping) {
-				metadata <- Biobase::pData(rv_eset$modified)
-				var_name <- rv_eset$custom_var_name
-				
-				cat("Custom Grouping Summary\n")
-				cat("=======================\n\n")
-				cat("Variable Name:", var_name, "\n\n")
-				cat("Group Distribution:\n")
-				print(table(metadata[[var_name]]))
-				
-				if (length(rv_eset$excluded_samples) > 0) {
-					cat("\n\nExcluded Samples (", length(rv_eset$excluded_samples), "):\n", sep = "")
-					cat(paste(head(rv_eset$excluded_samples, 20), collapse = ", "))
-					if (length(rv_eset$excluded_samples) > 20) {
-						cat(", ... (", length(rv_eset$excluded_samples) - 20, " more)", sep = "")
-					}
-					cat("\n")
-				}
-			} else {
-				cat("No custom grouping created yet.\n\n")
-				cat("Select a source variable and assign groups to 'PN' and 'clinical',\n")
-				cat("then click 'Create Custom Grouping'.")
-			}
 		})
 		
 		## Main Analysis Logic ####
@@ -684,6 +485,7 @@ mod_pn_limma_server <- function(id,
 			
 			tryCatch({
 				# Get data from SELECTED assayData element
+				# Get data from ExpressionSet
 				eset_temp <- eset_current()
 				metadata <- Biobase::pData(eset_temp)
 				exprs_data <- Biobase::assayDataElement(eset_temp, input$assay_data_select)
@@ -701,7 +503,7 @@ mod_pn_limma_server <- function(id,
 				
 				feature_select <- rownames(exprs_data)
 				
-				# Make names syntactically valid
+				# Make names syntactically valid (required by limma)
 				if (!is.numeric(metadata[[variable]])) {
 					metadata[[variable]][!is.na(metadata[[variable]])] <- make.names(metadata[[variable]][!is.na(metadata[[variable]])])
 					metadata[[variable]] <- as.factor(metadata[[variable]])
@@ -716,7 +518,7 @@ mod_pn_limma_server <- function(id,
 					}
 				}
 				
-				# Remove NA rows
+				# Remove samples with NA values in the variable or covariates
 				covariate_cols <- c(variable, covariates)
 				if (length(covariate_cols) > 1) {
 					na_rows <- which(rowSums(is.na(metadata[, covariate_cols])) > 0)
@@ -725,15 +527,29 @@ mod_pn_limma_server <- function(id,
 				}
 				
 				if (length(na_rows) > 0) {
-					warning(paste("Removed", length(na_rows), "rows with NA values."))
+					warning(paste("Removed", length(na_rows), "samples with NA values."))
+					# ✅ Remove NA samples from BOTH metadata and expression data
 					metadata <- metadata[-na_rows, ]
 					exprs_data <- exprs_data[, rownames(metadata)]
 				}
 				
-				pData(eset_temp) <- metadata
+				# Validate we have enough samples after NA removal
+				if (nrow(metadata) < 3) {
+					removeNotification("limma_running")
+					showNotification(
+						paste("❌ Not enough samples after removing NAs:", nrow(metadata), 
+									"samples remaining. Need at least 3 samples."),
+						type = "error",
+						duration = 10
+					)
+					return()
+				}
 				
-				# Build model
+				# Build model based on continuous vs categorical
 				if (!continuous) {
+					# === CATEGORICAL VARIABLE ===
+					
+					# Build design matrix
 					if (!is.null(covariates) && length(covariates) > 0) {
 						design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, covariates), collapse = " + ")))
 					} else {
@@ -742,16 +558,42 @@ mod_pn_limma_server <- function(id,
 					
 					design <- model.matrix(design_formula, data = metadata)
 					
+					# Validate we have samples in both groups
 					class1_clean <- make.names(class1)
 					class2_clean <- make.names(class2)
 					
+					n_class1 <- sum(metadata[[variable]] == class1_clean, na.rm = TRUE)
+					n_class2 <- sum(metadata[[variable]] == class2_clean, na.rm = TRUE)
+					
+					if (n_class1 < 2 || n_class2 < 2) {
+						removeNotification("limma_running")
+						showNotification(
+							HTML(paste0(
+								"❌ Not enough samples in each group:<br>",
+								class1, ": ", n_class1, " samples<br>",
+								class2, ": ", n_class2, " samples<br>",
+								"Need at least 2 samples per group."
+							)),
+							type = "error",
+							duration = 10
+						)
+						return()
+					}
+					
+					# Build contrast
 					contrast_string <- paste0(variable, class1_clean, "-", variable, class2_clean)
 					user_contrast <- makeContrasts(contrasts = contrast_string, levels = design)
 					
-					fit <- lmFit(eset_temp, design)
+					# ✅ FIT MODEL: Use exprs_data matrix directly (already subset correctly above)
+					# DON'T use eset_temp because it still has the original 87 samples
+					fit <- lmFit(exprs_data, design)
 					fit2 <- contrasts.fit(fit, user_contrast)
 					fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
+					
 				} else {
+					# === CONTINUOUS VARIABLE ===
+					
+					# Build design matrix
 					if (!is.null(covariates) && length(covariates) > 0) {
 						design_formula <- as.formula(paste0("~ ", paste(c(variable, covariates), collapse = " + ")))
 					} else {
@@ -760,7 +602,8 @@ mod_pn_limma_server <- function(id,
 					
 					design <- model.matrix(design_formula, data = metadata)
 					
-					fit <- lmFit(eset_temp, design)
+					# ✅ FIT MODEL: Use exprs_data matrix directly
+					fit <- lmFit(exprs_data, design)
 					fit2 <- contrasts.fit(fit, coeff = 2)
 					fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
 				}
@@ -939,9 +782,9 @@ mod_pn_limma_server <- function(id,
 			})
 		})
 		
-		### Results Outputs ####
+		## Results Outputs ####
 		
-		#### Completion Flags ####
+		### Completion Flags ####
 		output$limma_complete <- reactive({
 			!is.null(rv$limma_results)
 		})
@@ -962,7 +805,7 @@ mod_pn_limma_server <- function(id,
 		})
 		outputOptions(output, "has_violins", suspendWhenHidden = FALSE)
 		
-		#### Summary ####
+		### Summary ####
 		output$limma_summary <- renderPrint({
 			req(rv$limma_results)
 			
@@ -1001,7 +844,7 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		#### Top Table ####
+		### Top Table ####
 		output$limma_top_table <- DT::renderDataTable({
 			req(rv$limma_results)
 			
@@ -1028,7 +871,7 @@ mod_pn_limma_server <- function(id,
 				DT::formatSignif(columns = c("P.Value", "adj.P.Val"), digits = 3)
 		})
 		
-		#### Volcano Plot ####
+		### Volcano Plot ####
 		output$limma_volcano <- renderPlot({
 			req(rv$limma_results)
 			
@@ -1096,7 +939,7 @@ mod_pn_limma_server <- function(id,
 			return(p)
 		})
 		
-		#### Heatmaps ####
+		### Heatmaps ####
 		output$heatmap_manual <- renderPlot({
 			req(rv$heatmap_data)
 			
@@ -1127,7 +970,7 @@ mod_pn_limma_server <- function(id,
 			)
 		})
 		
-		#### ROC Table ####
+		### ROC Table ####
 		output$roc_table <- DT::renderDataTable({
 			req(rv$merged_results)
 			
@@ -1139,7 +982,7 @@ mod_pn_limma_server <- function(id,
 				DT::formatRound(columns = c("logFC", "FC", "AUC", "Sensitivity", "Specificity", "Optimal.Cutoff"), digits = 3)
 		})
 		
-		#### Violin Plots ####
+		### Violin Plots ####
 		output$violin_plots_ui <- renderUI({
 			req(rv$violin_plots)
 			
@@ -1253,12 +1096,7 @@ mod_pn_limma_server <- function(id,
 				limma_results = rv$limma_results,
 				merged_results = rv$merged_results,
 				heatmap_data = rv$heatmap_data,
-				violin_plots = rv$violin_plots,
-				custom_grouping = list(
-					active = rv_eset$has_custom_grouping,
-					variable_name = rv_eset$custom_var_name,
-					excluded_samples = rv_eset$excluded_samples
-				)
+				violin_plots = rv$violin_plots
 			)
 		}))
 	})
@@ -1414,13 +1252,10 @@ generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable,
 	limma_results$Protein <- rownames(limma_results)
 	
 	if (fc_direction == "up") {
-		# Only up-regulated features
 		merged_results <- left_join(limma_results, ROC_results_up, by = "Protein")
 	} else if (fc_direction == "down") {
-		# Only down-regulated features
 		merged_results <- left_join(limma_results, ROC_results_down, by = "Protein")
 	} else {
-		# Both directions - merge appropriately
 		limma_up <- limma_results[limma_results$logFC > 0, ]
 		limma_down <- limma_results[limma_results$logFC < 0, ]
 		
@@ -1442,7 +1277,7 @@ generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable,
 		) %>%
 		arrange(desc(abs(FC)))
 	
-	# Reorder columns: logFC, FC, then rest
+	# Reorder columns
 	col_order <- c("logFC", "FC", setdiff(names(merged_results), c("logFC", "FC")))
 	merged_results <- merged_results[, col_order]
 	
@@ -1463,7 +1298,6 @@ generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable,
 generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) {
 	
 	tryCatch({
-		# Get feature names
 		sig_f <- rownames(merged_results)
 		
 		if (length(sig_f) == 0) {
@@ -1471,7 +1305,6 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 			return(NULL)
 		}
 		
-		# Ensure features exist in expression data
 		sig_f <- sig_f[sig_f %in% rownames(exprs_data)]
 		
 		if (length(sig_f) == 0) {
@@ -1479,25 +1312,20 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 			return(NULL)
 		}
 		
-		# Extract expression data for significant features
 		plot_data <- exprs_data[sig_f, rownames(meta_2), drop = FALSE]
 		
-		# Check if we have data
 		if (nrow(plot_data) == 0 || ncol(plot_data) == 0) {
 			warning("Empty plot data after filtering")
 			return(NULL)
 		}
 		
-		# Melt data
 		df <- as.matrix(plot_data) %>%
 			reshape2::melt()
 		
 		colnames(df)[1:2] <- c("feature", "Sample")
 		
-		# Add sample info to metadata
 		meta_2$Sample <- rownames(meta_2)
 		
-		# Merge with metadata
 		merge.df <- merge(meta_2, df, by = "Sample")
 		
 		if (nrow(merge.df) == 0) {
@@ -1505,7 +1333,7 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 			return(NULL)
 		}
 		
-		# Grid size selector
+		# Grid size
 		if (length(sig_f) <= 6) {
 			n_col <- 3
 			n_row <- 2
@@ -1522,13 +1350,11 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 		n_levels <- nlevels(as.factor(meta_2[[variable]]))
 		color_select <- violin_cols[seq_len(min(n_levels, length(violin_cols)))]
 		
-		# Check if variable exists in merged data
 		if (!variable %in% colnames(merge.df)) {
 			warning("Variable '", variable, "' not found in merged data")
 			return(NULL)
 		}
 		
-		# Create base plot
 		violins <- ggplot(merge.df, aes(x = .data[[variable]], y = value, color = .data[[variable]])) +
 			geom_violin(alpha = 0.5) +
 			scale_colour_manual(values = color_select) +
@@ -1538,7 +1364,6 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 			theme(legend.position = "none") +
 			facet_wrap_paginate(~ feature, ncol = n_col, nrow = n_row, scales = "free")
 		
-		# Check if ggforce is available
 		if (!requireNamespace("ggforce", quietly = TRUE)) {
 			warning("ggforce package not available, returning single page plot")
 			return(list(violins))
@@ -1551,7 +1376,6 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 			return(list(violins))
 		}
 		
-		# Generate list of plots
 		plot_list <- lapply(seq_len(n_pages), function(i) {
 			violins + facet_wrap_paginate(~ feature, ncol = n_col, nrow = n_row, page = i, scales = "free")
 		})

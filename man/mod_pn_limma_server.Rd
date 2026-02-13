@@ -21,7 +21,7 @@ mod_pn_limma_server(
 
 \item{features}{List or reactive. Feature flags controlling functionality.}
 
-\item{default_assay}{Character. Default assayData element to select (default "exprs").}
+\item{default_assay}{Character or reactive. Default assayData element to select (default "exprs").}
 }
 \value{
 Reactive list containing limma results
