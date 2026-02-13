@@ -2,100 +2,7 @@
 % Please edit documentation in R/mod_expset_viewer.R
 \name{mod_expset_viewer_ui}
 \alias{mod_expset_viewer_ui}
-\title{#' ExpressionSet Viewer Module - UI
-#'
-#' Comprehensive viewer for ExpressionSet objects with download functionality
-#'
-#' @param id Module namespace ID
-#' @export
-mod_expset_viewer_ui <- function(id) {
-ns <- NS(id)
-
-\if{html}{\out{<div class="sourceCode">}}\preformatted{tagList(
-	fluidRow(
-		box(
-			title = "ExpressionSet Selector",
-			width = 12,
-			status = "primary",
-			solidHeader = TRUE,
-			
-			fluidRow(
-				column(
-					width = 8,
-					uiOutput(ns("expset_selector_ui"))
-				),
-				column(
-					width = 4,
-					br(),
-					downloadButton(
-						ns("download_expset"),
-						"Download ExpSet (.rds)",
-						class = "btn-success",
-						style = "width: 100\%;"
-					)
-				)
-			)
-		)
-	),
-	
-	fluidRow(
-		box(
-			title = "ExpressionSet Contents",
-			width = 12,
-			status = "info",
-			solidHeader = TRUE,
-			
-			tabsetPanel(
-				id = ns("expset_tabs"),
-				
-				tabPanel(
-					"Overview",
-					icon = icon("info-circle"),
-					br(),
-					verbatimTextOutput(ns("expset_overview"))
-				),
-				
-				tabPanel(
-					"assayData",
-					icon = icon("table"),
-					br(),
-					uiOutput(ns("assay_data_tabs_ui"))
-				),
-				
-				tabPanel(
-					"phenoData",
-					icon = icon("users"),
-					br(),
-					DT::dataTableOutput(ns("pheno_data_table"))
-				),
-				
-				tabPanel(
-					"featureData",
-					icon = icon("dna"),
-					br(),
-					DT::dataTableOutput(ns("feature_data_table"))
-				),
-				
-				tabPanel(
-					"experimentData",
-					icon = icon("flask"),
-					br(),
-					verbatimTextOutput(ns("experiment_data"))
-				),
-				
-				tabPanel(
-					"Parameters",
-					icon = icon("cog"),
-					br(),
-					uiOutput(ns("parameters_ui"))
-				)
-			)
-		)
-	)
-)
-}\if{html}{\out{</div>}}
-
-}}
+\title{ExpressionSet Viewer Module - UI}
 \usage{
 mod_expset_viewer_ui(
   id,
@@ -114,9 +21,6 @@ mod_expset_viewer_ui(
 \item{debug}{Enable debug mode (default FALSE)}
 }
 \description{
-
-}
-\details{
 Comprehensive viewer for ExpressionSet objects with download functionality
 Now with integrated subsetting and transformation via mod_eset_selector_standalone
 }

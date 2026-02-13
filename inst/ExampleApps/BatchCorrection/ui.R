@@ -46,7 +46,7 @@ ui <- dashboardPage(
 					)
 				),
 				
-				mod_expset_viewer_ui("expset_viewer")
+				mod_expset_viewer_ui("expset_viewer",debug = TRUE)
 
 			),
 			# ## ComBat ####

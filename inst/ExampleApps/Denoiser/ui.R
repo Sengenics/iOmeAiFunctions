@@ -12,8 +12,9 @@ ui <- dashboardPage(
 		width = 300,
 		sidebarMenu(
 			id = "sidebar",
-			menuItem("Data Selection", tabName = "data_select", icon = icon("database")),
-			menuItem("PN Limma Analysis", tabName = "pn_limma", icon = icon("chart-bar")),
+			menuItem("ExpSet List Import", tabName = "data_select", icon = icon("database")),
+			menuItem("Data Selection ", tabName = "data_select_2", icon = icon("database")),
+			menuItem("Limma Analysis", tabName = "pn_limma", icon = icon("chart-bar")),
 			menuItem("Denoiser", tabName = "denoise", icon = icon("filter")),
 			
 			#menuItem("PC Visualizer", tabName = "pc_viz", icon = icon("eye")),
@@ -47,60 +48,74 @@ ui <- dashboardPage(
 				tabName = "data_select",
 				
 				# NEW: File Upload Box
+				# fluidRow(
+				# 	shinydashboard::box(
+				# 		title = "Import New ExpSet Data",
+				# 		width = 12,
+				# 		status = "success",
+				# 		solidHeader = TRUE,
+				# 		class = "upload-box",
+				# 		collapsible = TRUE,
+				# 		collapsed = FALSE,
+				# 		
+				# 		p(icon("upload"), strong("Upload a new ExpSet.rds file"), "to import custom expression data"),
+				# 		
+				# 		fluidRow(
+				# 			column(
+				# 				width = 4,
+				# 				fileInput(
+				# 					"expset_file",
+				# 					"Choose ExpSet.rds File",
+				# 					accept = c(".rds", ".RDS"),
+				# 					placeholder = "No file selected",
+				# 					buttonLabel = "Browse...",
+				# 					width = "100%"
+				# 				)
+				# 			),
+				# 			column(
+				# 				width = 3,
+				# 				br(),
+				# 				actionButton(
+				# 					"load_expset",
+				# 					"Load ExpSet File",
+				# 					icon = icon("file-upload"),
+				# 					class = "btn-success btn-lg",
+				# 					style = "margin-top: 5px;"
+				# 				)
+				# 			),
+				# 			column(
+				# 				width = 5,
+				# 				br(),
+				# 				uiOutput("expset_status_ui")
+				# 			)
+				# 		),
+				# 		
+				# 		hr(),
+				# 		
+				# 		p(icon("info-circle"), strong("File Requirements:")),
+				# 		tags$ul(
+				# 			tags$li("File must be in .rds or .RDS format"),
+				# 			tags$li("File should contain an ExpressionSet object or a named list of ExpressionSets"),
+				# 			tags$li("ExpressionSets must have expression data accessible via Biobase::exprs()"),
+				# 			tags$li("Sample metadata should be available via Biobase::pData()")
+				# 		)
+				# 	)
+				# ),
+				
 				fluidRow(
-					shinydashboard::box(
-						title = "Import New ExpSet Data",
+					box(
+						title = "Upload ExpSet_list.rds",
 						width = 12,
 						status = "success",
 						solidHeader = TRUE,
-						class = "upload-box",
-						collapsible = TRUE,
-						collapsed = FALSE,
-						
-						p(icon("upload"), strong("Upload a new ExpSet.rds file"), "to import custom expression data"),
-						
-						fluidRow(
-							column(
-								width = 4,
-								fileInput(
-									"expset_file",
-									"Choose ExpSet.rds File",
-									accept = c(".rds", ".RDS"),
-									placeholder = "No file selected",
-									buttonLabel = "Browse...",
-									width = "100%"
-								)
-							),
-							column(
-								width = 3,
-								br(),
-								actionButton(
-									"load_expset",
-									"Load ExpSet File",
-									icon = icon("file-upload"),
-									class = "btn-success btn-lg",
-									style = "margin-top: 5px;"
-								)
-							),
-							column(
-								width = 5,
-								br(),
-								uiOutput("expset_status_ui")
-							)
-						),
-						
-						hr(),
-						
-						p(icon("info-circle"), strong("File Requirements:")),
-						tags$ul(
-							tags$li("File must be in .rds or .RDS format"),
-							tags$li("File should contain an ExpressionSet object or a named list of ExpressionSets"),
-							tags$li("ExpressionSets must have expression data accessible via Biobase::exprs()"),
-							tags$li("Sample metadata should be available via Biobase::pData()")
-						)
+						mod_expset_import_ui("expset_import", debug = run_debug)
 					)
 				),
+				mod_expset_viewer_ui("expset_viewer",debug = TRUE)
+			),
 				
+			tabItem(
+				tabName = "data_select_2",
 				fluidRow(
 					shinydashboard::box(
 						title = "ExpressionSet Data Selection",
@@ -162,106 +177,15 @@ ui <- dashboardPage(
 									verbatimTextOutput("norm_info")
 								)
 							)
-						),
-						
-						hr(),
-						
-						shinydashboard::box(
-							title = "Complete Data Summary",
-							width = NULL,
-							status = "success",
-							collapsible = TRUE,
-							verbatimTextOutput("eset_summary")
 						)
 					)
-				),
 				
-				
-				
-				
-				fluidRow(
-					shinydashboard::box(
-						title = "Debug & Diagnostics",
-						width = 12,
-						status = "warning",
-						solidHeader = TRUE,
-						class = "debug-box",
-						
-						p(icon("tools"), strong("Development Tools"), "- Inspect data structure and troubleshoot issues"),
-						
-						fluidRow(
-							column(
-								width = 3,
-								actionButton(
-									"debug_data",
-									"🔍 Enter Debug Mode",
-									icon = icon("bug"),
-									class = "btn-warning btn-block"
-								),
-								helpText("Pause execution and inspect objects in browser mode")
-							),
-							column(
-								width = 3,
-								actionButton(
-									"run_diagnostics",
-									"📊 Run Full Diagnostics",
-									icon = icon("stethoscope"),
-									class = "btn-info btn-block"
-								),
-								helpText("Print detailed structure analysis to summary box")
-							),
-							column(
-								width = 3,
-								actionButton(
-									"quick_check",
-									"⚡ Quick Check",
-									icon = icon("bolt"),
-									class = "btn-secondary btn-block"
-								),
-								helpText("Quick validation of data structure")
-							),
-							column(
-								width = 3,
-								actionButton(
-									"goto_denoiser",
-									"Proceed to Denoiser →",
-									icon = icon("arrow-right"),
-									class = "btn-success btn-block"
-								),
-								helpText("Navigate to denoiser analysis")
-							)
-						)
-					)
-				),
-				
-				# Status indicators
-				fluidRow(
-					shinydashboard::box(
-						title = "Data Status",
-						width = 12,
-						status = "info",
-						
-						fluidRow(
-							column(
-								width = 3,
-								valueBoxOutput("status_eset_list", width = NULL)
-							),
-							column(
-								width = 3,
-								valueBoxOutput("status_raw", width = NULL)
-							),
-							column(
-								width = 3,
-								valueBoxOutput("status_norm", width = NULL)
-							),
-							column(
-								width = 3,
-								valueBoxOutput("status_ready", width = NULL)
-							)
-						)
-					)
 				)
 			),
+				
+			
+				
+	
 			
 			
 			# #### PN LIMMA #####

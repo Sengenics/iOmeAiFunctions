@@ -207,7 +207,9 @@ server <- function(input, output, session) {
 	# ExpressionSet Viewer Module
 	expset_viewer <- mod_expset_viewer_server(
 		"expset_viewer",
-		ExpSet_list = ExpSet_list  # Use the same ExpSet_list from expset_import
+		ExpSet_list = ExpSet_list,  # Use the same ExpSet_list from expset_import
+		default_selection = 'sample_loess_normalised',
+		debug = TRUE
 	)
 	
 	# Manifest #####

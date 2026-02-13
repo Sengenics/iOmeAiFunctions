@@ -13,154 +13,191 @@ server <- function(input, output, session) {
 	# NEW: FILE UPLOAD AND IMPORT FUNCTIONALITY
 	# ===================================================================
 	
-	# Reactive value to store uploaded ExpSet data
-	uploaded_expset <- reactiveVal(NULL)
-	upload_status <- reactiveVal("No file uploaded")
-	upload_success <- reactiveVal(FALSE)
+	expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
 	
-	# Load ExpSet when button is clicked
-	observeEvent(input$load_expset, {
-		req(input$expset_file)
-		
-		upload_status("Loading...")
-		upload_success(FALSE)
-		
-		tryCatch({
-			# Read the RDS file
-			message("Loading ExpSet from: ", input$expset_file$name)
-			expset_data <- readRDS(input$expset_file$datapath)
-			print(names(expset_data))
-			
-			# Validate the uploaded data
-			is_valid <- FALSE
-			error_msg <- ""
-			
-			# Check if it's an ExpressionSet object
-			if (inherits(expset_data, "ExpressionSet")) {
-				message("✓ Single ExpressionSet detected")
-				# Wrap in a list with a default name
-				expset_data <- list(uploaded_data = expset_data)
-				is_valid <- TRUE
-			}
-			# Check if it's a list of ExpressionSets
-			else if (is.list(expset_data)) {
-				# Verify all elements are ExpressionSets
-				all_eset <- all(sapply(expset_data, function(x) inherits(x, "ExpressionSet")))
-				
-				if (all_eset && length(expset_data) > 0) {
-					message("✓ List of ", length(expset_data), " ExpressionSets detected")
-					is_valid <- TRUE
-				} else {
-					error_msg <- "List does not contain valid ExpressionSet objects"
-				}
-			} else {
-				error_msg <- paste("Invalid data type:", class(expset_data)[1])
-			}
-			
-			if (is_valid) {
-				# Additional validation: check that ExpressionSets have required components
-				(validation_results <- sapply(expset_data, function(eset) {
-					#has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
-					has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
-					#has_exprs &&
-					has_pdata
-				}))
-				
-				(validation_results_exprs <- sapply(expset_data, function(eset) {
-					has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
-					#has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
-					has_exprs
-					#has_pdata
-				}))
-				
-				if (all(validation_results)) {
-					# Store the loaded ExpSet
-					uploaded_expset(expset_data)
-					upload_status(paste("✅ Successfully loaded:", input$expset_file$name))
-					upload_success(TRUE)
-					
-					showNotification(
-						HTML(paste0(
-							"<strong>✅ ExpSet loaded successfully!</strong><br>",
-							"File: ", input$expset_file$name, "<br>",
-							"Contains: ", length(expset_data), " ExpressionSet(s)"
-						)),
-						type = "message",
-						duration = 8
-					)
-					
-					message("✓ ExpSet validation passed")
-					message("✓ Available assays: ", paste(names(expset_data), collapse = ", "))
-				} else {
-					error_msg <- "ExpressionSets missing required components (exprs or pData)"
-					upload_status(paste("❌ Error:", error_msg))
-					showNotification(error_msg, type = "error", duration = 10)
-				}
-			} else {
-				upload_status(paste("❌ Error:", error_msg))
-				showNotification(
-					HTML(paste0(
-						"<strong>❌ Invalid ExpSet file</strong><br>",
-						error_msg, "<br>",
-						"Please upload a valid ExpressionSet or list of ExpressionSets"
-					)),
-					type = "error",
-					duration = 10
-				)
-			}
-			
-		}, error = function(e) {
-			error_message <- paste("Error loading file:", e$message)
-			upload_status(paste("❌", error_message))
-			upload_success(FALSE)
-			
-			showNotification(
-				HTML(paste0("<strong>❌ Error loading ExpSet:</strong><br>", e$message)),
-				type = "error",
-				duration = 10
-			)
-			
-			message("✗ Error loading ExpSet: ", e$message)
-		})
+	ExpSet_list <- reactive({
+		expset_data$ExpSet_list()
 	})
 	
-	# Render upload status with styling
-	output$expset_status_ui <- renderUI({
-		status <- upload_status()
-		success <- upload_success()
-		
-		if (success) {
-			div(
-				style = "padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;",
-				icon("check-circle"),
-				strong(status)
-			)
-		} else if (grepl("Error|❌", status)) {
-			div(
-				style = "padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;",
-				icon("exclamation-triangle"),
-				strong(status)
-			)
-		} else if (status == "Loading...") {
-			div(
-				style = "padding: 10px; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;",
-				icon("spinner", class = "fa-spin"),
-				strong(" Loading...")
-			)
-		} else {
-			div(
-				style = "padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; color: #6c757d;",
-				icon("info-circle"),
-				status
-			)
-		}
-	})
-	
-	# ===================================================================
-	# MODIFIED: Load ExpSet_list (default or uploaded)
-	# ===================================================================
-	
-	# Load ExpSet_list
+	# # Reactive value to store uploaded ExpSet data
+	# uploaded_expset <- reactiveVal(NULL)
+	# upload_status <- reactiveVal("No file uploaded")
+	# upload_success <- reactiveVal(FALSE)
+	# 
+	# # Load ExpSet when button is clicked
+	# observeEvent(input$load_expset, {
+	# 	req(input$expset_file)
+	# 	
+	# 	upload_status("Loading...")
+	# 	upload_success(FALSE)
+	# 	
+	# 	tryCatch({
+	# 		# Read the RDS file
+	# 		message("Loading ExpSet from: ", input$expset_file$name)
+	# 		expset_data <- readRDS(input$expset_file$datapath)
+	# 		print(names(expset_data))
+	# 		
+	# 		# Validate the uploaded data
+	# 		is_valid <- FALSE
+	# 		error_msg <- ""
+	# 		
+	# 		# Check if it's an ExpressionSet object
+	# 		if (inherits(expset_data, "ExpressionSet")) {
+	# 			message("✓ Single ExpressionSet detected")
+	# 			# Wrap in a list with a default name
+	# 			expset_data <- list(uploaded_data = expset_data)
+	# 			is_valid <- TRUE
+	# 		}
+	# 		# Check if it's a list of ExpressionSets
+	# 		else if (is.list(expset_data)) {
+	# 			# Verify all elements are ExpressionSets
+	# 			all_eset <- all(sapply(expset_data, function(x) inherits(x, "ExpressionSet")))
+	# 			
+	# 			if (all_eset && length(expset_data) > 0) {
+	# 				message("✓ List of ", length(expset_data), " ExpressionSets detected")
+	# 				is_valid <- TRUE
+	# 			} else {
+	# 				error_msg <- "List does not contain valid ExpressionSet objects"
+	# 			}
+	# 		} else {
+	# 			error_msg <- paste("Invalid data type:", class(expset_data)[1])
+	# 		}
+	# 		
+	# 		if (is_valid) {
+	# 			# Additional validation: check that ExpressionSets have required components
+	# 			(validation_results <- sapply(expset_data, function(eset) {
+	# 				#has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
+	# 				has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
+	# 				#has_exprs &&
+	# 				has_pdata
+	# 			}))
+	# 			
+	# 			(validation_results_exprs <- sapply(expset_data, function(eset) {
+	# 				has_exprs <- !is.null(tryCatch(Biobase::exprs(eset), error = function(e) NULL))
+	# 				#has_pdata <- !is.null(tryCatch(Biobase::pData(eset), error = function(e) NULL))
+	# 				has_exprs
+	# 				#has_pdata
+	# 			}))
+	# 			
+	# 			if (all(validation_results)) {
+	# 				# Store the loaded ExpSet
+	# 				uploaded_expset(expset_data)
+	# 				upload_status(paste("✅ Successfully loaded:", input$expset_file$name))
+	# 				upload_success(TRUE)
+	# 				
+	# 				showNotification(
+	# 					HTML(paste0(
+	# 						"<strong>✅ ExpSet loaded successfully!</strong><br>",
+	# 						"File: ", input$expset_file$name, "<br>",
+	# 						"Contains: ", length(expset_data), " ExpressionSet(s)"
+	# 					)),
+	# 					type = "message",
+	# 					duration = 8
+	# 				)
+	# 				
+	# 				message("✓ ExpSet validation passed")
+	# 				message("✓ Available assays: ", paste(names(expset_data), collapse = ", "))
+	# 			} else {
+	# 				error_msg <- "ExpressionSets missing required components (exprs or pData)"
+	# 				upload_status(paste("❌ Error:", error_msg))
+	# 				showNotification(error_msg, type = "error", duration = 10)
+	# 			}
+	# 		} else {
+	# 			upload_status(paste("❌ Error:", error_msg))
+	# 			showNotification(
+	# 				HTML(paste0(
+	# 					"<strong>❌ Invalid ExpSet file</strong><br>",
+	# 					error_msg, "<br>",
+	# 					"Please upload a valid ExpressionSet or list of ExpressionSets"
+	# 				)),
+	# 				type = "error",
+	# 				duration = 10
+	# 			)
+	# 		}
+	# 		
+	# 	}, error = function(e) {
+	# 		error_message <- paste("Error loading file:", e$message)
+	# 		upload_status(paste("❌", error_message))
+	# 		upload_success(FALSE)
+	# 		
+	# 		showNotification(
+	# 			HTML(paste0("<strong>❌ Error loading ExpSet:</strong><br>", e$message)),
+	# 			type = "error",
+	# 			duration = 10
+	# 		)
+	# 		
+	# 		message("✗ Error loading ExpSet: ", e$message)
+	# 	})
+	# })
+	# 
+	# # Render upload status with styling
+	# output$expset_status_ui <- renderUI({
+	# 	status <- upload_status()
+	# 	success <- upload_success()
+	# 	
+	# 	if (success) {
+	# 		div(
+	# 			style = "padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;",
+	# 			icon("check-circle"),
+	# 			strong(status)
+	# 		)
+	# 	} else if (grepl("Error|❌", status)) {
+	# 		div(
+	# 			style = "padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24;",
+	# 			icon("exclamation-triangle"),
+	# 			strong(status)
+	# 		)
+	# 	} else if (status == "Loading...") {
+	# 		div(
+	# 			style = "padding: 10px; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;",
+	# 			icon("spinner", class = "fa-spin"),
+	# 			strong(" Loading...")
+	# 		)
+	# 	} else {
+	# 		div(
+	# 			style = "padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; color: #6c757d;",
+	# 			icon("info-circle"),
+	# 			status
+	# 		)
+	# 	}
+	# })
+	# 
+	# # ===================================================================
+	# # MODIFIED: Load ExpSet_list (default or uploaded)
+	# # ===================================================================
+	# 
+	# # Load ExpSet_list
+	# # ExpSet_list <- reactive({
+	# # 	# Priority 1: Use uploaded data if available
+	# # 	if (!is.null(uploaded_expset())) {
+	# # 		message("✓ Using uploaded ExpSet data")
+	# # 		return(uploaded_expset())
+	# # 	}
+	# # 	
+	# # 	# Priority 2: Try to load from default locations
+	# # 	possible_paths <- c(
+	# # 		"ExampleData/ExpSet_list.rds",
+	# # 		"../ExampleData/ExpSet_list.rds",
+	# # 		"../../ExampleData/ExpSet_list.rds",
+	# # 		"../../../ExampleData/ExpSet_list.rds",
+	# # 		system.file("extdata", "ExpSet_list.rds", package = "iOmeAiFunctions")
+	# # 	)
+	# # 	
+	# # 	for (path in possible_paths) {
+	# # 		if (file.exists(path)) {
+	# # 			message("✓ Loading ExpSet_list from: ", path)
+	# # 			return(readRDS(path))
+	# # 		}
+	# # 	}
+	# # 	
+	# # 	showNotification(
+	# # 		"ℹ️ No default ExpSet_list.rds found. Please upload an ExpSet.rds file above.",
+	# # 		type = "warning",
+	# # 		duration = 8
+	# # 	)
+	# # 	return(NULL)
+	# # })
+	# 
 	# ExpSet_list <- reactive({
 	# 	# Priority 1: Use uploaded data if available
 	# 	if (!is.null(uploaded_expset())) {
@@ -168,56 +205,25 @@ server <- function(input, output, session) {
 	# 		return(uploaded_expset())
 	# 	}
 	# 	
-	# 	# Priority 2: Try to load from default locations
-	# 	possible_paths <- c(
-	# 		"ExampleData/ExpSet_list.rds",
-	# 		"../ExampleData/ExpSet_list.rds",
-	# 		"../../ExampleData/ExpSet_list.rds",
-	# 		"../../../ExampleData/ExpSet_list.rds",
-	# 		system.file("extdata", "ExpSet_list.rds", package = "iOmeAiFunctions")
-	# 	)
-	# 	
-	# 	for (path in possible_paths) {
-	# 		if (file.exists(path)) {
-	# 			message("✓ Loading ExpSet_list from: ", path)
-	# 			return(readRDS(path))
+	# 	# Priority 2: Load from package data
+	# 	tryCatch({
+	# 		data(ExpSet, package = "iOmeAiFunctions", envir = environment())
+	# 		if (exists("ExpSet", inherits = FALSE)) {
+	# 			message("✓ Using ExpSet from iOmeAiFunctions package")
+	# 			return(ExpSet)
 	# 		}
-	# 	}
+	# 	}, error = function(e) {
+	# 		message("ℹ️ ExpSet not found in package: ", e$message)
+	# 	})
 	# 	
+	# 	# No data available
 	# 	showNotification(
-	# 		"ℹ️ No default ExpSet_list.rds found. Please upload an ExpSet.rds file above.",
+	# 		"ℹ️ No ExpSet data available. Please upload an ExpSet.rds file above.",
 	# 		type = "warning",
 	# 		duration = 8
 	# 	)
 	# 	return(NULL)
 	# })
-	
-	ExpSet_list <- reactive({
-		# Priority 1: Use uploaded data if available
-		if (!is.null(uploaded_expset())) {
-			message("✓ Using uploaded ExpSet data")
-			return(uploaded_expset())
-		}
-		
-		# Priority 2: Load from package data
-		tryCatch({
-			data(ExpSet, package = "iOmeAiFunctions", envir = environment())
-			if (exists("ExpSet", inherits = FALSE)) {
-				message("✓ Using ExpSet from iOmeAiFunctions package")
-				return(ExpSet)
-			}
-		}, error = function(e) {
-			message("ℹ️ ExpSet not found in package: ", e$message)
-		})
-		
-		# No data available
-		showNotification(
-			"ℹ️ No ExpSet data available. Please upload an ExpSet.rds file above.",
-			type = "warning",
-			duration = 8
-		)
-		return(NULL)
-	})
 	
 	# Raw/NetI ExpressionSet selector
 	# eset_raw_selected <- mod_eset_selector_server(
@@ -247,6 +253,14 @@ server <- function(input, output, session) {
 	# 	}
 	# })
 	
+	# ExpressionSet Viewer Module
+	expset_viewer <- mod_expset_viewer_server(
+		"expset_viewer",
+		ExpSet_list = ExpSet_list,  # Use the same ExpSet_list from expset_import
+		default_selection = 'sample_loess_normalised',
+		debug = TRUE
+	)
+	
 	# Raw/NetI ExpressionSet selector with subsetting
 	eset_raw_selected <- mod_eset_selector_standalone_server(
 		"eset_raw",
@@ -267,18 +281,89 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
-	# ✅ Update how you access the ExpressionSets
-	eset_raw <- reactive({
-		req(eset_raw_selected$eset())
-		eset_raw_selected$eset()  # This is now the FINAL data (after subsetting)
-	})
+	# # ✅ Update how you access the ExpressionSets
+	# eset_raw <- reactive({
+	# 	req(eset_raw_selected$eset())
+	# 	eset_raw_selected$eset()  # This is now the FINAL data (after subsetting)
+	# })
+	# 
+	# eset_norm <- reactive({
+	# 	if (!is.null(eset_norm_selected$eset())) {
+	# 		eset_norm_selected$eset()  # This is now the FINAL data (after subsetting)
+	# 	} else {
+	# 		NULL
+	# 	}
+	# })
 	
-	eset_norm <- reactive({
-		if (!is.null(eset_norm_selected$eset())) {
-			eset_norm_selected$eset()  # This is now the FINAL data (after subsetting)
+	eset_raw <- reactive({
+		# ✅ Take explicit dependency on ExpSet_list
+		req(ExpSet_list())
+		expset_list <- ExpSet_list()
+		
+		# ✅ Get selected name (graceful NULL handling, not req!)
+		selected_name <- eset_raw_selected$eset_name()
+		
+		# ✅ If no selection, default to first or fallback
+		if (is.null(selected_name) || selected_name == "") {
+			# Try to get first item from list
+			if (length(expset_list) > 0) {
+				return(expset_list[[1]])
+			} else {
+				return(NULL)
+			}
+		}
+		
+		# ✅ Fetch from CURRENT list
+		ExpSet_name = get_ExpSet_name(selected_name,expset_list)
+		# Fetch from CURRENT ExpSet_list
+		if (ExpSet_name %in% names(expset_list)) {
+			expset_list[[ExpSet_name]]
 		} else {
 			NULL
 		}
+		# if (selected_name %in% names(expset_list)) {
+		# 	return(expset_list[[selected_name]])
+		# } else {
+		# 	# Fallback to first available
+		# 	if (length(expset_list) > 0) {
+		# 		return(expset_list[[1]])
+		# 	} else {
+		# 		return(NULL)
+		# 	}
+		# }
+	})
+	
+	eset_norm <- reactive({
+		# ✅ Take explicit dependency on ExpSet_list
+		req(ExpSet_list())
+		expset_list <- ExpSet_list()
+		
+		# ✅ Get selected name (graceful NULL handling)
+		selected_name <- eset_norm_selected$eset_name()
+		
+		# ✅ If no selection, return NULL (norm is optional)
+		if (is.null(selected_name) || selected_name == "") {
+			return(NULL)
+		}
+		
+		# ✅ Fetch from CURRENT list
+		ExpSet_name = get_ExpSet_name(selected_name,expset_list)
+		# Fetch from CURRENT ExpSet_list
+		if (ExpSet_name %in% names(expset_list)) {
+			expset_list[[ExpSet_name]]
+		} else {
+			NULL
+		}
+		# if (selected_name %in% names(expset_list)) {
+		# 	return(expset_list[[selected_name]])
+		# } else {
+		# 	# Fallback to first available
+		# 	if (length(expset_list) > 0) {
+		# 		return(expset_list[[1]])
+		# 	} else {
+		# 		return(NULL)
+		# 	}
+		# }
 	})
 	
 	# Status value boxes
