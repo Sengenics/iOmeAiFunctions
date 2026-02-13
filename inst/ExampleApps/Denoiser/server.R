@@ -261,6 +261,13 @@ server <- function(input, output, session) {
 		debug = TRUE
 	)
 	
+	metadata_manager <- mod_expset_metadata_manager_server(
+		"metadata_mgr",
+		ExpSet_list = ExpSet_list,
+		update_ExpSet_list = update_ExpSet_list,  # Your callback function
+		master_eset_name = "RawData_ExpSet"
+	)
+	
 	# Raw/NetI ExpressionSet selector with subsetting
 	eset_raw_selected <- mod_eset_selector_standalone_server(
 		"eset_raw",
@@ -294,7 +301,7 @@ server <- function(input, output, session) {
 	# 		NULL
 	# 	}
 	# })
-	
+	# eset_raw ####
 	eset_raw <- reactive({
 		# ✅ Take explicit dependency on ExpSet_list
 		req(ExpSet_list())
@@ -333,6 +340,7 @@ server <- function(input, output, session) {
 		# }
 	})
 	
+	# eset_norm ####
 	eset_norm <- reactive({
 		# ✅ Take explicit dependency on ExpSet_list
 		req(ExpSet_list())
@@ -730,12 +738,20 @@ server <- function(input, output, session) {
 	# 	eset_norm = eset_norm
 	# )
 	
+	# pn_limma_results <- mod_pn_limma_server(
+	# 	"pn_limma",
+	# 	eset_raw = eset_raw,
+	# 	eset_norm = eset_norm,
+	# 	mode = "advanced",
+	# 	features = features_advanced
+	# )
+	
 	pn_limma_results <- mod_pn_limma_server(
 		"pn_limma",
-		eset_raw = eset_raw,
-		eset_norm = eset_norm,
+		eset = eset_norm,          # ✅ Single eset
 		mode = "advanced",
-		features = features_advanced
+		features = features_advanced,
+		default_assay = eset_norm_selected$eset_name()    # ✅ Specify which matrix to use
 	)
 	# 
 	# Pass results to denoiser module

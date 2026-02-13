@@ -111,7 +111,11 @@ ui <- dashboardPage(
 						mod_expset_import_ui("expset_import", debug = run_debug)
 					)
 				),
-				mod_expset_viewer_ui("expset_viewer",debug = TRUE)
+				mod_expset_metadata_manager_ui("metadata_mgr"),
+				mod_expset_viewer_ui("expset_viewer",debug = TRUE),
+	
+				
+				
 			),
 				
 			tabItem(

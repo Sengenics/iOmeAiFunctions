@@ -6,87 +6,26 @@
 \usage{
 mod_pn_limma_server(
   id,
-  eset_raw,
-  eset_norm = NULL,
+  eset,
   mode = "basic",
-  features = list()
+  features = list(),
+  default_assay = "exprs"
 )
 }
 \arguments{
 \item{id}{Character string. Namespace identifier.}
 
-\item{eset_raw}{Reactive or static. Raw ExpressionSet object.}
-
-\item{eset_norm}{Reactive or static. Normalized ExpressionSet object (optional, uses raw if NULL).}
+\item{eset}{Reactive or static. ExpressionSet object.}
 
 \item{mode}{Character or reactive. "basic" or "advanced". Default "basic".}
 
 \item{features}{List or reactive. Feature flags controlling functionality.}
+
+\item{default_assay}{Character. Default assayData element to select (default "exprs").}
 }
 \value{
-Reactive list containing:
-\itemize{
-\item exp_PN_AAbs: numeric vector of expected range
-\item PN_AAbs: character vector of specific antigens
-\item limma_results: full limma analysis results object
-\item merged_results: combined limma + ROC results (if available)
-\item plots: list of plot objects
-}
+Reactive list containing limma results
 }
 \description{
 PN Limma Analysis Module - Server
-}
-\details{
-This module supports two operational modes:
-\itemize{
-\item \strong{Basic Mode}: Simplified UI with preset options
-\item \strong{Advanced Mode}: Full functionality with all customization options
-}
-
-Feature flags:
-\itemize{
-\item \strong{generate_heatmaps}: Enable/disable heatmap generation
-\item \strong{generate_roc}: Enable/disable ROC analysis
-\item \strong{generate_violins}: Enable/disable violin plot generation
-\item \strong{allow_continuous}: Allow continuous variable analysis
-\item \strong{allow_custom_grouping}: Allow creation of custom grouping variables
-}
-}
-\note{
-Original location: i-Ome-AI/modules/mod_pn_limma.R
-
-Based on limma_func_dev pipeline function
-}
-\examples{
-\dontrun{
-# Basic usage (Public app) - only show up-regulated features
-pn_limma_results <- mod_pn_limma_server(
-  "pn_limma",
-  eset_raw = reactive(my_eset),
-  mode = "basic",
-  features = list(
-    generate_heatmaps = FALSE,
-    generate_roc = FALSE,
-    generate_violins = TRUE,
-    allow_continuous = FALSE,
-    allow_custom_grouping = FALSE
-  )
-)
-
-# Advanced usage (InHouse app) - full control
-pn_limma_results <- mod_pn_limma_server(
-  "pn_limma",
-  eset_raw = reactive(my_eset),
-  eset_norm = reactive(my_eset_norm),
-  mode = "advanced",
-  features = list(
-    generate_heatmaps = TRUE,
-    generate_roc = TRUE,
-    generate_violins = TRUE,
-    allow_continuous = TRUE,
-    allow_custom_grouping = TRUE
-  )
-)
-}
-
 }

@@ -1,3 +1,8 @@
+# mod_pn_limma.R ####
+# Limma Differential Expression Analysis Module
+
+# UI Function ####
+
 #' PN Limma Analysis Module - UI
 #'
 #' @param id Character string. Namespace identifier.
@@ -12,11 +17,36 @@ mod_pn_limma_ui <- function(id) {
 				status = "primary",
 				solidHeader = TRUE,
 				
+				## ExpSet Info ####
+				fluidRow(
+					column(12, verbatimTextOutput(ns("eset_info")))
+				),
+				
 				actionButton(ns('denoise_mod_debug'), 'Mod Debug', class = "btn-warning btn-sm"),
 				
 				p("Perform differential expression analysis using limma with optional covariates and comprehensive outputs."),
 				
-				# Custom Grouping Section
+				## AssayData Selector ####
+				fluidRow(
+					column(
+						width = 4,
+						selectInput(
+							ns("assay_data_select"),
+							"Select AssayData Matrix:",
+							choices = NULL,
+							selected = NULL
+						),
+						helpText("Choose which matrix to use for analysis (exprs, cv, flag, etc.)")
+					),
+					column(
+						width = 8,
+						uiOutput(ns("assay_info_ui"))
+					)
+				),
+				
+				hr(),
+				
+				## Custom Grouping Section ####
 				box(
 					title = "Custom Group Assignment",
 					width = 12,
@@ -81,7 +111,7 @@ mod_pn_limma_ui <- function(id) {
 				
 				hr(),
 				
-				# Main Analysis Parameters
+				## Analysis Parameters ####
 				fluidRow(
 					column(3, 
 								 selectInput(
@@ -160,6 +190,7 @@ mod_pn_limma_ui <- function(id) {
 					)
 				),
 				
+				## Analysis Options ####
 				fluidRow(
 					column(3,
 								 radioButtons(
@@ -208,6 +239,7 @@ mod_pn_limma_ui <- function(id) {
 				
 				hr(),
 				
+				## Results Section ####
 				conditionalPanel(
 					condition = paste0("output['", ns("limma_complete"), "']"),
 					
@@ -216,6 +248,7 @@ mod_pn_limma_ui <- function(id) {
 					
 					hr(),
 					
+					### Results Tabs ####
 					tabsetPanel(
 						id = ns("results_tabs"),
 						
@@ -282,6 +315,7 @@ mod_pn_limma_ui <- function(id) {
 					
 					hr(),
 					
+					### Download Buttons ####
 					fluidRow(
 						column(3,
 									 downloadButton(ns("download_toptable"), "Download TopTable", class = "btn-success")
@@ -302,88 +336,49 @@ mod_pn_limma_ui <- function(id) {
 	)
 }
 
+# Server Function ####
+
 #' PN Limma Analysis Module - Server
 #'
 #' @param id Character string. Namespace identifier.
-#' @param eset_raw Reactive or static. Raw ExpressionSet object.
-#' @param eset_norm Reactive or static. Normalized ExpressionSet object (optional, uses raw if NULL).
+#' @param eset Reactive or static. ExpressionSet object.
 #' @param mode Character or reactive. "basic" or "advanced". Default "basic".
 #' @param features List or reactive. Feature flags controlling functionality.
+#' @param default_assay Character. Default assayData element to select (default "exprs").
 #'
-#' @return Reactive list containing:
-#'   - exp_PN_AAbs: numeric vector of expected range
-#'   - PN_AAbs: character vector of specific antigens
-#'   - limma_results: full limma analysis results object
-#'   - merged_results: combined limma + ROC results (if available)
-#'   - plots: list of plot objects
-#'
+#' @return Reactive list containing limma results
 #' @export
-#'
-#' @details
-#' This module supports two operational modes:
-#' - **Basic Mode**: Simplified UI with preset options
-#' - **Advanced Mode**: Full functionality with all customization options
-#'
-#' Feature flags:
-#' - **generate_heatmaps**: Enable/disable heatmap generation
-#' - **generate_roc**: Enable/disable ROC analysis
-#' - **generate_violins**: Enable/disable violin plot generation
-#' - **allow_continuous**: Allow continuous variable analysis
-#' - **allow_custom_grouping**: Allow creation of custom grouping variables
-#'
-#' @examples
-#' \dontrun{
-#' # Basic usage (Public app) - only show up-regulated features
-#' pn_limma_results <- mod_pn_limma_server(
-#'   "pn_limma",
-#'   eset_raw = reactive(my_eset),
-#'   mode = "basic",
-#'   features = list(
-#'     generate_heatmaps = FALSE,
-#'     generate_roc = FALSE,
-#'     generate_violins = TRUE,
-#'     allow_continuous = FALSE,
-#'     allow_custom_grouping = FALSE
-#'   )
-#' )
-#'
-#' # Advanced usage (InHouse app) - full control
-#' pn_limma_results <- mod_pn_limma_server(
-#'   "pn_limma",
-#'   eset_raw = reactive(my_eset),
-#'   eset_norm = reactive(my_eset_norm),
-#'   mode = "advanced",
-#'   features = list(
-#'     generate_heatmaps = TRUE,
-#'     generate_roc = TRUE,
-#'     generate_violins = TRUE,
-#'     allow_continuous = TRUE,
-#'     allow_custom_grouping = TRUE
-#'   )
-#' )
-#' }
-#'
-#' @note Original location: i-Ome-AI/modules/mod_pn_limma.R
-#' @note Based on limma_func_dev pipeline function
 mod_pn_limma_server <- function(id, 
-																eset_raw, 
-																eset_norm = NULL,
+																eset,
 																mode = "basic",
-																features = list()) {
+																features = list(),
+																default_assay = "exprs") {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
 		
-		# Debug
+		## Debug Handler ####
 		observeEvent(input$denoise_mod_debug, {
 			browser()
 		})
 		
-		# Normalize mode to reactive
+		## Normalize Inputs ####
+		
+		### Get ExpressionSet ####
+		eset_base <- reactive({
+			req(eset)
+			if (is.reactive(eset)) {
+				eset()
+			} else {
+				eset
+			}
+		})
+		
+		### Normalize Mode ####
 		mode_reactive <- reactive({
 			if (is.reactive(mode)) mode() else mode
 		})
 		
-		# Normalize features to reactive
+		### Normalize Features ####
 		features_reactive <- reactive({
 			if (is.reactive(features)) {
 				f <- features()
@@ -409,24 +404,9 @@ mod_pn_limma_server <- function(id,
 			return(f)
 		})
 		
-		# Get ExpressionSet (use norm if available, otherwise raw)
-		eset_base <- reactive({
-			if (!is.null(eset_norm)) {
-				if (is.reactive(eset_norm)) {
-					eset_norm()
-				} else {
-					eset_norm
-				}
-			} else {
-				if (is.reactive(eset_raw)) {
-					eset_raw()
-				} else {
-					eset_raw
-				}
-			}
-		})
+		## Setup ####
 		
-		# Reactive value to store modified eset with custom grouping
+		### Reactive Values ####
 		rv_eset <- reactiveValues(
 			modified = NULL,
 			has_custom_grouping = FALSE,
@@ -434,8 +414,18 @@ mod_pn_limma_server <- function(id,
 			excluded_samples = NULL
 		)
 		
-		# Use modified eset if available, otherwise base eset
-		eset <- reactive({
+		rv <- reactiveValues(
+			limma_results = NULL,
+			merged_results = NULL,
+			exp_PN_AAbs = NULL,
+			PN_AAbs = NULL,
+			heatmap_data = NULL,
+			violin_plots = NULL,
+			metadata_filtered = NULL
+		)
+		
+		### Current ExpressionSet ####
+		eset_current <- reactive({
 			if (!is.null(rv_eset$modified)) {
 				rv_eset$modified
 			} else {
@@ -443,18 +433,39 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		# Populate source variable and group choices for custom grouping
+		## UI Population ####
+		
+		### Populate AssayData Choices ####
+		observe({
+			req(eset_base())
+			
+			assay_names <- Biobase::assayDataElementNames(eset_base())
+			
+			# Select default or first available
+			selected_assay <- if (default_assay %in% assay_names) {
+				default_assay
+			} else {
+				assay_names[1]
+			}
+			
+			updateSelectInput(
+				session,
+				"assay_data_select",
+				choices = assay_names,
+				selected = selected_assay
+			)
+		})
+		
+		### Populate Source Variable and Groups ####
 		observe({
 			req(eset_base())
 			
 			metadata <- Biobase::pData(eset_base())
 			col_names <- colnames(metadata)
 			
-			# Update source variable choices
 			updateSelectInput(session, "source_variable", choices = col_names, selected = "Sample_Group")
 		})
 		
-		# Update group choices when source variable changes
 		observe({
 			req(eset_base(), input$source_variable)
 			
@@ -465,24 +476,63 @@ mod_pn_limma_server <- function(id,
 			updateSelectInput(session, "clinical_groups", choices = unique_groups)
 		})
 		
-		# Create custom grouping variable
+		### Populate Metadata Choices ####
+		observe({
+			req(eset_current())
+			
+			metadata <- Biobase::pData(eset_current())
+			col_names <- colnames(metadata)
+			
+			# Update variable choices
+			if (rv_eset$has_custom_grouping) {
+				updateSelectInput(
+					session,
+					"variable",
+					choices = col_names,
+					selected = rv_eset$custom_var_name
+				)
+			} else {
+				updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
+			}
+			
+			updateSelectInput(session, "covariates", choices = col_names)
+			updateSelectInput(session, "add_anno", choices = col_names)
+		})
+		
+		### Update Class Choices ####
+		observe({
+			req(eset_current(), input$variable)
+			
+			if (!input$continuous) {
+				metadata <- Biobase::pData(eset_current())
+				unique_vals <- unique(metadata[[input$variable]])
+				
+				if (rv_eset$has_custom_grouping && input$variable == rv_eset$custom_var_name) {
+					updateSelectInput(session, "class1", choices = unique_vals, selected = "PN")
+					updateSelectInput(session, "class2", choices = unique_vals, selected = "clinical")
+				} else {
+					updateSelectInput(session, "class1", choices = unique_vals, selected = unique_vals[1])
+					updateSelectInput(session, "class2", choices = unique_vals, selected = unique_vals[min(2, length(unique_vals))])
+				}
+			}
+		})
+		
+		## Custom Grouping Logic ####
+		
+		### Create Custom Grouping ####
 		observeEvent(input$create_grouping, {
 			req(eset_base(), input$source_variable, input$derived_var_name)
 			req(length(input$pn_groups) > 0 || length(input$clinical_groups) > 0)
 			
 			tryCatch({
-				# Get base eset
 				eset_temp <- eset_base()
 				metadata <- Biobase::pData(eset_temp)
 				
-				# Create new grouping variable
 				var_name <- input$derived_var_name
 				source_var <- input$source_variable
 				
-				# Initialize with NA
 				metadata[[var_name]] <- NA
 				
-				# Assign groups
 				if (length(input$pn_groups) > 0) {
 					metadata[[var_name]][metadata[[source_var]] %in% input$pn_groups] <- "PN"
 				}
@@ -491,18 +541,14 @@ mod_pn_limma_server <- function(id,
 					metadata[[var_name]][metadata[[source_var]] %in% input$clinical_groups] <- "clinical"
 				}
 				
-				# Identify samples to exclude (those not assigned to either group)
 				samples_to_keep <- !is.na(metadata[[var_name]])
 				excluded_samples <- rownames(metadata)[!samples_to_keep]
 				
-				# Filter metadata and expression data
 				metadata_filtered <- metadata[samples_to_keep, ]
 				exprs_filtered <- Biobase::exprs(eset_temp)[, samples_to_keep]
 				
-				# Convert to factor
 				metadata_filtered[[var_name]] <- as.factor(metadata_filtered[[var_name]])
 				
-				# Create new ExpressionSet with filtered data
 				meta.var <- data.frame(
 					labelDescription = colnames(metadata_filtered),
 					row.names = colnames(metadata_filtered)
@@ -515,7 +561,6 @@ mod_pn_limma_server <- function(id,
 					phenoData = meta.PD
 				)
 				
-				# Copy over any additional assayData (cv, flag, etc.)
 				if ("cv" %in% names(Biobase::assayData(eset_temp))) {
 					Biobase::assayData(eset_modified)$cv <- Biobase::assayData(eset_temp)$cv[, samples_to_keep]
 				}
@@ -523,7 +568,6 @@ mod_pn_limma_server <- function(id,
 					Biobase::assayData(eset_modified)$flag <- Biobase::assayData(eset_temp)$flag[, samples_to_keep]
 				}
 				
-				# Store modified eset
 				rv_eset$modified <- eset_modified
 				rv_eset$has_custom_grouping <- TRUE
 				rv_eset$custom_var_name <- var_name
@@ -551,7 +595,32 @@ mod_pn_limma_server <- function(id,
 			})
 		})
 		
-		# Display grouping status
+		## Outputs ####
+		
+		### ExpSet Info ####
+		output$eset_info <- renderPrint({
+			req(eset_base())
+			
+			cat("AssayData elements: ", paste(Biobase::assayDataElementNames(eset_base()), collapse = ", "), "\n")
+			cat("Samples: ", ncol(eset_base()), "\n")
+			cat("Features: ", nrow(eset_base()), "\n")
+		})
+		
+		### AssayData Info UI ####
+		output$assay_info_ui <- renderUI({
+			req(eset_base(), input$assay_data_select)
+			
+			assay_mat <- Biobase::assayDataElement(eset_base(), input$assay_data_select)
+			
+			div(
+				style = "background-color: #f0f0f0; padding: 10px; border-radius: 4px; margin-top: 25px;",
+				tags$strong(paste0("Selected: ", input$assay_data_select)),
+				br(),
+				paste0("Dimensions: ", nrow(assay_mat), " features × ", ncol(assay_mat), " samples")
+			)
+		})
+		
+		### Grouping Status ####
 		output$grouping_status <- renderUI({
 			if (rv_eset$has_custom_grouping) {
 				tags$div(
@@ -567,7 +636,7 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		# Display grouping summary
+		### Grouping Summary ####
 		output$grouping_summary <- renderPrint({
 			if (rv_eset$has_custom_grouping) {
 				metadata <- Biobase::pData(rv_eset$modified)
@@ -594,85 +663,30 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		# Populate UI choices from metadata
-		observe({
-			req(eset())
-			
-			metadata <- Biobase::pData(eset())
-			col_names <- colnames(metadata)
-			
-			# Update variable choices (highlight custom grouping if exists)
-			if (rv_eset$has_custom_grouping) {
-				# Set custom variable as default
-				updateSelectInput(
-					session,
-					"variable",
-					choices = col_names,
-					selected = rv_eset$custom_var_name
-				)
-			} else {
-				updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
-			}
-			
-			# Update covariate choices
-			updateSelectInput(session, "covariates", choices = col_names)
-			
-			# Update additional annotation choices
-			updateSelectInput(session, "add_anno", choices = col_names)
-		})
+		## Main Analysis Logic ####
 		
-		# Update class choices when variable changes
-		observe({
-			req(eset(), input$variable)
-			
-			if (!input$continuous) {
-				metadata <- Biobase::pData(eset())
-				unique_vals <- unique(metadata[[input$variable]])
-				
-				# If using custom grouping, default to PN vs clinical
-				if (rv_eset$has_custom_grouping && input$variable == rv_eset$custom_var_name) {
-					updateSelectInput(session, "class1", choices = unique_vals, selected = "PN")
-					updateSelectInput(session, "class2", choices = unique_vals, selected = "clinical")
-				} else {
-					updateSelectInput(session, "class1", choices = unique_vals, selected = unique_vals[1])
-					updateSelectInput(session, "class2", choices = unique_vals, selected = unique_vals[min(2, length(unique_vals))])
-				}
-			}
-		})
-		
-		# Reactive values for results
-		rv <- reactiveValues(
-			limma_results = NULL,
-			merged_results = NULL,
-			exp_PN_AAbs = NULL,
-			PN_AAbs = NULL,
-			heatmap_data = NULL,
-			violin_plots = NULL,
-			metadata_filtered = NULL
-		)
-		
-		# Helper function to filter by FC direction
+		### Helper: Filter by FC Direction ####
 		filter_by_fc_direction <- function(data, logFC_col = "logFC", direction = "up") {
 			if (direction == "up") {
 				return(data[data[[logFC_col]] > 0, , drop = FALSE])
 			} else if (direction == "down") {
 				return(data[data[[logFC_col]] < 0, , drop = FALSE])
 			} else {
-				return(data)  # both
+				return(data)
 			}
 		}
 		
-		# Run limma analysis
+		### Run Limma Analysis ####
 		observeEvent(input$run_limma, {
-			req(eset())
+			req(eset_current(), input$assay_data_select)
 			
 			showNotification("Running limma analysis...", type = "message", duration = NULL, id = "limma_running")
 			
 			tryCatch({
-				# Get data
-				eset_temp <- eset()
+				# Get data from SELECTED assayData element
+				eset_temp <- eset_current()
 				metadata <- Biobase::pData(eset_temp)
-				exprs_data <- Biobase::exprs(eset_temp)
+				exprs_data <- Biobase::assayDataElement(eset_temp, input$assay_data_select)
 				
 				# Get parameters
 				variable <- input$variable
@@ -682,14 +696,12 @@ mod_pn_limma_server <- function(id,
 				p_val <- input$p_val
 				fc_direction <- input$fc_direction
 				
-				# For categorical, get classes
 				class1 <- if (!continuous) input$class1 else NULL
 				class2 <- if (!continuous) input$class2 else NULL
 				
-				# Feature select (all features by default)
 				feature_select <- rownames(exprs_data)
 				
-				# Check for syntactically valid names (required by makeContrasts)
+				# Make names syntactically valid
 				if (!is.numeric(metadata[[variable]])) {
 					metadata[[variable]][!is.na(metadata[[variable]])] <- make.names(metadata[[variable]][!is.na(metadata[[variable]])])
 					metadata[[variable]] <- as.factor(metadata[[variable]])
@@ -704,7 +716,7 @@ mod_pn_limma_server <- function(id,
 					}
 				}
 				
-				# Count and remove rows with NA values in covariates
+				# Remove NA rows
 				covariate_cols <- c(variable, covariates)
 				if (length(covariate_cols) > 1) {
 					na_rows <- which(rowSums(is.na(metadata[, covariate_cols])) > 0)
@@ -713,17 +725,15 @@ mod_pn_limma_server <- function(id,
 				}
 				
 				if (length(na_rows) > 0) {
-					warning(paste("Removed", length(na_rows), "rows with NA values in variables/covariates."))
+					warning(paste("Removed", length(na_rows), "rows with NA values."))
 					metadata <- metadata[-na_rows, ]
 					exprs_data <- exprs_data[, rownames(metadata)]
 				}
 				
-				# Update ExpressionSet with cleaned metadata
 				pData(eset_temp) <- metadata
 				
 				# Build model
 				if (!continuous) {
-					# Categorical variable - use contrast
 					if (!is.null(covariates) && length(covariates) > 0) {
 						design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, covariates), collapse = " + ")))
 					} else {
@@ -732,7 +742,6 @@ mod_pn_limma_server <- function(id,
 					
 					design <- model.matrix(design_formula, data = metadata)
 					
-					# Make syntactically valid class names
 					class1_clean <- make.names(class1)
 					class2_clean <- make.names(class2)
 					
@@ -743,7 +752,6 @@ mod_pn_limma_server <- function(id,
 					fit2 <- contrasts.fit(fit, user_contrast)
 					fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
 				} else {
-					# Continuous variable - use coefficient
 					if (!is.null(covariates) && length(covariates) > 0) {
 						design_formula <- as.formula(paste0("~ ", paste(c(variable, covariates), collapse = " + ")))
 					} else {
@@ -762,10 +770,10 @@ mod_pn_limma_server <- function(id,
 				TT <- TT[feature_select, ]
 				TT <- TT %>% arrange(P.Value)
 				
-				# Store full results (before direction filtering)
+				# Store full results
 				rv$limma_results <- list(
 					topTable_full = TT,
-					topTable = TT,  # Will be filtered below
+					topTable = TT,
 					design = design,
 					fit = fit2,
 					metadata = metadata,
@@ -781,7 +789,7 @@ mod_pn_limma_server <- function(id,
 				
 				rv$metadata_filtered <- metadata
 				
-				# Check for significant results (before direction filtering)
+				# Check for significant results
 				sig_rows_all <- which(TT$P.Value < p_val & abs(TT$logFC) > log2(fc_cutoff))
 				
 				if (length(sig_rows_all) < 1) {
@@ -798,7 +806,6 @@ mod_pn_limma_server <- function(id,
 				TT_filtered <- filter_by_fc_direction(TT, "logFC", fc_direction)
 				sig_rows <- which(TT_filtered$P.Value < p_val & abs(TT_filtered$logFC) > log2(fc_cutoff))
 				
-				# Update stored results with filtered version
 				rv$limma_results$topTable <- TT_filtered
 				
 				if (length(sig_rows) < 1) {
@@ -821,72 +828,35 @@ mod_pn_limma_server <- function(id,
 					return()
 				}
 				
-				# Calculate expected PN AAbs (for compatibility with original module)
+				# Calculate expected PN AAbs
 				sig_AAbs <- rownames(TT_filtered[sig_rows, ])
 				n_sig <- length(sig_AAbs)
 				rv$exp_PN_AAbs <- max(1, n_sig - 2):min(nrow(exprs_data), n_sig + 4)
 				rv$PN_AAbs <- sig_AAbs
 				
-				# Generate additional outputs if features enabled
+				# Generate additional outputs
 				feat <- features_reactive()
 				
-				# # Prepare filtered metadata and data
-				# if (!continuous) {
-				# 	meta_filtered <- metadata[metadata[[variable]] %in% c(class1_clean, class2_clean), ]
-				# } else {
-				# 	meta_filtered <- metadata
-				# }
-				# 
-				# if (!is.null(input$add_anno) && length(input$add_anno) > 0) {
-				# 	cols_anno <- unique(c(variable, input$add_anno))
-				# 	meta_2 <- data.frame(meta_filtered[, cols_anno, drop = FALSE])
-				# } else {
-				# 	meta_2 <- meta_filtered[, variable, drop = FALSE]
-				# }
-				
-				# Prepare filtered metadata and data
+				# Prepare filtered metadata
 				if (!continuous) {
 					meta_filtered <- metadata[metadata[[variable]] %in% c(class1_clean, class2_clean), ]
 				} else {
 					meta_filtered <- metadata
 				}
 				
-				# Create meta_2 with EXPLICIT column name preservation
+				# Create meta_2
 				if (!is.null(input$add_anno) && length(input$add_anno) > 0) {
 					cols_anno <- unique(c(variable, input$add_anno))
-					# Ensure all columns exist in meta_filtered
 					cols_anno <- cols_anno[cols_anno %in% colnames(meta_filtered)]
-					
-					if (length(cols_anno) == 0) {
-						stop("No valid annotation columns found")
-					}
-					
 					meta_2 <- as.data.frame(meta_filtered[, cols_anno, drop = FALSE], stringsAsFactors = FALSE)
-					
 				} else {
-					# Create single-column data frame - MOST ROBUST METHOD
 					meta_2 <- as.data.frame(meta_filtered[, variable, drop = FALSE], stringsAsFactors = FALSE)
-					
-					# Double-check the column name is correct
 					if (colnames(meta_2)[1] != variable) {
 						colnames(meta_2) <- variable
 					}
 				}
 				
-				# Final verification
-				if (!variable %in% colnames(meta_2)) {
-					stop("FATAL: Variable '", variable, "' not in meta_2 columns: ", 
-							 paste(colnames(meta_2), collapse = ", "))
-				}
-				
-				cat("\n=== Meta_2 Created ===\n")
-				cat("Columns:", paste(colnames(meta_2), collapse = ", "), "\n")
-				cat("Nrow:", nrow(meta_2), "\n")
-				cat("First few rows of", variable, "column:\n")
-				print(head(meta_2[[variable]]))
-				cat("======================\n\n")
-				
-				# Filter significant features (using direction-filtered results)
+				# Filter significant features
 				data_sig <- exprs_data[rownames(TT_filtered[sig_rows, ]), rownames(meta_2), drop = FALSE]
 				data_RC <- data.frame(t(scale(t(exprs_data), scale = FALSE, center = TRUE)), check.names = FALSE)
 				data_sig_RC <- data_RC[rownames(data_sig), colnames(data_sig), drop = FALSE]
@@ -905,7 +875,7 @@ mod_pn_limma_server <- function(id,
 					)
 				}
 				
-				# Generate ROC and merged results
+				# Generate ROC
 				if (feat$generate_roc && !continuous && nrow(data_sig) > 0) {
 					rv$merged_results <- generate_roc_results(
 						exprs_data = exprs_data,
@@ -920,20 +890,9 @@ mod_pn_limma_server <- function(id,
 					)
 				}
 				
-				# # Generate violin plots
-				# if (feat$generate_violins && input$plot_violins && !continuous && nrow(data_sig) > 0) {
-				# 	rv$violin_plots <- generate_violin_plots(
-				# 		exprs_data = exprs_data,
-				# 		merged_results = if (!is.null(rv$merged_results)) rv$merged_results else TT_filtered[sig_rows, ],
-				# 		meta_2 = meta_2,
-				# 		variable = variable
-				# 	)
-				# }
-				
-				# Generate violin plots
+				# Generate violins
 				if (feat$generate_violins && input$plot_violins && !continuous && nrow(data_sig) > 0) {
 					tryCatch({
-						# Use the filtered significant features directly
 						violin_input <- if (!is.null(rv$merged_results)) {
 							rv$merged_results
 						} else {
@@ -946,14 +905,8 @@ mod_pn_limma_server <- function(id,
 							meta_2 = meta_2,
 							variable = variable
 						)
-						
-						if (is.null(rv$violin_plots) || length(rv$violin_plots) == 0) {
-							warning("Violin plots generated but empty")
-						}
-						
 					}, error = function(e) {
 						warning("Failed to generate violin plots: ", e$message)
-						print(e)
 						rv$violin_plots <- NULL
 					})
 				}
@@ -986,11 +939,9 @@ mod_pn_limma_server <- function(id,
 			})
 		})
 		
+		### Results Outputs ####
 		
-		
-		
-		
-		# Outputs
+		#### Completion Flags ####
 		output$limma_complete <- reactive({
 			!is.null(rv$limma_results)
 		})
@@ -1011,6 +962,7 @@ mod_pn_limma_server <- function(id,
 		})
 		outputOptions(output, "has_violins", suspendWhenHidden = FALSE)
 		
+		#### Summary ####
 		output$limma_summary <- renderPrint({
 			req(rv$limma_results)
 			
@@ -1049,6 +1001,7 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
+		#### Top Table ####
 		output$limma_top_table <- DT::renderDataTable({
 			req(rv$limma_results)
 			
@@ -1061,7 +1014,6 @@ mod_pn_limma_server <- function(id,
 				sig_table <- TT[1:min(10, nrow(TT)), ]
 			}
 			
-			# Add FC column if not present
 			if (!"FC" %in% colnames(sig_table)) {
 				sig_table$FC <- logratio2foldchange(sig_table$logFC)
 			}
@@ -1076,20 +1028,17 @@ mod_pn_limma_server <- function(id,
 				DT::formatSignif(columns = c("P.Value", "adj.P.Val"), digits = 3)
 		})
 		
+		#### Volcano Plot ####
 		output$limma_volcano <- renderPlot({
 			req(rv$limma_results)
 			
-			# Use FULL topTable for volcano (show all, but highlight filtered)
 			TT_full <- rv$limma_results$topTable_full
-			TT_filtered <- rv$limma_results$topTable
 			fc_cut <- rv$limma_results$fc_cutoff
 			p_cut <- rv$limma_results$p_val
 			fc_direction <- rv$limma_results$fc_direction
 			
-			# Prepare volcano plot data
 			sigs_ordered <- TT_full[order(TT_full$P.Value), ]
 			
-			# Mark significance based on direction filter
 			if (fc_direction == "up") {
 				sigs_ordered$genelabels <- sigs_ordered$P.Value < p_cut & sigs_ordered$logFC > log2(fc_cut)
 			} else if (fc_direction == "down") {
@@ -1101,7 +1050,6 @@ mod_pn_limma_server <- function(id,
 			sigs_ordered$threshold <- sigs_ordered$genelabels
 			sigs_ordered$symbol <- rownames(sigs_ordered)
 			
-			# Create plot
 			p <- ggplot(sigs_ordered, aes(x = logFC, y = -log10(P.Value))) +
 				geom_point(aes(colour = threshold), alpha = 0.6, size = 2) +
 				scale_color_brewer(palette = "Dark2") +
@@ -1118,7 +1066,6 @@ mod_pn_limma_server <- function(id,
 					axis.title = element_text(size = rel(1.25))
 				)
 			
-			# Add FC cutoff lines based on direction
 			if (fc_direction == "both") {
 				p <- p +
 					geom_vline(xintercept = log2(fc_cut), linetype = "dashed", color = "blue") +
@@ -1149,6 +1096,7 @@ mod_pn_limma_server <- function(id,
 			return(p)
 		})
 		
+		#### Heatmaps ####
 		output$heatmap_manual <- renderPlot({
 			req(rv$heatmap_data)
 			
@@ -1179,6 +1127,7 @@ mod_pn_limma_server <- function(id,
 			)
 		})
 		
+		#### ROC Table ####
 		output$roc_table <- DT::renderDataTable({
 			req(rv$merged_results)
 			
@@ -1190,6 +1139,7 @@ mod_pn_limma_server <- function(id,
 				DT::formatRound(columns = c("logFC", "FC", "AUC", "Sensitivity", "Specificity", "Optimal.Cutoff"), digits = 3)
 		})
 		
+		#### Violin Plots ####
 		output$violin_plots_ui <- renderUI({
 			req(rv$violin_plots)
 			
@@ -1201,7 +1151,6 @@ mod_pn_limma_server <- function(id,
 			do.call(tagList, plot_output_list)
 		})
 		
-		# Dynamic violin plot rendering
 		observe({
 			req(rv$violin_plots)
 			
@@ -1216,36 +1165,9 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		# Add this output after the other outputs in the server function:
+		## Downloads ####
 		
-		output$violin_debug <- renderPrint({
-			if (!is.null(rv$violin_plots)) {
-				cat("Violin plots generated successfully\n")
-				cat("Number of plots:", length(rv$violin_plots), "\n")
-			} else {
-				cat("Violin plots NOT generated\n")
-				cat("Checking conditions:\n")
-				cat("- generate_violins feature:", features_reactive()$generate_violins, "\n")
-				cat("- plot_violins checkbox:", input$plot_violins, "\n")
-				cat("- continuous:", if (!is.null(rv$limma_results)) rv$limma_results$continuous else "NULL", "\n")
-				cat("- merged_results exists:", !is.null(rv$merged_results), "\n")
-				if (!is.null(rv$merged_results)) {
-					cat("- merged_results rows:", nrow(rv$merged_results), "\n")
-					cat("- merged_results rownames:", paste(head(rownames(rv$merged_results), 3), collapse = ", "), "\n")
-				}
-			}
-		})
-		
-		# Add to UI (in the Violin Plots tab, conditionally):
-		conditionalPanel(
-			condition = paste0("input['", ns("denoise_mod_debug"), "'] > 0"),
-			ns = ns,
-			hr(),
-			h5("Debug Info"),
-			verbatimTextOutput(ns("violin_debug"))
-		)
-		
-		# Downloads
+		### Download TopTable ####
 		output$download_toptable <- downloadHandler(
 			filename = function() {
 				direction <- rv$limma_results$fc_direction
@@ -1257,6 +1179,7 @@ mod_pn_limma_server <- function(id,
 			}
 		)
 		
+		### Download ROC ####
 		output$download_roc <- downloadHandler(
 			filename = function() {
 				direction <- rv$limma_results$fc_direction
@@ -1268,6 +1191,7 @@ mod_pn_limma_server <- function(id,
 			}
 		)
 		
+		### Download Heatmaps ####
 		output$download_heatmaps <- downloadHandler(
 			filename = function() {
 				direction <- rv$limma_results$fc_direction
@@ -1304,6 +1228,7 @@ mod_pn_limma_server <- function(id,
 			}
 		)
 		
+		### Download Violins ####
 		output$download_violins <- downloadHandler(
 			filename = function() {
 				direction <- rv$limma_results$fc_direction
@@ -1320,7 +1245,7 @@ mod_pn_limma_server <- function(id,
 			}
 		)
 		
-		# Return reactive values for use in other modules
+		## Return Values ####
 		return(reactive({
 			list(
 				exp_PN_AAbs = rv$exp_PN_AAbs,
@@ -1339,8 +1264,9 @@ mod_pn_limma_server <- function(id,
 	})
 }
 
+# Helper Functions ####
 
-# Helper Functions --------------------------------------------------------
+## Generate Heatmap Data ####
 
 #' Generate Heatmap Data
 #'
@@ -1437,6 +1363,8 @@ generate_heatmap_data <- function(data_sig, data_sig_RC, meta_2, variable,
 	))
 }
 
+## Generate ROC Results ####
+
 #' Generate ROC Results
 #'
 #' @param exprs_data Matrix, full expression data
@@ -1521,6 +1449,7 @@ generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable,
 	return(merged_results)
 }
 
+## Generate Violin Plots ####
 
 #' Generate Violin Plots
 #'
