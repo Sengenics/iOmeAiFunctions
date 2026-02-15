@@ -46,8 +46,14 @@ server <- function(input, output, session) {
 	})
 	
 	## Create Reactive Wrapper ####
+	# ExpSet_list <- reactive({
+	# 	ExpSet_list_val()
+	# })
+	
 	ExpSet_list <- reactive({
-		ExpSet_list_val()
+		req(ExpSet_list_val())
+		list_copy <- ExpSet_list_val()  # Force a new evaluation
+		list_copy
 	})
 	
 	## Update Function ####
@@ -101,38 +107,66 @@ server <- function(input, output, session) {
 	
 	## Selected Data Reactives ####
 	
-	### Raw Data ####
-	eset_raw <- reactive({
+	expset_list_version <- reactive({
 		req(ExpSet_list())
-		req(eset_raw_selected)
+		list(
+			names = names(ExpSet_list()),
+			timestamp = Sys.time()
+		)
+	})
+	
+	### Raw Data ####
+	# eset_raw <- reactive({
+	# 	print(expset_list_version())
+	# 	req(ExpSet_list())
+	# 	req(eset_raw_selected)
+	# 	eset_raw_selected$eset_subset()
+	# 	# expset_list <- ExpSet_list()
+	# 	# 
+	# 	# # Get selected name
+	# 	# selected_name <- eset_raw_selected$eset_name()
+	# 	# 
+	# 	# # Handle NULL/empty selection
+	# 	# if (is.null(selected_name) || selected_name == "") {
+	# 	# 	if (length(expset_list) > 0) {
+	# 	# 		return(expset_list[[1]])
+	# 	# 	} else {
+	# 	# 		return(NULL)
+	# 	# 	}
+	# 	# }
+	# 	# 
+	# 	# # Get ExpSet name (handles nested assayData)
+	# 	# ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
+	# 	# 
+	# 	# # Fetch from current list
+	# 	# if (ExpSet_name %in% names(expset_list)) {
+	# 	# 	expset_list[[ExpSet_name]]
+	# 	# } else {
+	# 	# 	if (length(expset_list) > 0) {
+	# 	# 		expset_list[[1]]
+	# 	# 	} else {
+	# 	# 		NULL
+	# 	# 	}
+	# 	# }
+	# })
+	
+	eset_raw <- reactive({
+		# ✅ Take explicit dependency on ExpSet_list to force invalidation
+		req(ExpSet_list())
+		expsets <- ExpSet_list()  # This forces re-evaluation when list changes
+		
+		req(eset_raw_selected$eset_name())
+		selected_name <- eset_raw_selected$eset_name()
+		
+		# Get the ExpSet directly from the current list
+		ExpSet_name <- get_ExpSet_name(selected_name, expsets)
+		
+		if (ExpSet_name %in% names(expsets)) {
+			expsets[[ExpSet_name]]
+		} else {
+			NULL
+		}
 		eset_raw_selected$eset_subset()
-		# expset_list <- ExpSet_list()
-		# 
-		# # Get selected name
-		# selected_name <- eset_raw_selected$eset_name()
-		# 
-		# # Handle NULL/empty selection
-		# if (is.null(selected_name) || selected_name == "") {
-		# 	if (length(expset_list) > 0) {
-		# 		return(expset_list[[1]])
-		# 	} else {
-		# 		return(NULL)
-		# 	}
-		# }
-		# 
-		# # Get ExpSet name (handles nested assayData)
-		# ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
-		# 
-		# # Fetch from current list
-		# if (ExpSet_name %in% names(expset_list)) {
-		# 	expset_list[[ExpSet_name]]
-		# } else {
-		# 	if (length(expset_list) > 0) {
-		# 		expset_list[[1]]
-		# 	} else {
-		# 		NULL
-		# 	}
-		# }
 	})
 	
 	### Normalized Data ####

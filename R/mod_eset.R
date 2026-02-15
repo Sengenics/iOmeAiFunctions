@@ -379,25 +379,97 @@ mod_eset_selector_standalone_server <- function(id,
 			# ✅ FIX: Only reset when dataset actually changes (not on every invalidation)
 			darrow("Setting up subset reset observer", debug = debug, level = 1, id = id)
 			last_eset_name <- reactiveVal(NULL)
+			last_expset_timestamp <- reactiveVal(NULL)
 			
+			# observe({
+			# 	darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
+			# 	
+			# 	req(ExpSet_list())
+			# 	expset_timestamp <- Sys.time()
+			# 	
+			# 	req(eset_selected())
+			# 	req(eset_selected_module$name())
+			# 	
+			# 	current_name <- eset_selected_module$name()
+			# 	
+			# 	# Only reset if dataset name changed (user selected different data)
+			# 	# if (is.null(last_eset_name()) || last_eset_name() != current_name) {
+			# 	# 	dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name), 
+			# 	# 			 debug = debug, level = 2, id = id)
+			# 	# 	subset_module$subset_eset(eset_selected())
+			# 	# 	last_eset_name(current_name)
+			# 	# 	dsuccess("Subset reset complete", debug = debug, level = 2, id = id)
+			# 		
+			# 		if (name_changed || list_updated) {
+			# 			dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name, 
+			# 								 "| List updated:", list_updated), 
+			# 					 debug = debug, level = 2, id = id)
+			# 			subset_module$subset_eset(eset_selected())
+			# 			last_eset_name(current_name)
+			# 			last_expset_timestamp(expset_timestamp)
+			# 			dsuccess("Subset reset complete", debug = debug, level = 2, id = id)
+			# 	} else {
+			# 		dmsg("Same dataset - keeping current subset", debug = debug, level = 2, id = id)
+			# 	}
+			# }, priority = 100)
+			last_expset_timestamp <- reactiveVal(NULL)  # ✅ ADD THIS LINE
 			observe({
 				darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
+				
+				# ✅ FIX: Use list names as fingerprint instead of timestamp
+				req(ExpSet_list())
+				expset_fingerprint <- paste(names(ExpSet_list()), collapse = "|")
+				
 				req(eset_selected())
 				req(eset_selected_module$name())
 				
 				current_name <- eset_selected_module$name()
 				
-				# Only reset if dataset name changed (user selected different data)
-				if (is.null(last_eset_name()) || last_eset_name() != current_name) {
-					dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name), 
+				# Reset if dataset name changed OR ExpSet_list was updated
+				name_changed <- is.null(last_eset_name()) || last_eset_name() != current_name
+				list_updated <- is.null(last_expset_timestamp()) || last_expset_timestamp() != expset_fingerprint
+				
+				if (name_changed || list_updated) {
+					dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name, 
+										 "| List updated:", list_updated), 
 							 debug = debug, level = 2, id = id)
 					subset_module$subset_eset(eset_selected())
 					last_eset_name(current_name)
+					last_expset_timestamp(expset_fingerprint)  # Store fingerprint, not timestamp
 					dsuccess("Subset reset complete", debug = debug, level = 2, id = id)
 				} else {
-					dmsg("Same dataset - keeping current subset", debug = debug, level = 2, id = id)
+					dmsg("Same dataset and list - keeping current subset", debug = debug, level = 2, id = id)
 				}
 			}, priority = 100)
+			# observe({
+			# 	darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
+			# 	
+			# 	# ✅ ADD THIS: Take dependency on ExpSet_list
+			# 	req(ExpSet_list())
+			# 	expset_timestamp <- Sys.time()
+			# 	
+			# 	req(eset_selected())
+			# 	req(eset_selected_module$name())
+			# 	
+			# 	current_name <- eset_selected_module$name()
+			# 	
+			# 	# ✅ CHANGE THIS: Check both name change AND list update
+			# 	name_changed <- is.null(last_eset_name()) || last_eset_name() != current_name
+			# 	list_updated <- is.null(last_expset_timestamp()) || 
+			# 		!identical(last_expset_timestamp(), expset_timestamp)
+			# 	
+			# 	if (name_changed || list_updated) {
+			# 		dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name, 
+			# 							 "| List updated:", list_updated), 
+			# 				 debug = debug, level = 2, id = id)
+			# 		subset_module$subset_eset(eset_selected())
+			# 		last_eset_name(current_name)
+			# 		last_expset_timestamp(expset_timestamp)  # ✅ ADD THIS
+			# 		dsuccess("Subset reset complete", debug = debug, level = 2, id = id)
+			# 	} else {
+			# 		dmsg("Same dataset and list - keeping current subset", debug = debug, level = 2, id = id)
+			# 	}
+			# }, priority = 100)
 			
 			# ✅ Wrap reactiveVal in reactive() for consistent access
 			eset_after_subset <- reactive({
@@ -425,22 +497,91 @@ mod_eset_selector_standalone_server <- function(id,
 			# ✅ FIX: Track subset dimensions to detect actual changes
 			darrow("Setting up transform reset observer", debug = debug, level = 1, id = id)
 			last_subset_dims <- reactiveVal(NULL)
+			last_transform_timestamp <- reactiveVal(NULL)
 			
+			# observe({
+			# 	darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
+			# 	
+			# 	req(ExpSet_list())
+			# 	transform_timestamp <- Sys.time()
+			# 	
+			# 	req(eset_after_subset())
+			# 	
+			# 	current_dims <- paste(dim(eset_after_subset()), collapse = "x")
+			# 	
+			# 	# Only reset if dimensions changed (subset was applied)
+			# 	# if (is.null(last_subset_dims()) || last_subset_dims() != current_dims) {
+			# 	# 	dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims), 
+			# 	# 			 debug = debug, level = 2, id = id)
+			# 	# 	transform_module$transformed_eset(eset_after_subset())
+			# 	# 	last_subset_dims(current_dims)
+			# 	# 	dsuccess("Transform reset complete", debug = debug, level = 2, id = id)
+			# 	if (dims_changed || list_updated) {
+			# 		dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims,
+			# 							 "| List updated:", list_updated), 
+			# 				 debug = debug, level = 2, id = id)
+			# 		transform_module$transformed_eset(eset_after_subset())
+			# 		last_subset_dims(current_dims)
+			# 		last_transform_timestamp(transform_timestamp)
+			# 		dsuccess("Transform reset complete", debug = debug, level = 2, id = id)
+			# 	} else {
+			# 		dmsg("Same subset - keeping current transform", debug = debug, level = 2, id = id)
+			# 	}
+			# }, priority = 100)
+			last_transform_timestamp <- reactiveVal(NULL) 
+			# observe({
+			# 	darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
+			# 	
+			# 	# ✅ ADD THIS: Take dependency on ExpSet_list
+			# 	req(ExpSet_list())
+			# 	transform_timestamp <- Sys.time()
+			# 	
+			# 	req(eset_after_subset())
+			# 	
+			# 	current_dims <- paste(dim(eset_after_subset()), collapse = "x")
+			# 	
+			# 	# ✅ CHANGE THIS: Check both dimension change AND list update
+			# 	dims_changed <- is.null(last_subset_dims()) || last_subset_dims() != current_dims
+			# 	list_updated <- is.null(last_transform_timestamp()) || 
+			# 		!identical(last_transform_timestamp(), transform_timestamp)
+			# 	
+			# 	if (dims_changed || list_updated) {
+			# 		dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims,
+			# 							 "| List updated:", list_updated), 
+			# 				 debug = debug, level = 2, id = id)
+			# 		transform_module$transformed_eset(eset_after_subset())
+			# 		last_subset_dims(current_dims)
+			# 		last_transform_timestamp(transform_timestamp)  # ✅ ADD THIS
+			# 		dsuccess("Transform reset complete", debug = debug, level = 2, id = id)
+			# 	} else {
+			# 		dmsg("Same subset and list - keeping current transform", debug = debug, level = 2, id = id)
+			# 	}
+			# }, priority = 100)
 			observe({
 				darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
+				
+				# ✅ FIX: Use list names as fingerprint
+				req(ExpSet_list())
+				transform_fingerprint <- paste(names(ExpSet_list()), collapse = "|")
+				
 				req(eset_after_subset())
 				
 				current_dims <- paste(dim(eset_after_subset()), collapse = "x")
 				
-				# Only reset if dimensions changed (subset was applied)
-				if (is.null(last_subset_dims()) || last_subset_dims() != current_dims) {
-					dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims), 
+				# Reset if dimensions changed OR ExpSet_list was updated
+				dims_changed <- is.null(last_subset_dims()) || last_subset_dims() != current_dims
+				list_updated <- is.null(last_transform_timestamp()) || last_transform_timestamp() != transform_fingerprint
+				
+				if (dims_changed || list_updated) {
+					dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims,
+										 "| List updated:", list_updated), 
 							 debug = debug, level = 2, id = id)
 					transform_module$transformed_eset(eset_after_subset())
 					last_subset_dims(current_dims)
+					last_transform_timestamp(transform_fingerprint)  # Store fingerprint
 					dsuccess("Transform reset complete", debug = debug, level = 2, id = id)
 				} else {
-					dmsg("Same subset - keeping current transform", debug = debug, level = 2, id = id)
+					dmsg("Same subset and list - keeping current transform", debug = debug, level = 2, id = id)
 				}
 			}, priority = 100)
 			
