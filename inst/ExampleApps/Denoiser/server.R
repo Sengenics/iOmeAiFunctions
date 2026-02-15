@@ -106,6 +106,7 @@ server <- function(input, output, session) {
 	eset_raw_selected <- mod_eset_selector_standalone_server(
 		"eset_raw",
 		ExpSet_list = ExpSet_list,
+		ExpSet_list_version = ExpSet_list_version,
 		default_selection = "sample_ImputedlogMeanNetI",
 		enable_subset = TRUE,
 		enable_transform = FALSE,
@@ -116,6 +117,7 @@ server <- function(input, output, session) {
 	eset_norm_selected <- mod_eset_selector_standalone_server(
 		"eset_norm",
 		ExpSet_list = ExpSet_list,
+		ExpSet_list_version = ExpSet_list_version,
 		default_selection = "sample_loess_normalised",
 		enable_subset = TRUE,
 		enable_transform = FALSE,
