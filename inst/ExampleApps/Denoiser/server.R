@@ -14,17 +14,22 @@ server <- function(input, output, session) {
 	
 	## ExpSet List Storage ####
 	ExpSet_list_val <- reactiveVal(NULL)
+	ExpSet_list_version <- reactiveVal(0)
 	
 	## Load Default Data ####
 	observe({
 		# Only load default if nothing loaded yet
 		if (is.null(ExpSet_list_val())) {
-			default_file <- "data/ExpSet_list.rds"
+			#default_file <- "data/ExpSet_list.rds"
+			default_file = '../../../data/ExpSet.rda'
+			default_file = '../../../data/ExpSet_list.rds'
+			
 			
 			if (file.exists(default_file)) {
 				tryCatch({
 					data <- readRDS(default_file)
 					ExpSet_list_val(data)
+					ExpSet_list_version(1)
 					message("✅ Loaded default ExpSet_list from ", default_file)
 				}, error = function(e) {
 					message("⚠️ Failed to load default data: ", e$message)
@@ -32,6 +37,8 @@ server <- function(input, output, session) {
 			} else {
 				message("ℹ️ No default data file found at ", default_file)
 			}
+			print('test_stop')
+			#browser()
 		}
 	})
 	
@@ -41,8 +48,16 @@ server <- function(input, output, session) {
 	### Handle Uploaded Data ####
 	observe({
 		req(expset_data$ExpSet_list())
-		ExpSet_list_val(expset_data$ExpSet_list())
-		message("✅ Loaded uploaded ExpSet_list with ", length(expset_data$ExpSet_list()), " ExpressionSets")
+		
+		# ✅ Use isolate() to prevent circular dependency
+		isolate({
+			ExpSet_list_val(expset_data$ExpSet_list())
+			ExpSet_list_version(ExpSet_list_version() + 1)
+			message("✅ Loaded uploaded ExpSet_list with ", length(expset_data$ExpSet_list()), " ExpressionSets")
+		})
+		# ExpSet_list_val(expset_data$ExpSet_list())
+		# ExpSet_list_version(ExpSet_list_version() + 1)
+		# message("✅ Loaded uploaded ExpSet_list with ", length(expset_data$ExpSet_list()), " ExpressionSets")
 	})
 	
 	## Create Reactive Wrapper ####
@@ -59,6 +74,7 @@ server <- function(input, output, session) {
 	## Update Function ####
 	update_ExpSet_list <- function(new_list) {
 		ExpSet_list_val(new_list)
+		ExpSet_list_version(ExpSet_list_version() + 1)
 		message("✅ ExpSet_list updated with ", length(new_list), " ExpressionSets")
 	}
 	
@@ -79,6 +95,7 @@ server <- function(input, output, session) {
 	expset_viewer <- mod_expset_viewer_server(
 		"expset_viewer",
 		ExpSet_list = ExpSet_list,
+		ExpSet_list_version = ExpSet_list_version,
 		default_selection = "sample_loess_normalised",
 		debug = run_debug
 	)

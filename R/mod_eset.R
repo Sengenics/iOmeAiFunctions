@@ -304,6 +304,7 @@ mod_eset_selector_standalone_ui <- function(id,
 #' @export
 mod_eset_selector_standalone_server <- function(id, 
 																								ExpSet_list,
+																								ExpSet_list_version = reactive(0),
 																								default_selection = reactive(NULL),
 																								enable_subset = TRUE,
 																								enable_transform = TRUE,
@@ -417,8 +418,11 @@ mod_eset_selector_standalone_server <- function(id,
 				darrow("Subset reset observer triggered", debug = debug, level = 2, id = id)
 				
 				# ✅ FIX: Use list names as fingerprint instead of timestamp
-				req(ExpSet_list())
-				expset_fingerprint <- paste(names(ExpSet_list()), collapse = "|")
+				#req(ExpSet_list())
+				# expset_fingerprint <- paste(names(ExpSet_list()), collapse = "|")
+				
+				req(ExpSet_list_version())
+				current_version <- ExpSet_list_version()
 				
 				req(eset_selected())
 				req(eset_selected_module$name())
@@ -427,15 +431,15 @@ mod_eset_selector_standalone_server <- function(id,
 				
 				# Reset if dataset name changed OR ExpSet_list was updated
 				name_changed <- is.null(last_eset_name()) || last_eset_name() != current_name
-				list_updated <- is.null(last_expset_timestamp()) || last_expset_timestamp() != expset_fingerprint
+				version_changed <- is.null(last_expset_timestamp()) || last_expset_timestamp() != current_version
 				
-				if (name_changed || list_updated) {
+				if (name_changed || version_changed) {
 					dmsg(paste("Dataset changed:", last_eset_name(), "→", current_name, 
-										 "| List updated:", list_updated), 
+										 "| Version changed:", version_changed, "(", last_expset_timestamp(), "→", current_version, ")"), 
 							 debug = debug, level = 2, id = id)
 					subset_module$subset_eset(eset_selected())
 					last_eset_name(current_name)
-					last_expset_timestamp(expset_fingerprint)  # Store fingerprint, not timestamp
+					last_expset_timestamp(current_version)  # Store version
 					dsuccess("Subset reset complete", debug = debug, level = 2, id = id)
 				} else {
 					dmsg("Same dataset and list - keeping current subset", debug = debug, level = 2, id = id)
@@ -561,8 +565,8 @@ mod_eset_selector_standalone_server <- function(id,
 				darrow("Transform reset observer triggered", debug = debug, level = 2, id = id)
 				
 				# ✅ FIX: Use list names as fingerprint
-				req(ExpSet_list())
-				transform_fingerprint <- paste(names(ExpSet_list()), collapse = "|")
+				req(ExpSet_list_version())
+				current_version <- ExpSet_list_version()
 				
 				req(eset_after_subset())
 				
@@ -570,15 +574,15 @@ mod_eset_selector_standalone_server <- function(id,
 				
 				# Reset if dimensions changed OR ExpSet_list was updated
 				dims_changed <- is.null(last_subset_dims()) || last_subset_dims() != current_dims
-				list_updated <- is.null(last_transform_timestamp()) || last_transform_timestamp() != transform_fingerprint
+				version_changed <- is.null(last_transform_timestamp()) || last_transform_timestamp() != current_version
 				
-				if (dims_changed || list_updated) {
+				if (dims_changed || version_changed) {
 					dmsg(paste("Subset changed:", last_subset_dims(), "→", current_dims,
-										 "| List updated:", list_updated), 
+										 "| Version changed:", version_changed, "(", last_transform_timestamp(), "→", current_version, ")"), 
 							 debug = debug, level = 2, id = id)
 					transform_module$transformed_eset(eset_after_subset())
 					last_subset_dims(current_dims)
-					last_transform_timestamp(transform_fingerprint)  # Store fingerprint
+					last_transform_timestamp(current_version)  # Store version
 					dsuccess("Transform reset complete", debug = debug, level = 2, id = id)
 				} else {
 					dmsg("Same subset and list - keeping current transform", debug = debug, level = 2, id = id)

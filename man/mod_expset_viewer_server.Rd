@@ -7,6 +7,7 @@
 mod_expset_viewer_server(
   id,
   ExpSet_list,
+  ExpSet_list_version = reactive(0),
   default_selection = NULL,
   enable_subset = TRUE,
   enable_transform = TRUE,

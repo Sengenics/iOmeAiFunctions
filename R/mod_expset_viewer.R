@@ -139,6 +139,7 @@ mod_expset_viewer_ui <- function(id,
 #' @export
 mod_expset_viewer_server <- function(id, 
 																		 ExpSet_list,
+																		 ExpSet_list_version = reactive(0),
 																		 default_selection = NULL,
 																		 enable_subset = TRUE,
 																		 enable_transform = TRUE,
@@ -166,6 +167,7 @@ mod_expset_viewer_server <- function(id,
 		selector_module <- mod_eset_selector_standalone_server(
 			"eset_selector",
 			ExpSet_list = ExpSet_list,
+			ExpSet_list_version = ExpSet_list_version,
 			default_selection = if (is.null(default_selection)) {
 				reactive(NULL)
 			} else if (is.reactive(default_selection)) {
@@ -205,6 +207,28 @@ mod_expset_viewer_server <- function(id,
 			# } else {
 			# 	NULL
 			# }
+		})
+		
+		## 🔍 DIAGNOSTIC OBSERVERS - ADD THESE ####
+		observe({
+			cat("\n📦 [VIEWER] ExpSet_list changed!\n")
+			req(ExpSet_list())
+			cat("   Available ExpSets:", paste(names(ExpSet_list()), collapse = ", "), "\n")
+			cat("   Timestamp:", format(Sys.time(), "%H:%M:%S"), "\n")
+		})
+		
+		observe({
+			cat("\n📊 [VIEWER] selector_module$eset_subset() changed!\n")
+			req(selector_module$eset_subset())
+			cat("   Dimensions:", nrow(selector_module$eset_subset()), "×", ncol(selector_module$eset_subset()), "\n")
+			cat("   Timestamp:", format(Sys.time(), "%H:%M:%S"), "\n")
+		})
+		
+		observe({
+			cat("\n✅ [VIEWER] current_expset() changed!\n")
+			req(current_expset())
+			cat("   Dimensions:", nrow(current_expset()), "×", ncol(current_expset()), "\n")
+			cat("   Timestamp:", format(Sys.time(), "%H:%M:%S"), "\n")
 		})
 		
 		## ExpSet Name Reactive ####
