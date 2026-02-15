@@ -2,7 +2,7 @@
 % Please edit documentation in R/mod_pn_limma.R
 \name{mod_pn_limma_ui}
 \alias{mod_pn_limma_ui}
-\title{PN Limma Analysis Module - UI}
+\title{Enhanced Limma Analysis Module - UI}
 \usage{
 mod_pn_limma_ui(id)
 }
@@ -10,5 +10,5 @@ mod_pn_limma_ui(id)
 \item{id}{Character string. Namespace identifier.}
 }
 \description{
-PN Limma Analysis Module - UI
+Enhanced Limma Analysis Module - UI
 }

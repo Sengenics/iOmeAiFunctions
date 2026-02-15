@@ -105,8 +105,13 @@ library(pheatmap)
 library(limma)
 library(tidyverse)
 library(ggrepel)
-library(ggforce)
+library(pheatmap)
+library(vegan)
+library(pROC)
+library(DT)
+library(RColorBrewer)
 library(reshape2)
+library(ggforce) 
 
 # If not in development, load the package normally
 # if (!interactive()) {

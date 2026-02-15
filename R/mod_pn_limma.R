@@ -1,9 +1,9 @@
-# mod_pn_limma.R ####
-# Limma Differential Expression Analysis Module
+# mod_pn_limma_v2.R ####
+# Enhanced Limma Differential Expression Analysis Module
 
 # UI Function ####
 
-#' PN Limma Analysis Module - UI
+#' Enhanced Limma Analysis Module - UI
 #'
 #' @param id Character string. Namespace identifier.
 #' @export
@@ -12,7 +12,7 @@ mod_pn_limma_ui <- function(id) {
 	tagList(
 		fluidRow(
 			box(
-				title = "Limma Differential Expression Analysis",
+				title = "Enhanced Limma Differential Expression Analysis",
 				width = 12,
 				status = "primary",
 				solidHeader = TRUE,
@@ -24,7 +24,24 @@ mod_pn_limma_ui <- function(id) {
 				
 				actionButton(ns('denoise_mod_debug'), 'Mod Debug', class = "btn-warning btn-sm"),
 				
-				p("Perform differential expression analysis using limma with optional covariates and comprehensive outputs."),
+				## Analysis Mode Selector ####
+				fluidRow(
+					column(12,
+								 radioButtons(
+								 	ns("analysis_mode"),
+								 	"Analysis Mode:",
+								 	choices = c(
+								 		"Basic (2-group comparison)" = "basic",
+								 		"Advanced (Custom contrasts)" = "advanced",
+								 		"AutoAb (Frequency analysis)" = "autoab"
+								 	),
+								 	selected = "basic",
+								 	inline = TRUE
+								 )
+					)
+				),
+				
+				hr(),
 				
 				## AssayData Selector ####
 				fluidRow(
@@ -36,7 +53,7 @@ mod_pn_limma_ui <- function(id) {
 							choices = NULL,
 							selected = NULL
 						),
-						helpText("Choose which matrix to use for analysis (exprs, cv, flag, etc.)")
+						helpText("Choose which matrix to use for analysis")
 					),
 					column(
 						width = 8,
@@ -46,66 +63,239 @@ mod_pn_limma_ui <- function(id) {
 				
 				hr(),
 				
-				## Analysis Parameters ####
+				## Feature Selection ####
 				fluidRow(
-					column(3, 
-								 selectInput(
-								 	ns("variable"),
-								 	"Primary Variable",
-								 	choices = NULL
-								 ),
-								 tableOutput(ns("variable_summary")),
-					# ),
-					# column(3,
+					column(12,
 								 checkboxInput(
-								 	ns("continuous"),
-								 	"Continuous Variable?",
+								 	ns("use_feature_select"),
+								 	"Pre-filter features before analysis",
 								 	value = FALSE
 								 )
-					),
-					column(3,
-								 conditionalPanel(
-								 	condition = paste0("!input['", ns("continuous"), "']"),
-								 	ns = ns,
-								 	selectInput(
-								 		ns("class1"),
-								 		"Class 1 (Positive)",
-								 		choices = NULL
-								 	)
-								 ),
-					# ),
-					# column(3,
-								 conditionalPanel(
-								 	condition = paste0("!input['", ns("continuous"), "']"),
-								 	ns = ns,
-								 	selectInput(
-								 		ns("class2"),
-								 		"Class 2 (Negative)",
-								 		choices = NULL
-								 	)
-								 )
-					),
-					column(3,
-								 selectInput(
-								 	ns("covariates"),
-								 	"Covariates",
-								 	choices = NULL,
-								 	multiple = TRUE
-								 ),
-								 tableOutput(ns("covariates_summary"))
 					)
 				),
 				
+				# conditionalPanel(
+				# 	condition = paste0("input['", ns("use_feature_select"), "']"),
+				# 	fluidRow(
+				# 		column(6,
+				# 					 selectInput(
+				# 					 	ns("feature_filter_var"),
+				# 					 	"Filter Variable:",
+				# 					 	choices = NULL
+				# 					 )
+				# 		),
+				# 		column(6,
+				# 					 # numericInput(
+				# 					 # 	ns("feature_filter_threshold"),
+				# 					 # 	"Minimum Expression Threshold:",
+				# 					 # 	value = 0,
+				# 					 # 	min = 0
+				# 					 # )
+				# 					 uiOutput(ns("feature_filter_threshold_ui"))
+				# 		)
+				# 		
+				# 	),
+				# 	fluidRow(
+				# 		column(12,
+				# 					 verbatimTextOutput(ns("feature_filter_summary"))
+				# 		)
+				# 	)
+				# ),
+				conditionalPanel(
+					condition = paste0("input['", ns("use_feature_select"), "']"),
+					fluidRow(
+						column(6,
+									 selectInput(
+									 	ns("feature_filter_var"),
+									 	"Filter Variable:",
+									 	choices = NULL
+									 )
+						),
+						column(6,
+									 uiOutput(ns("feature_filter_input_ui"))  # ✅ Dynamic input
+						)
+					),
+					fluidRow(
+						column(12,
+									 verbatimTextOutput(ns("feature_filter_summary"))
+						)
+					)
+				),
+				
+				hr(),
+				
+				## Basic Mode Parameters ####
+				conditionalPanel(
+					condition = paste0("input['", ns("analysis_mode"), "'] == 'basic'"),
+					
+					h4("Basic Comparison Setup"),
+					
+					fluidRow(
+						column(3, 
+									 selectInput(
+									 	ns("variable"),
+									 	"Primary Variable",
+									 	choices = NULL
+									 ),
+									 tableOutput(ns("variable_summary"))
+						),
+						column(3,
+									 checkboxInput(
+									 	ns("continuous"),
+									 	"Continuous Variable?",
+									 	value = FALSE
+									 ),
+									 conditionalPanel(
+									 	condition = paste0("!input['", ns("continuous"), "']"),
+									 	selectInput(
+									 		ns("class1"),
+									 		"Class 1 (Positive)",
+									 		choices = NULL
+									 	)
+									 )
+						),
+						column(3,
+									 conditionalPanel(
+									 	condition = paste0("!input['", ns("continuous"), "']"),
+									 	selectInput(
+									 		ns("class2"),
+									 		"Class 2 (Negative)",
+									 		choices = NULL
+									 	)
+									 )
+						),
+						column(3,
+									 selectInput(
+									 	ns("covariates"),
+									 	"Covariates",
+									 	choices = NULL,
+									 	multiple = TRUE
+									 ),
+									 tableOutput(ns("covariates_summary"))
+						)
+					)
+				),
+				
+				## Advanced Mode Parameters ####
+				conditionalPanel(
+					condition = paste0("input['", ns("analysis_mode"), "'] == 'advanced'"),
+					
+					h4("Custom Contrast Setup"),
+					
+					fluidRow(
+						column(6,
+									 selectInput(
+									 	ns("contrast_variable"),
+									 	"Primary Variable:",
+									 	choices = NULL
+									 )
+						),
+						column(6,
+									 selectInput(
+									 	ns("contrast_covariates"),
+									 	"Covariates:",
+									 	choices = NULL,
+									 	multiple = TRUE
+									 )
+						)
+					),
+					
+					fluidRow(
+						column(12,
+									 textInput(
+									 	ns("user_contrast"),
+									 	"Contrast Specification:",
+									 	value = "",
+									 	placeholder = "e.g., 'case-control' or '(mild+severe)/2 - control'"
+									 ),
+									 helpText("Levels must match factor levels in your variable. Use '-' for minus (not hyphens in level names).")
+						)
+					),
+					
+					fluidRow(
+						column(6,
+									 actionButton(
+									 	ns("validate_contrast"),
+									 	"Validate Contrast",
+									 	icon = icon("check-circle"),
+									 	class = "btn-info"
+									 )
+						),
+						column(6,
+									 verbatimTextOutput(ns("contrast_validation"))
+						)
+					)
+				),
+				
+				## AutoAb Mode Parameters ####
+				conditionalPanel(
+					condition = paste0("input['", ns("analysis_mode"), "'] == 'autoab'"),
+					
+					h4("AutoAntibody Frequency Analysis"),
+					
+					fluidRow(
+						column(4,
+									 selectInput(
+									 	ns("autoab_variable"),
+									 	"Primary Variable:",
+									 	choices = NULL
+									 )
+						),
+						column(4,
+									 selectInput(
+									 	ns("autoab_group_pos"),
+									 	"Positive Group:",
+									 	choices = NULL
+									 )
+						),
+						column(4,
+									 selectInput(
+									 	ns("autoab_group_neg"),
+									 	"Negative Group:",
+									 	choices = NULL
+									 )
+						)
+					),
+					
+					fluidRow(
+						column(4,
+									 numericInput(
+									 	ns("delta_cutoff"),
+									 	"Delta % Cutoff:",
+									 	value = 10,
+									 	min = 0,
+									 	max = 100,
+									 	step = 5
+									 ),
+									 helpText("Minimum difference in % positive between groups")
+						),
+						column(4,
+									 numericInput(
+									 	ns("min_freq_threshold"),
+									 	"Min Frequency (small group):",
+									 	value = 0.15,
+									 	min = 0,
+									 	max = 1,
+									 	step = 0.05
+									 ),
+									 helpText("For unequal group sizes")
+						),
+						column(4,
+									 checkboxInput(
+									 	ns("exclude_zeros"),
+									 	"Exclude zeros from group means",
+									 	value = TRUE
+									 )
+						)
+					)
+				),
+				
+				hr(),
+				
+				## Common Analysis Parameters ####
+				h4("Analysis Parameters"),
+				
 				fluidRow(
-					# column(3,
-					# 			 selectInput(
-					# 			 	ns("covariates"),
-					# 			 	"Covariates",
-					# 			 	choices = NULL,
-					# 			 	multiple = TRUE
-					# 			 ),
-					# 			 tableOutput(ns("covariates_summary"))
-					# ),
 					column(3,
 								 numericInput(
 								 	ns("fc_cutoff"),
@@ -133,30 +323,31 @@ mod_pn_limma_ui <- function(id) {
 								 	choices = NULL,
 								 	multiple = TRUE
 								 )
+					),
+					column(3,
+								 radioButtons(
+								 	ns("fc_direction"),
+								 	"FC Direction",
+								 	choices = c(
+								 		"Up" = "up",
+								 		"Down" = "down",
+								 		"Both" = "both"
+								 	),
+								 	selected = "both"
+								 )
 					)
 				),
 				
 				## Analysis Options ####
 				fluidRow(
 					column(3,
-								 radioButtons(
-								 	ns("fc_direction"),
-								 	"Fold Change Direction",
-								 	choices = c(
-								 		"Up-regulated (positive FC)" = "up",
-								 		"Down-regulated (negative FC)" = "down",
-								 		"Both directions" = "both"
-								 	),
-								 	selected = "up"
-								 )
-					),
-					column(3,
-								 br(),
 								 checkboxInput(
 								 	ns("plot_violins"),
 								 	"Generate Violin Plots",
 								 	value = TRUE
-								 ),
+								 )
+					),
+					column(3,
 								 checkboxInput(
 								 	ns("eb_trend"),
 								 	"eBayes Trend",
@@ -164,7 +355,6 @@ mod_pn_limma_ui <- function(id) {
 								 )
 					),
 					column(3,
-								 br(),
 								 checkboxInput(
 								 	ns("eb_robust"),
 								 	"eBayes Robust",
@@ -172,13 +362,11 @@ mod_pn_limma_ui <- function(id) {
 								 )
 					),
 					column(3,
-								 br(),
 								 actionButton(
 								 	ns("run_limma"),
-								 	"Run Limma Analysis",
+								 	"Run Analysis",
 								 	icon = icon("play"),
-								 	class = "btn-primary btn-lg",
-								 	style = "margin-top: 5px;"
+								 	class = "btn-primary btn-lg"
 								 )
 					)
 				),
@@ -199,9 +387,17 @@ mod_pn_limma_ui <- function(id) {
 						id = ns("results_tabs"),
 						
 						tabPanel(
+							"Design Matrix",
+							br(),
+							verbatimTextOutput(ns("design_matrix_display")),
+							downloadButton(ns("download_design"), "Download Design Matrix", class = "btn-success")
+						),
+						
+						tabPanel(
 							"Top Results",
 							br(),
-							DT::dataTableOutput(ns("limma_top_table"))
+							DT::dataTableOutput(ns("limma_top_table")),
+							downloadButton(ns("download_toptable"), "Download TopTable", class = "btn-success")
 						),
 						
 						tabPanel(
@@ -224,7 +420,8 @@ mod_pn_limma_ui <- function(id) {
 												 h4("Heatmap - Row Centered"),
 												 plotOutput(ns("heatmap_rc"), height = "600px")
 									)
-								)
+								),
+								downloadButton(ns("download_heatmaps"), "Download Heatmaps", class = "btn-success")
 							),
 							conditionalPanel(
 								condition = paste0("!output['", ns("has_heatmaps"), "']"),
@@ -237,11 +434,28 @@ mod_pn_limma_ui <- function(id) {
 							br(),
 							conditionalPanel(
 								condition = paste0("output['", ns("has_roc"), "']"),
-								DT::dataTableOutput(ns("roc_table"))
+								DT::dataTableOutput(ns("roc_table")),
+								downloadButton(ns("download_roc"), "Download ROC Results", class = "btn-success")
 							),
 							conditionalPanel(
 								condition = paste0("!output['", ns("has_roc"), "']"),
 								h5("ROC analysis only available for categorical variables with significant results")
+							)
+						),
+						
+						## AutoAb Frequency Tab ####
+						tabPanel(
+							"Frequency Analysis",
+							br(),
+							conditionalPanel(
+								condition = paste0("output['", ns("has_frequency"), "']"),
+								h4("AutoAb Frequency Metrics"),
+								DT::dataTableOutput(ns("frequency_table")),
+								downloadButton(ns("download_frequency"), "Download Frequency Results", class = "btn-success")
+							),
+							conditionalPanel(
+								condition = paste0("!output['", ns("has_frequency"), "']"),
+								h5("Frequency analysis only available in AutoAb mode")
 							)
 						),
 						
@@ -250,30 +464,13 @@ mod_pn_limma_ui <- function(id) {
 							br(),
 							conditionalPanel(
 								condition = paste0("output['", ns("has_violins"), "']"),
-								uiOutput(ns("violin_plots_ui"))
+								uiOutput(ns("violin_plots_ui")),
+								downloadButton(ns("download_violins"), "Download Violin Plots", class = "btn-success")
 							),
 							conditionalPanel(
 								condition = paste0("!output['", ns("has_violins"), "']"),
-								h5("Violin plots only available for categorical variables with significant results")
+								h5("Violin plots only available with significant results")
 							)
-						)
-					),
-					
-					hr(),
-					
-					### Download Buttons ####
-					fluidRow(
-						column(3,
-									 downloadButton(ns("download_toptable"), "Download TopTable", class = "btn-success")
-						),
-						column(3,
-									 downloadButton(ns("download_roc"), "Download ROC Results", class = "btn-success")
-						),
-						column(3,
-									 downloadButton(ns("download_heatmaps"), "Download Heatmaps", class = "btn-success")
-						),
-						column(3,
-									 downloadButton(ns("download_violins"), "Download Violin Plots", class = "btn-success")
 						)
 					)
 				)
@@ -284,20 +481,16 @@ mod_pn_limma_ui <- function(id) {
 
 # Server Function ####
 
-#' PN Limma Analysis Module - Server
+#' Enhanced Limma Analysis Module - Server
 #'
 #' @param id Character string. Namespace identifier.
 #' @param eset Reactive or static. ExpressionSet object.
-#' @param mode Character or reactive. "basic" or "advanced". Default "basic".
-#' @param features List or reactive. Feature flags controlling functionality.
-#' @param default_assay Character or reactive. Default assayData element to select (default "exprs").
+#' @param default_assay Character or reactive. Default assayData element (default "exprs").
 #'
 #' @return Reactive list containing limma results
 #' @export
 mod_pn_limma_server <- function(id, 
 																eset,
-																mode = "basic",
-																features = list(),
 																default_assay = "exprs") {
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
@@ -319,36 +512,6 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		### Normalize Mode ####
-		mode_reactive <- reactive({
-			if (is.reactive(mode)) mode() else mode
-		})
-		
-		### Normalize Features ####
-		features_reactive <- reactive({
-			if (is.reactive(features)) {
-				f <- features()
-			} else {
-				f <- features
-			}
-			
-			# Merge with defaults
-			default_features <- list(
-				generate_heatmaps = TRUE,
-				generate_roc = TRUE,
-				generate_violins = TRUE,
-				allow_continuous = TRUE
-			)
-			
-			for (name in names(default_features)) {
-				if (is.null(f[[name]])) {
-					f[[name]] <- default_features[[name]]
-				}
-			}
-			
-			return(f)
-		})
-		
 		### Normalize Default Assay ####
 		default_assay_reactive <- reactive({
 			if (is.reactive(default_assay)) {
@@ -358,17 +521,16 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
-		## Setup ####
-		
-		### Reactive Values ####
+		## Reactive Values ####
 		rv <- reactiveValues(
 			limma_results = NULL,
 			merged_results = NULL,
-			exp_PN_AAbs = NULL,
-			PN_AAbs = NULL,
+			frequency_results = NULL,
 			heatmap_data = NULL,
 			violin_plots = NULL,
-			metadata_filtered = NULL
+			metadata_filtered = NULL,
+			design_matrix = NULL,
+			feature_select = NULL
 		)
 		
 		## UI Population ####
@@ -380,7 +542,6 @@ mod_pn_limma_server <- function(id,
 			assay_names <- Biobase::assayDataElementNames(eset_current())
 			selected_assay <- default_assay_reactive()
 			
-			# Select default or first available
 			if (!selected_assay %in% assay_names) {
 				selected_assay <- assay_names[1]
 			}
@@ -394,25 +555,96 @@ mod_pn_limma_server <- function(id,
 		})
 		
 		### Populate Metadata Choices ####
+		# observe({
+		# 	req(eset_current())
+		# 	
+		# 	metadata <- Biobase::pData(eset_current())
+		# 	col_names <- colnames(metadata)
+		# 	
+		# 	# Basic mode
+		# 	updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
+		# 	updateSelectInput(session, "covariates", choices = col_names)
+		# 	
+		# 	# Advanced mode
+		# 	updateSelectInput(session, "contrast_variable", choices = col_names, selected = col_names[1])
+		# 	updateSelectInput(session, "contrast_covariates", choices = col_names)
+		# 	
+		# 	# AutoAb mode
+		# 	updateSelectInput(session, "autoab_variable", choices = col_names, selected = col_names[1])
+		# 	
+		# 	# Common
+		# 	updateSelectInput(session, "add_anno", choices = col_names)
+		# 	updateSelectInput(session, "feature_filter_var", choices = col_names)
+		# })
+		
+		
+		### Feature Filter Threshold UI (dynamic label) ####
+		output$feature_filter_threshold_ui <- renderUI({
+			req(input$feature_filter_var)
+			
+			if (input$feature_filter_var == "CV") {
+				numericInput(
+					ns("feature_filter_threshold"),
+					"Maximum CV (%):",
+					value = 50,
+					min = 0,
+					max = 200
+				)
+			} else if (input$feature_filter_var %in% c("Mean Expression", "Max Expression")) {
+				numericInput(
+					ns("feature_filter_threshold"),
+					paste("Minimum", input$feature_filter_var, ":"),
+					value = 0,
+					min = 0
+				)
+			} else {
+				# For fData columns
+				numericInput(
+					ns("feature_filter_threshold"),
+					"Threshold:",
+					value = 0
+				)
+			}
+		})
+		
+		### Populate Metadata Choices ####
 		observe({
 			req(eset_current())
 			
 			metadata <- Biobase::pData(eset_current())
 			col_names <- colnames(metadata)
 			
+			# Basic mode
 			updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
 			updateSelectInput(session, "covariates", choices = col_names)
+			
+			# Advanced mode
+			updateSelectInput(session, "contrast_variable", choices = col_names, selected = col_names[1])
+			updateSelectInput(session, "contrast_covariates", choices = col_names)
+			
+			# AutoAb mode
+			updateSelectInput(session, "autoab_variable", choices = col_names, selected = col_names[1])
+			
+			# Common
 			updateSelectInput(session, "add_anno", choices = col_names)
+			
+			# ✅ FEATURE FILTER - use fData, not pData
+			fdata <- Biobase::fData(eset_current())
+			if (ncol(fdata) > 0) {
+				fdata_cols <- c("Mean Expression", "Max Expression", "CV", colnames(fdata))
+			} else {
+				fdata_cols <- c("Mean Expression", "Max Expression", "CV")
+			}
+			updateSelectInput(session, "feature_filter_var", choices = fdata_cols, selected = "Mean Expression")
 		})
 		
-		### Update Class Choices ####
+		### Update Class Choices (Basic Mode) ####
 		observe({
 			req(eset_current(), input$variable)
 			
 			if (!input$continuous) {
 				metadata <- Biobase::pData(eset_current())
 				
-				# Check variable exists
 				if (!input$variable %in% colnames(metadata)) {
 					return()
 				}
@@ -422,6 +654,364 @@ mod_pn_limma_server <- function(id,
 				updateSelectInput(session, "class1", choices = unique_vals, selected = unique_vals[1])
 				updateSelectInput(session, "class2", choices = unique_vals, selected = unique_vals[min(2, length(unique_vals))])
 			}
+		})
+		
+		### Update AutoAb Group Choices ####
+		observe({
+			req(eset_current(), input$autoab_variable)
+			
+			metadata <- Biobase::pData(eset_current())
+			
+			if (!input$autoab_variable %in% colnames(metadata)) {
+				return()
+			}
+			
+			unique_vals <- unique(metadata[[input$autoab_variable]])
+			
+			updateSelectInput(session, "autoab_group_pos", choices = unique_vals, selected = unique_vals[1])
+			updateSelectInput(session, "autoab_group_neg", choices = unique_vals, selected = unique_vals[min(2, length(unique_vals))])
+		})
+		
+		## Feature Selection ####
+		
+		### Calculate Feature Filter ####
+		# observe({
+		# 	req(eset_current(), input$use_feature_select)
+		# 	
+		# 	if (!input$use_feature_select) {
+		# 		rv$feature_select <- NULL
+		# 		return()
+		# 	}
+		# 	
+		# 	req(input$assay_data_select, input$feature_filter_threshold)
+		# 	
+		# 	exprs_data <- Biobase::assayDataElement(eset_current(), input$assay_data_select)
+		# 	
+		# 	# Simple threshold filter (can be enhanced)
+		# 	feature_means <- rowMeans(exprs_data, na.rm = TRUE)
+		# 	rv$feature_select <- rownames(exprs_data)[feature_means >= input$feature_filter_threshold]
+		# })
+		
+		### Calculate Feature Filter ####
+		
+		### Calculate Feature Filter ####
+		observe({
+			req(eset_current(), input$use_feature_select)
+			
+			if (!input$use_feature_select) {
+				rv$feature_select <- NULL
+				return()
+			}
+			
+			req(input$assay_data_select, input$feature_filter_var)
+			
+			exprs_data <- Biobase::assayDataElement(eset_current(), input$assay_data_select)
+			fdata <- Biobase::fData(eset_current())
+			
+			filter_var <- input$feature_filter_var
+			
+			# Calculate filter based on variable type
+			if (filter_var == "Mean Expression") {
+				req(input$feature_filter_threshold)
+				filter_values <- rowMeans(exprs_data, na.rm = TRUE)
+				keep_features <- filter_values >= input$feature_filter_threshold
+				
+			} else if (filter_var == "Max Expression") {
+				req(input$feature_filter_threshold)
+				filter_values <- apply(exprs_data, 1, max, na.rm = TRUE)
+				keep_features <- filter_values >= input$feature_filter_threshold
+				
+			} else if (filter_var == "CV") {
+				req(input$feature_filter_threshold)
+				filter_values <- apply(exprs_data, 1, function(x) {
+					sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
+				})
+				keep_features <- filter_values <= input$feature_filter_threshold
+				
+			} else if (filter_var %in% colnames(fdata)) {
+				# fData column
+				filter_values <- fdata[[filter_var]]
+				
+				if (is.numeric(filter_values)) {
+					# Numeric fData column
+					req(input$feature_filter_threshold)
+					keep_features <- filter_values >= input$feature_filter_threshold
+				} else {
+					# Categorical fData column
+					req(input$feature_filter_levels)
+					keep_features <- as.character(filter_values) %in% input$feature_filter_levels
+				}
+			} else {
+				warning("Unknown filter variable: ", filter_var)
+				rv$feature_select <- NULL
+				return()
+			}
+			
+			rv$feature_select <- rownames(exprs_data)[keep_features & !is.na(keep_features)]
+		})
+		# observe({
+		# 	req(eset_current(), input$use_feature_select)
+		# 	
+		# 	if (!input$use_feature_select) {
+		# 		rv$feature_select <- NULL
+		# 		return()
+		# 	}
+		# 	
+		# 	req(input$assay_data_select, input$feature_filter_var, input$feature_filter_threshold)
+		# 	
+		# 	exprs_data <- Biobase::assayDataElement(eset_current(), input$assay_data_select)
+		# 	fdata <- Biobase::fData(eset_current())
+		# 	
+		# 	filter_var <- input$feature_filter_var
+		# 	threshold <- input$feature_filter_threshold
+		# 	
+		# 	# Calculate filter metric based on selection
+		# 	if (filter_var == "Mean Expression") {
+		# 		filter_values <- rowMeans(exprs_data, na.rm = TRUE)
+		# 		keep_features <- filter_values >= threshold
+		# 		
+		# 	} else if (filter_var == "Max Expression") {
+		# 		filter_values <- apply(exprs_data, 1, max, na.rm = TRUE)
+		# 		keep_features <- filter_values >= threshold
+		# 		
+		# 	} else if (filter_var == "CV") {
+		# 		filter_values <- apply(exprs_data, 1, function(x) {
+		# 			sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
+		# 		})
+		# 		keep_features <- filter_values <= threshold  # ✅ CV: LOWER is better
+		# 		
+		# 	} else if (filter_var %in% colnames(fdata)) {
+		# 		# ✅ Use fData column
+		# 		filter_values <- fdata[[filter_var]]
+		# 		
+		# 		if (is.numeric(filter_values)) {
+		# 			keep_features <- filter_values >= threshold
+		# 		} else {
+		# 			# For categorical fData (e.g., "keep"/"remove")
+		# 			# Assume threshold is not used, just keep non-NA
+		# 			keep_features <- !is.na(filter_values)
+		# 		}
+		# 	} else {
+		# 		warning("Unknown filter variable: ", filter_var)
+		# 		rv$feature_select <- NULL
+		# 		return()
+		# 	}
+		# 	
+		# 	rv$feature_select <- rownames(exprs_data)[keep_features & !is.na(keep_features)]
+		# })
+		
+		### Feature Filter Summary ####
+		# output$feature_filter_summary <- renderPrint({
+		# 	req(rv$feature_select)
+		# 	
+		# 	total_features <- nrow(Biobase::assayDataElement(eset_current(), input$assay_data_select))
+		# 	filtered_features <- length(rv$feature_select)
+		# 	
+		# 	cat("Feature Filter Summary\n")
+		# 	cat("======================\n")
+		# 	cat("Total features:", total_features, "\n")
+		# 	cat("Filtered features:", filtered_features, "\n")
+		# 	cat("Removed:", total_features - filtered_features, "\n")
+		# 	cat("Retained:", round(filtered_features / total_features * 100, 1), "%\n")
+		# })
+		
+		### Dynamic Feature Filter Input (Numeric vs Categorical) ####
+		output$feature_filter_input_ui <- renderUI({
+			req(eset_current(), input$feature_filter_var, input$assay_data_select)
+			
+			filter_var <- input$feature_filter_var
+			exprs_data <- Biobase::assayDataElement(eset_current(), input$assay_data_select)
+			fdata <- Biobase::fData(eset_current())
+			
+			# Determine if variable is numeric or categorical
+			is_numeric <- FALSE
+			var_data <- NULL
+			
+			if (filter_var == "Mean Expression") {
+				is_numeric <- TRUE
+				var_data <- rowMeans(exprs_data, na.rm = TRUE)
+			} else if (filter_var == "Max Expression") {
+				is_numeric <- TRUE
+				var_data <- apply(exprs_data, 1, max, na.rm = TRUE)
+			} else if (filter_var == "CV") {
+				is_numeric <- TRUE
+				var_data <- apply(exprs_data, 1, function(x) {
+					sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE) * 100
+				})
+			} else if (filter_var %in% colnames(fdata)) {
+				var_data <- fdata[[filter_var]]
+				is_numeric <- is.numeric(var_data)
+			}
+			
+			# Generate appropriate input
+			if (is_numeric) {
+				# Numeric threshold input
+				if (filter_var == "CV") {
+					numericInput(
+						ns("feature_filter_threshold"),
+						"Maximum CV (%):",
+						value = 50,
+						min = 0,
+						max = 200
+					)
+				} else {
+					# Show range of values to help user
+					val_range <- range(var_data, na.rm = TRUE)
+					numericInput(
+						ns("feature_filter_threshold"),
+						HTML(paste0("Minimum ", filter_var, ":<br><small>Range: ", 
+												round(val_range[1], 2), " - ", round(val_range[2], 2), "</small>")),
+						value = round(quantile(var_data, 0.25, na.rm = TRUE), 2),  # Default: 25th percentile
+						min = val_range[1],
+						max = val_range[2],
+						step = (val_range[2] - val_range[1]) / 100
+					)
+				}
+			} else {
+				# Categorical selection input
+				unique_levels <- unique(as.character(var_data))
+				unique_levels <- unique_levels[!is.na(unique_levels)]
+				unique_levels <- sort(unique_levels)
+				
+				# Count features per level
+				level_counts <- table(var_data)
+				choices_with_counts <- setNames(
+					unique_levels,
+					paste0(unique_levels, " (n=", level_counts[unique_levels], ")")
+				)
+				
+				selectInput(
+					ns("feature_filter_levels"),
+					HTML(paste0("Keep features with ", filter_var, ":")),
+					choices = choices_with_counts,
+					selected = unique_levels,  # Default: keep all
+					multiple = TRUE
+				)
+			}
+		})
+		### Feature Filter Summary ####
+		# output$feature_filter_summary <- renderPrint({
+		# 	req(rv$feature_select, eset_current(), input$feature_filter_var)
+		# 	
+		# 	total_features <- nrow(Biobase::assayDataElement(eset_current(), input$assay_data_select))
+		# 	filtered_features <- length(rv$feature_select)
+		# 	
+		# 	cat("Feature Filter Summary\n")
+		# 	cat("======================\n")
+		# 	cat("Filter Variable:", input$feature_filter_var, "\n")
+		# 	cat("Threshold:", input$feature_filter_threshold, "\n")
+		# 	
+		# 	if (input$feature_filter_var == "CV") {
+		# 		cat("(Keeping features with CV <=", input$feature_filter_threshold, "%)\n\n")
+		# 	} else {
+		# 		cat("(Keeping features >=", input$feature_filter_threshold, ")\n\n")
+		# 	}
+		# 	
+		# 	cat("Total features:", total_features, "\n")
+		# 	cat("Filtered features:", filtered_features, "\n")
+		# 	cat("Removed:", total_features - filtered_features, "\n")
+		# 	cat("Retained:", round(filtered_features / total_features * 100, 1), "%\n")
+		# })
+		
+		### Feature Filter Summary ####
+		output$feature_filter_summary <- renderPrint({
+			req(rv$feature_select, eset_current(), input$feature_filter_var, input$assay_data_select)
+			
+			exprs_data <- Biobase::assayDataElement(eset_current(), input$assay_data_select)
+			fdata <- Biobase::fData(eset_current())
+			
+			total_features <- nrow(exprs_data)
+			filtered_features <- length(rv$feature_select)
+			
+			cat("Feature Filter Summary\n")
+			cat("======================\n")
+			cat("Filter Variable:", input$feature_filter_var, "\n")
+			
+			# Show filter criteria
+			filter_var <- input$feature_filter_var
+			
+			if (filter_var %in% c("Mean Expression", "Max Expression")) {
+				cat("Threshold: >=", input$feature_filter_threshold, "\n")
+			} else if (filter_var == "CV") {
+				cat("Threshold: <=", input$feature_filter_threshold, "%\n")
+			} else if (filter_var %in% colnames(fdata)) {
+				var_data <- fdata[[filter_var]]
+				if (is.numeric(var_data)) {
+					cat("Threshold: >=", input$feature_filter_threshold, "\n")
+				} else {
+					cat("Keeping levels:", paste(input$feature_filter_levels, collapse = ", "), "\n")
+				}
+			}
+			
+			cat("\n")
+			cat("Total features:", total_features, "\n")
+			cat("Kept:", filtered_features, "\n")
+			cat("Removed:", total_features - filtered_features, "\n")
+			cat("Retained:", round(filtered_features / total_features * 100, 1), "%\n")
+			
+			# Show distribution if categorical
+			if (filter_var %in% colnames(fdata)) {
+				var_data <- fdata[[filter_var]]
+				if (!is.numeric(var_data)) {
+					cat("\nDistribution before filtering:\n")
+					print(table(var_data, useNA = "ifany"))
+					cat("\nDistribution after filtering:\n")
+					print(table(var_data[rownames(exprs_data) %in% rv$feature_select], useNA = "ifany"))
+				}
+			}
+		})
+		
+		## Contrast Validation ####
+		observeEvent(input$validate_contrast, {
+			req(input$contrast_variable, input$user_contrast)
+			
+			tryCatch({
+				metadata <- Biobase::pData(eset_current())
+				variable <- input$contrast_variable
+				
+				# Make names syntactically valid
+				meta_clean <- metadata
+				if (!is.numeric(meta_clean[[variable]])) {
+					meta_clean[[variable]] <- make.names(meta_clean[[variable]])
+				}
+				
+				# Build design
+				if (!is.null(input$contrast_covariates) && length(input$contrast_covariates) > 0) {
+					design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, input$contrast_covariates), collapse = " + ")))
+				} else {
+					design_formula <- as.formula(paste0("~ 0 + ", variable))
+				}
+				
+				design <- model.matrix(design_formula, data = meta_clean)
+				
+				# Try to build contrast
+				user_contrast <- makeContrasts(contrasts = input$user_contrast, levels = design)
+				
+				output$contrast_validation <- renderPrint({
+					cat("✅ Contrast is valid!\n\n")
+					cat("Contrast matrix:\n")
+					print(user_contrast)
+					cat("\n")
+					cat("Groups involved:\n")
+					print(rownames(user_contrast)[user_contrast != 0])
+				})
+				
+				showNotification("✅ Contrast validated successfully!", type = "message", duration = 5)
+				
+			}, error = function(e) {
+				output$contrast_validation <- renderPrint({
+					cat("❌ Contrast validation failed:\n\n")
+					cat(e$message, "\n\n")
+					cat("Available levels:\n")
+					cat(paste(levels(as.factor(make.names(metadata[[input$contrast_variable]]))), collapse = ", "))
+				})
+				
+				showNotification(
+					paste("❌ Contrast validation failed:", e$message),
+					type = "error",
+					duration = 10
+				)
+			})
 		})
 		
 		## Outputs ####
@@ -436,14 +1026,21 @@ mod_pn_limma_server <- function(id,
 		})
 		
 		### Variable Summary ####
-		### Variable Summary ####
 		output$variable_summary <- renderTable({
-			req(eset_current(), input$variable)
+			req(eset_current())
+			
+			var_name <- switch(input$analysis_mode,
+												 "basic" = input$variable,
+												 "advanced" = input$contrast_variable,
+												 "autoab" = input$autoab_variable
+			)
+			
+			req(var_name)
 			
 			metadata <- Biobase::pData(eset_current())
 			
-			if (input$variable %in% colnames(metadata)) {
-				var_data <- metadata[[input$variable]]
+			if (var_name %in% colnames(metadata)) {
+				var_data <- metadata[[var_name]]
 				
 				if (is.numeric(var_data)) {
 					data.frame(
@@ -456,7 +1053,6 @@ mod_pn_limma_server <- function(id,
 						)
 					)
 				} else {
-					# Categorical - create clean table
 					tbl <- table(var_data, useNA = "ifany")
 					data.frame(
 						Group = names(tbl),
@@ -468,16 +1064,21 @@ mod_pn_limma_server <- function(id,
 		
 		### Covariates Summary ####
 		output$covariates_summary <- renderTable({
-			req(eset_current(), input$covariates)
+			req(eset_current())
 			
-			if (length(input$covariates) == 0) {
+			covs <- if (input$analysis_mode == "basic") {
+				input$covariates
+			} else {
+				input$contrast_covariates
+			}
+			
+			if (is.null(covs) || length(covs) == 0) {
 				return(NULL)
 			}
 			
 			metadata <- Biobase::pData(eset_current())
 			
-			# Build summary for all selected covariates
-			summary_list <- lapply(input$covariates, function(cov) {
+			summary_list <- lapply(covs, function(cov) {
 				if (cov %in% colnames(metadata)) {
 					var_data <- metadata[[cov]]
 					
@@ -521,6 +1122,686 @@ mod_pn_limma_server <- function(id,
 		
 		## Main Analysis Logic ####
 		
+		observeEvent(input$run_limma, {
+			req(eset_current(), input$assay_data_select, input$analysis_mode)
+			
+			showNotification("Running limma analysis...", type = "message", duration = NULL, id = "limma_running")
+			
+			tryCatch({
+				# Route to appropriate analysis function
+				if (input$analysis_mode == "basic") {
+					run_basic_limma()
+				} else if (input$analysis_mode == "advanced") {
+					run_advanced_limma()
+				} else if (input$analysis_mode == "autoab") {
+					run_autoab_limma()
+				}
+				
+				removeNotification("limma_running")
+				
+				showNotification(
+					"✅ Analysis complete!",
+					type = "message",
+					duration = 5
+				)
+				
+			}, error = function(e) {
+				removeNotification("limma_running")
+				showNotification(
+					paste("❌ Analysis failed:", e$message),
+					type = "error",
+					duration = 10
+				)
+				print(e)
+			})
+		})
+		
+		## Analysis Functions ####
+		
+		### Run Basic Limma ####
+		run_basic_limma <- function() {
+			# Get data
+			eset_temp <- eset_current()
+			metadata <- Biobase::pData(eset_temp)
+			exprs_data <- Biobase::assayDataElement(eset_temp, input$assay_data_select)
+			
+			# Apply feature selection
+			if (!is.null(rv$feature_select)) {
+				exprs_data <- exprs_data[rv$feature_select, , drop = FALSE]
+			}
+			
+			# Get parameters
+			variable <- input$variable
+			covariates <- input$covariates
+			continuous <- input$continuous
+			fc_cutoff <- input$fc_cutoff
+			p_val <- input$p_val
+			fc_direction <- input$fc_direction
+			
+			class1 <- if (!continuous) input$class1 else NULL
+			class2 <- if (!continuous) input$class2 else NULL
+			
+			# Make names syntactically valid
+			if (!is.numeric(metadata[[variable]])) {
+				metadata[[variable]][!is.na(metadata[[variable]])] <- make.names(metadata[[variable]][!is.na(metadata[[variable]])])
+				metadata[[variable]] <- as.factor(metadata[[variable]])
+			}
+			
+			if (!is.null(covariates) && length(covariates) > 0) {
+				for (covariate in covariates) {
+					if (!is.numeric(metadata[[covariate]])) {
+						metadata[[covariate]][!is.na(metadata[[covariate]])] <- make.names(metadata[[covariate]][!is.na(metadata[[covariate]])])
+						metadata[[covariate]] <- as.factor(metadata[[covariate]])
+					}
+				}
+			}
+			
+			# Remove samples with NA values
+			covariate_cols <- c(variable, covariates)
+			if (length(covariate_cols) > 1) {
+				na_rows <- which(rowSums(is.na(metadata[, covariate_cols])) > 0)
+			} else {
+				na_rows <- which(is.na(metadata[, covariate_cols]))
+			}
+			
+			if (length(na_rows) > 0) {
+				warning(paste("Removed", length(na_rows), "samples with NA values."))
+				metadata <- metadata[-na_rows, ]
+				exprs_data <- exprs_data[, rownames(metadata)]
+			}
+			
+			# Validate sample count
+			if (nrow(metadata) < 3) {
+				stop(paste("Not enough samples after removing NAs:", nrow(metadata), "samples remaining. Need at least 3."))
+			}
+			
+			# Build model
+			if (!continuous) {
+				# Categorical
+				if (!is.null(covariates) && length(covariates) > 0) {
+					design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, covariates), collapse = " + ")))
+				} else {
+					design_formula <- as.formula(paste0("~ 0 + ", variable))
+				}
+				
+				design <- model.matrix(design_formula, data = metadata)
+				
+				# Validate groups
+				class1_clean <- make.names(class1)
+				class2_clean <- make.names(class2)
+				
+				n_class1 <- sum(metadata[[variable]] == class1_clean, na.rm = TRUE)
+				n_class2 <- sum(metadata[[variable]] == class2_clean, na.rm = TRUE)
+				
+				if (n_class1 < 2 || n_class2 < 2) {
+					stop(paste0(
+						"Not enough samples in each group: ",
+						class1, ": ", n_class1, " samples, ",
+						class2, ": ", n_class2, " samples. ",
+						"Need at least 2 samples per group."
+					))
+				}
+				
+				# Build contrast
+				contrast_string <- paste0(variable, class1_clean, "-", variable, class2_clean)
+				user_contrast <- makeContrasts(contrasts = contrast_string, levels = design)
+				
+				# Fit model
+				fit <- lmFit(exprs_data, design)
+				fit2 <- contrasts.fit(fit, user_contrast)
+				fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
+				
+			} else {
+				# Continuous
+				if (!is.null(covariates) && length(covariates) > 0) {
+					design_formula <- as.formula(paste0("~ ", paste(c(variable, covariates), collapse = " + ")))
+				} else {
+					design_formula <- as.formula(paste0("~ ", variable))
+				}
+				
+				design <- model.matrix(design_formula, data = metadata)
+				
+				# Fit model
+				fit <- lmFit(exprs_data, design)
+				fit2 <- contrasts.fit(fit, coeff = 2)
+				fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
+			}
+			
+			# Get topTable
+			TT <- topTable(fit2, number = Inf)
+			TT <- TT %>% arrange(P.Value)
+			
+			# Store design matrix
+			rv$design_matrix <- design
+			
+			# Store results
+			rv$limma_results <- list(
+				topTable_full = TT,
+				topTable = TT,
+				design = design,
+				fit = fit2,
+				metadata = metadata,
+				expression = exprs_data,
+				variable = variable,
+				continuous = continuous,
+				class1 = class1,
+				class2 = class2,
+				fc_cutoff = fc_cutoff,
+				p_val = p_val,
+				fc_direction = fc_direction,
+				analysis_mode = "basic"
+			)
+			
+			rv$metadata_filtered <- metadata
+			
+			# Check for significant results
+			sig_rows_all <- which(TT$P.Value < p_val & abs(TT$logFC) > log2(fc_cutoff))
+			
+			if (length(sig_rows_all) < 1) {
+				showNotification(
+					"⚠️ No significant features found. Try adjusting cutoffs.",
+					type = "warning",
+					duration = 10
+				)
+				return()
+			}
+			
+			# Apply FC direction filter
+			TT_filtered <- filter_by_fc_direction(TT, "logFC", fc_direction)
+			sig_rows <- which(TT_filtered$P.Value < p_val & abs(TT_filtered$logFC) > log2(fc_cutoff))
+			
+			rv$limma_results$topTable <- TT_filtered
+			
+			if (length(sig_rows) < 1) {
+				direction_text <- switch(fc_direction,
+																 "up" = "up-regulated (positive FC)",
+																 "down" = "down-regulated (negative FC)",
+																 "both" = "in either direction"
+				)
+				
+				showNotification(
+					HTML(paste0(
+						"⚠️ No significant <strong>", direction_text, "</strong> features found.<br>",
+						"Total significant features (both directions): ", length(sig_rows_all), "<br>",
+						"Try changing FC direction filter or adjusting cutoffs."
+					)),
+					type = "warning",
+					duration = 10
+				)
+				return()
+			}
+			
+			# Generate additional outputs
+			generate_standard_outputs(TT_filtered, sig_rows, metadata, exprs_data, variable, 
+																continuous, class1_clean, class2_clean)
+		}
+		
+		### Run Advanced Limma (Custom Contrasts) ####
+		run_advanced_limma <- function() {
+			req(input$contrast_variable, input$user_contrast)
+			
+			# Get data
+			eset_temp <- eset_current()
+			metadata <- Biobase::pData(eset_temp)
+			exprs_data <- Biobase::assayDataElement(eset_temp, input$assay_data_select)
+			
+			# Apply feature selection
+			if (!is.null(rv$feature_select)) {
+				exprs_data <- exprs_data[rv$feature_select, , drop = FALSE]
+			}
+			
+			# Get parameters
+			variable <- input$contrast_variable
+			covariates <- input$contrast_covariates
+			user_contrast_string <- input$user_contrast
+			fc_cutoff <- input$fc_cutoff
+			p_val <- input$p_val
+			fc_direction <- input$fc_direction
+			
+			# Make names syntactically valid
+			if (!is.numeric(metadata[[variable]])) {
+				metadata[[variable]][!is.na(metadata[[variable]])] <- make.names(metadata[[variable]][!is.na(metadata[[variable]])])
+				metadata[[variable]] <- as.factor(metadata[[variable]])
+			}
+			
+			if (!is.null(covariates) && length(covariates) > 0) {
+				for (covariate in covariates) {
+					if (!is.numeric(metadata[[covariate]])) {
+						metadata[[covariate]][!is.na(metadata[[covariate]])] <- make.names(metadata[[covariate]][!is.na(metadata[[covariate]])])
+						metadata[[covariate]] <- as.factor(metadata[[covariate]])
+					}
+				}
+			}
+			
+			# Remove samples with NA values
+			covariate_cols <- c(variable, covariates)
+			if (length(covariate_cols) > 1) {
+				na_rows <- which(rowSums(is.na(metadata[, covariate_cols])) > 0)
+			} else {
+				na_rows <- which(is.na(metadata[, covariate_cols]))
+			}
+			
+			if (length(na_rows) > 0) {
+				warning(paste("Removed", length(na_rows), "samples with NA values."))
+				metadata <- metadata[-na_rows, ]
+				exprs_data <- exprs_data[, rownames(metadata)]
+			}
+			
+			# Build design with contrasts
+			if (!is.null(covariates) && length(covariates) > 0) {
+				design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, covariates), collapse = " + ")))
+			} else {
+				design_formula <- as.formula(paste0("~ 0 + ", variable))
+			}
+			
+			design <- model.matrix(design_formula, data = metadata)
+			
+			# Clean column names for makeContrasts
+			colnames(design) <- gsub(paste0("^", variable), "", colnames(design))
+			if (!is.null(covariates) && length(covariates) > 0) {
+				for (cov in covariates) {
+					colnames(design) <- gsub(paste0("^", cov), "", colnames(design))
+				}
+			}
+			
+			# Build contrast
+			user_contrast <- makeContrasts(contrasts = user_contrast_string, levels = design)
+			
+			# Fit model
+			fit <- lmFit(exprs_data, design)
+			fit2 <- contrasts.fit(fit, user_contrast)
+			fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
+			
+			# Get topTable
+			TT <- topTable(fit2, number = Inf)
+			TT <- TT %>% arrange(P.Value)
+			
+			# Store design matrix
+			rv$design_matrix <- design
+			
+			# Extract groups from contrast
+			contrast_groups <- rownames(user_contrast)[user_contrast != 0]
+			has_complex_contrast <- any(abs(user_contrast) == 0.5)
+			
+			if (has_complex_contrast) {
+				groupPos_levels <- names(user_contrast[user_contrast > 0, ])
+				groupNeg_levels <- names(user_contrast[user_contrast < 0, ])
+				groupPos <- paste(groupPos_levels, collapse = "+")
+				groupNeg <- paste(groupNeg_levels, collapse = "+")
+			} else {
+				groupPos <- names(which(user_contrast > 0))
+				groupNeg <- names(which(user_contrast < 0))
+			}
+			
+			# Store results
+			rv$limma_results <- list(
+				topTable_full = TT,
+				topTable = TT,
+				design = design,
+				fit = fit2,
+				metadata = metadata,
+				expression = exprs_data,
+				variable = variable,
+				continuous = FALSE,
+				class1 = groupPos,
+				class2 = groupNeg,
+				fc_cutoff = fc_cutoff,
+				p_val = p_val,
+				fc_direction = fc_direction,
+				analysis_mode = "advanced",
+				user_contrast = user_contrast,
+				has_complex_contrast = has_complex_contrast
+			)
+			
+			rv$metadata_filtered <- metadata
+			
+			# Check for significant results
+			sig_rows_all <- which(TT$P.Value < p_val & abs(TT$logFC) > log2(fc_cutoff))
+			
+			if (length(sig_rows_all) < 1) {
+				showNotification(
+					"⚠️ No significant features found. Try adjusting cutoffs.",
+					type = "warning",
+					duration = 10
+				)
+				return()
+			}
+			
+			# Apply FC direction filter
+			TT_filtered <- filter_by_fc_direction(TT, "logFC", fc_direction)
+			sig_rows <- which(TT_filtered$P.Value < p_val & abs(TT_filtered$logFC) > log2(fc_cutoff))
+			
+			rv$limma_results$topTable <- TT_filtered
+			
+			if (length(sig_rows) < 1) {
+				direction_text <- switch(fc_direction,
+																 "up" = "up-regulated (positive FC)",
+																 "down" = "down-regulated (negative FC)",
+																 "both" = "in either direction"
+				)
+				
+				showNotification(
+					HTML(paste0(
+						"⚠️ No significant <strong>", direction_text, "</strong> features found.<br>",
+						"Total significant features (both directions): ", length(sig_rows_all)
+					)),
+					type = "warning",
+					duration = 10
+				)
+				return()
+			}
+			
+			# Generate additional outputs
+			generate_standard_outputs(TT_filtered, sig_rows, metadata, exprs_data, variable, 
+																FALSE, groupPos, groupNeg)
+		}
+		
+		### Run AutoAb Limma (Frequency Analysis) ####
+		run_autoab_limma <- function() {
+			req(input$autoab_variable, input$autoab_group_pos, input$autoab_group_neg)
+			
+			# Get data
+			eset_temp <- eset_current()
+			metadata <- Biobase::pData(eset_temp)
+			exprs_data <- Biobase::assayDataElement(eset_temp, input$assay_data_select)
+			
+			# Apply feature selection
+			if (!is.null(rv$feature_select)) {
+				exprs_data <- exprs_data[rv$feature_select, , drop = FALSE]
+			}
+			
+			# Get parameters
+			variable <- input$autoab_variable
+			groupPos <- input$autoab_group_pos
+			groupNeg <- input$autoab_group_neg
+			fc_cutoff <- input$fc_cutoff
+			p_val <- input$p_val
+			delta_cutoff <- input$delta_cutoff
+			exclude_zeros <- input$exclude_zeros
+			fc_direction <- input$fc_direction
+			
+			# Make names syntactically valid
+			if (!is.numeric(metadata[[variable]])) {
+				metadata[[variable]][!is.na(metadata[[variable]])] <- make.names(metadata[[variable]][!is.na(metadata[[variable]])])
+				metadata[[variable]] <- as.factor(metadata[[variable]])
+			}
+			
+			groupPos_clean <- make.names(groupPos)
+			groupNeg_clean <- make.names(groupNeg)
+			
+			# Remove samples with NA values
+			na_rows <- which(is.na(metadata[[variable]]))
+			
+			if (length(na_rows) > 0) {
+				warning(paste("Removed", length(na_rows), "samples with NA values."))
+				metadata <- metadata[-na_rows, ]
+				exprs_data <- exprs_data[, rownames(metadata)]
+			}
+			
+			# Filter to relevant groups
+			metadata <- metadata[metadata[[variable]] %in% c(groupPos_clean, groupNeg_clean), ]
+			exprs_data <- exprs_data[, rownames(metadata)]
+			
+			# Reorder metadata by groupPos then groupNeg
+			metadata[[variable]] <- factor(metadata[[variable]], levels = c(groupPos_clean, groupNeg_clean))
+			metadata <- metadata %>% arrange(across(all_of(variable)))
+			exprs_data <- exprs_data[, rownames(metadata)]
+			
+			# Build design
+			design_formula <- as.formula(paste0("~ 0 + ", variable))
+			design <- model.matrix(design_formula, data = metadata)
+			colnames(design) <- gsub(paste0("^", variable), "", colnames(design))
+			
+			# Build contrast
+			contrast_string <- paste0(groupPos_clean, "-", groupNeg_clean)
+			user_contrast <- makeContrasts(contrasts = contrast_string, levels = design)
+			
+			# Fit model
+			fit <- lmFit(exprs_data, design)
+			fit2 <- contrasts.fit(fit, user_contrast)
+			fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
+			
+			# Get topTable
+			TT <- topTable(fit2, number = Inf)
+			TT <- TT %>% arrange(P.Value)
+			
+			# Store design matrix
+			rv$design_matrix <- design
+			
+			# Calculate local FC (excluding zeros if requested)
+			gap_tab <- table(metadata[[variable]])
+			gap_finder <- gap_tab[1]
+			
+			groupPos_dat <- exprs_data[, 1:gap_finder, drop = FALSE]
+			groupNeg_dat <- exprs_data[, (gap_finder + 1):ncol(exprs_data), drop = FALSE]
+			
+			if (exclude_zeros) {
+				# Handle all-zero AAbs
+				zero_Pos <- rownames(groupPos_dat)[rowSums(groupPos_dat) == 0]
+				zero_Neg <- rownames(groupNeg_dat)[rowSums(groupNeg_dat) == 0]
+				
+				if (length(zero_Pos) > 0) {
+					groupPos_dat[zero_Pos, ] <- 0.1
+				}
+				if (length(zero_Neg) > 0) {
+					groupNeg_dat[zero_Neg, ] <- 0.1
+				}
+				
+				# Calculate means excluding zeros
+				groupPos_means <- apply(groupPos_dat, 1, function(x) mean(x[x != 0], na.rm = TRUE))
+				groupNeg_means <- apply(groupNeg_dat, 1, function(x) mean(x[x != 0], na.rm = TRUE))
+			} else {
+				groupPos_means <- rowMeans(groupPos_dat, na.rm = TRUE)
+				groupNeg_means <- rowMeans(groupNeg_dat, na.rm = TRUE)
+			}
+			
+			# Calculate AAb FC
+			Aab_FCs <- groupPos_means - groupNeg_means
+			TT$Aab_FC <- logratio2foldchange(Aab_FCs)
+			
+			# Frequency analysis
+			freq_results <- Aab_counter(
+				call_mat = exprs_data,
+				meta_use = metadata,
+				var = variable,
+				groupPos = groupPos_clean,
+				groupNeg = groupNeg_clean
+			)
+			
+			# Merge with limma results
+			TT$Feature <- rownames(TT)
+			freq_results$Feature <- rownames(freq_results)
+			
+			merged_results <- left_join(TT, freq_results, by = "Feature")
+			rownames(merged_results) <- merged_results$Feature
+			merged_results <- merged_results %>% select(-Feature)
+			
+			# Calculate delta %
+			groupPos_freq_col <- paste0("AAb_frequency_", groupPos_clean)
+			groupNeg_freq_col <- paste0("AAb_frequency_", groupNeg_clean)
+			
+			merged_results$delta <- merged_results[[groupPos_freq_col]] - merged_results[[groupNeg_freq_col]]
+			
+			# Reorder columns
+			merged_results <- merged_results %>%
+				select(logFC, Aab_FC, AveExpr, P.Value, adj.P.Val, everything(), -c(t, B))
+			
+			# Store results
+			rv$limma_results <- list(
+				topTable_full = TT,
+				topTable = merged_results,
+				design = design,
+				fit = fit2,
+				metadata = metadata,
+				expression = exprs_data,
+				variable = variable,
+				continuous = FALSE,
+				class1 = groupPos_clean,
+				class2 = groupNeg_clean,
+				fc_cutoff = fc_cutoff,
+				p_val = p_val,
+				fc_direction = fc_direction,
+				analysis_mode = "autoab",
+				delta_cutoff = delta_cutoff,
+				exclude_zeros = exclude_zeros
+			)
+			
+			rv$frequency_results <- merged_results
+			rv$metadata_filtered <- metadata
+			
+			# Filter by delta cutoff
+			delta_sig <- merged_results %>%
+				filter(abs(delta) >= delta_cutoff)
+			
+			# Check group size imbalance
+			group_size_metric <- ncol(groupNeg_dat) / ncol(groupPos_dat) * 100
+			
+			if (group_size_metric < 70 || group_size_metric > 140) {
+				min_freq_threshold <- input$min_freq_threshold
+				
+				if (group_size_metric < 70) {
+					# groupNeg is small
+					small_group_col <- paste0("AAb_count_", groupNeg_clean)
+					delta_sig <- delta_sig %>%
+						filter((delta < -delta_cutoff & .data[[small_group_col]] >= min_freq_threshold * ncol(groupNeg_dat)) |
+									 	delta > delta_cutoff)
+				} else {
+					# groupPos is small
+					small_group_col <- paste0("AAb_count_", groupPos_clean)
+					delta_sig <- delta_sig %>%
+						filter((delta > delta_cutoff & .data[[small_group_col]] >= min_freq_threshold * ncol(groupPos_dat)) |
+									 	delta < -delta_cutoff)
+				}
+			}
+			
+			if (nrow(delta_sig) < 1) {
+				showNotification(
+					paste0("⚠️ No features found with delta % >= ", delta_cutoff),
+					type = "warning",
+					duration = 10
+				)
+				return()
+			}
+			
+			# Apply FC direction filter to limma sig hits
+			TT_filtered <- filter_by_fc_direction(merged_results, "logFC", fc_direction)
+			sig_rows <- which(TT_filtered$P.Value < p_val & abs(TT_filtered$logFC) > log2(fc_cutoff))
+			
+			rv$limma_results$topTable <- TT_filtered
+			
+			# Generate outputs for both limma hits and delta hits
+			if (length(sig_rows) > 0) {
+				generate_standard_outputs(TT_filtered, sig_rows, metadata, exprs_data, variable, 
+																	FALSE, groupPos_clean, groupNeg_clean)
+			}
+			
+			# Additional delta-specific outputs
+			if (nrow(delta_sig) >= 3) {
+				data_sig_delta <- exprs_data[rownames(delta_sig), rownames(metadata), drop = FALSE]
+				
+				# Generate delta heatmaps
+				rv$heatmap_data_delta <- generate_heatmap_data(
+					data_sig = data_sig_delta,
+					data_sig_RC = data.frame(t(scale(t(exprs_data), scale = FALSE, center = TRUE)), check.names = FALSE)[rownames(delta_sig), colnames(data_sig_delta), drop = FALSE],
+					meta_2 = metadata[, variable, drop = FALSE],
+					variable = variable,
+					continuous = FALSE,
+					class1 = groupPos_clean,
+					class2 = groupNeg_clean,
+					add_anno = NULL
+				)
+			}
+		}
+		
+		### Generate Standard Outputs ####
+		generate_standard_outputs <- function(TT_filtered, sig_rows, metadata, exprs_data, variable, 
+																					continuous, class1, class2) {
+			
+			# Prepare filtered metadata
+			if (!continuous) {
+				if (rv$limma_results$analysis_mode == "advanced" && rv$limma_results$has_complex_contrast) {
+					# Complex contrast - need to merge groups
+					meta_filtered <- metadata
+				} else {
+					meta_filtered <- metadata[metadata[[variable]] %in% c(class1, class2), ]
+				}
+			} else {
+				meta_filtered <- metadata
+			}
+			
+			# Create meta_2
+			if (!is.null(input$add_anno) && length(input$add_anno) > 0) {
+				cols_anno <- unique(c(variable, input$add_anno))
+				cols_anno <- cols_anno[cols_anno %in% colnames(meta_filtered)]
+				meta_2 <- as.data.frame(meta_filtered[, cols_anno, drop = FALSE], stringsAsFactors = FALSE)
+			} else {
+				meta_2 <- as.data.frame(meta_filtered[, variable, drop = FALSE], stringsAsFactors = FALSE)
+				if (colnames(meta_2)[1] != variable) {
+					colnames(meta_2) <- variable
+				}
+			}
+			
+			# Filter significant features
+			data_sig <- exprs_data[rownames(TT_filtered[sig_rows, ]), rownames(meta_2), drop = FALSE]
+			data_RC <- data.frame(t(scale(t(exprs_data), scale = FALSE, center = TRUE)), check.names = FALSE)
+			data_sig_RC <- data_RC[rownames(data_sig), colnames(data_sig), drop = FALSE]
+			
+			# Generate heatmaps
+			if (nrow(data_sig) >= 3) {
+				rv$heatmap_data <- generate_heatmap_data(
+					data_sig = data_sig,
+					data_sig_RC = data_sig_RC,
+					meta_2 = meta_2,
+					variable = variable,
+					continuous = continuous,
+					class1 = class1,
+					class2 = class2,
+					add_anno = input$add_anno
+				)
+			}
+			
+			# Generate ROC
+			if (!continuous && nrow(data_sig) > 0) {
+				rv$merged_results <- generate_roc_results(
+					exprs_data = exprs_data,
+					data_sig = data_sig,
+					meta_2 = meta_2,
+					TT = TT_filtered,
+					variable = variable,
+					class1 = class1,
+					class2 = class2,
+					sig_rows = sig_rows,
+					fc_direction = input$fc_direction
+				)
+				
+				# ✅ FIX: If ROC failed, set to NULL
+				if (is.null(rv$merged_results)) {
+					warning("ROC analysis failed - continuing without ROC results")
+				}
+			}
+			
+			# Generate violins
+			if (input$plot_violins && !continuous && nrow(data_sig) > 0) {
+				tryCatch({
+					violin_input <- if (!is.null(rv$merged_results)) {
+						rv$merged_results
+					} else {
+						TT_filtered[sig_rows, ]
+					}
+					
+					rv$violin_plots <- generate_violin_plots(
+						exprs_data = exprs_data,
+						merged_results = violin_input,
+						meta_2 = meta_2,
+						variable = variable
+					)
+				}, error = function(e) {
+					warning("Failed to generate violin plots: ", e$message)
+					rv$violin_plots <- NULL
+				})
+			}
+		}
+		
 		### Helper: Filter by FC Direction ####
 		filter_by_fc_direction <- function(data, logFC_col = "logFC", direction = "up") {
 			if (direction == "up") {
@@ -531,311 +1812,6 @@ mod_pn_limma_server <- function(id,
 				return(data)
 			}
 		}
-		
-		### Run Limma Analysis ####
-		observeEvent(input$run_limma, {
-			req(eset_current(), input$assay_data_select)
-			
-			showNotification("Running limma analysis...", type = "message", duration = NULL, id = "limma_running")
-			
-			tryCatch({
-				# Get data from SELECTED assayData element
-				# Get data from ExpressionSet
-				eset_temp <- eset_current()
-				metadata <- Biobase::pData(eset_temp)
-				exprs_data <- Biobase::assayDataElement(eset_temp, input$assay_data_select)
-				
-				# Get parameters
-				variable <- input$variable
-				covariates <- input$covariates
-				continuous <- input$continuous
-				fc_cutoff <- input$fc_cutoff
-				p_val <- input$p_val
-				fc_direction <- input$fc_direction
-				
-				class1 <- if (!continuous) input$class1 else NULL
-				class2 <- if (!continuous) input$class2 else NULL
-				
-				feature_select <- rownames(exprs_data)
-				
-				# Make names syntactically valid (required by limma)
-				if (!is.numeric(metadata[[variable]])) {
-					metadata[[variable]][!is.na(metadata[[variable]])] <- make.names(metadata[[variable]][!is.na(metadata[[variable]])])
-					metadata[[variable]] <- as.factor(metadata[[variable]])
-				}
-				
-				if (!is.null(covariates) && length(covariates) > 0) {
-					for (covariate in covariates) {
-						if (!is.numeric(metadata[[covariate]])) {
-							metadata[[covariate]][!is.na(metadata[[covariate]])] <- make.names(metadata[[covariate]][!is.na(metadata[[covariate]])])
-							metadata[[covariate]] <- as.factor(metadata[[covariate]])
-						}
-					}
-				}
-				
-				# Remove samples with NA values in the variable or covariates
-				covariate_cols <- c(variable, covariates)
-				if (length(covariate_cols) > 1) {
-					na_rows <- which(rowSums(is.na(metadata[, covariate_cols])) > 0)
-				} else {
-					na_rows <- which(is.na(metadata[, covariate_cols]))
-				}
-				
-				if (length(na_rows) > 0) {
-					warning(paste("Removed", length(na_rows), "samples with NA values."))
-					# ✅ Remove NA samples from BOTH metadata and expression data
-					metadata <- metadata[-na_rows, ]
-					exprs_data <- exprs_data[, rownames(metadata)]
-				}
-				
-				# Validate we have enough samples after NA removal
-				if (nrow(metadata) < 3) {
-					removeNotification("limma_running")
-					showNotification(
-						paste("❌ Not enough samples after removing NAs:", nrow(metadata), 
-									"samples remaining. Need at least 3 samples."),
-						type = "error",
-						duration = 10
-					)
-					return()
-				}
-				
-				# Build model based on continuous vs categorical
-				if (!continuous) {
-					# === CATEGORICAL VARIABLE ===
-					
-					# Build design matrix
-					if (!is.null(covariates) && length(covariates) > 0) {
-						design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, covariates), collapse = " + ")))
-					} else {
-						design_formula <- as.formula(paste0("~ 0 + ", variable))
-					}
-					
-					design <- model.matrix(design_formula, data = metadata)
-					
-					# Validate we have samples in both groups
-					class1_clean <- make.names(class1)
-					class2_clean <- make.names(class2)
-					
-					n_class1 <- sum(metadata[[variable]] == class1_clean, na.rm = TRUE)
-					n_class2 <- sum(metadata[[variable]] == class2_clean, na.rm = TRUE)
-					
-					if (n_class1 < 2 || n_class2 < 2) {
-						removeNotification("limma_running")
-						showNotification(
-							HTML(paste0(
-								"❌ Not enough samples in each group:<br>",
-								class1, ": ", n_class1, " samples<br>",
-								class2, ": ", n_class2, " samples<br>",
-								"Need at least 2 samples per group."
-							)),
-							type = "error",
-							duration = 10
-						)
-						return()
-					}
-					
-					# Build contrast
-					contrast_string <- paste0(variable, class1_clean, "-", variable, class2_clean)
-					user_contrast <- makeContrasts(contrasts = contrast_string, levels = design)
-					
-					# ✅ FIT MODEL: Use exprs_data matrix directly (already subset correctly above)
-					# DON'T use eset_temp because it still has the original 87 samples
-					fit <- lmFit(exprs_data, design)
-					fit2 <- contrasts.fit(fit, user_contrast)
-					fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
-					
-				} else {
-					# === CONTINUOUS VARIABLE ===
-					
-					# Build design matrix
-					if (!is.null(covariates) && length(covariates) > 0) {
-						design_formula <- as.formula(paste0("~ ", paste(c(variable, covariates), collapse = " + ")))
-					} else {
-						design_formula <- as.formula(paste0("~ ", variable))
-					}
-					
-					design <- model.matrix(design_formula, data = metadata)
-					
-					# ✅ FIT MODEL: Use exprs_data matrix directly
-					fit <- lmFit(exprs_data, design)
-					fit2 <- contrasts.fit(fit, coeff = 2)
-					fit2 <- eBayes(fit2, trend = input$eb_trend, robust = input$eb_robust)
-				}
-				
-				# Get topTable
-				TT <- topTable(fit2, number = Inf)
-				TT <- TT[feature_select, ]
-				TT <- TT %>% arrange(P.Value)
-				
-				# Store full results
-				rv$limma_results <- list(
-					topTable_full = TT,
-					topTable = TT,
-					design = design,
-					fit = fit2,
-					metadata = metadata,
-					expression = exprs_data,
-					variable = variable,
-					continuous = continuous,
-					class1 = class1,
-					class2 = class2,
-					fc_cutoff = fc_cutoff,
-					p_val = p_val,
-					fc_direction = fc_direction
-				)
-				
-				rv$metadata_filtered <- metadata
-				
-				# Check for significant results
-				sig_rows_all <- which(TT$P.Value < p_val & abs(TT$logFC) > log2(fc_cutoff))
-				
-				if (length(sig_rows_all) < 1) {
-					removeNotification("limma_running")
-					showNotification(
-						"⚠️ No significant features found. Try adjusting cutoffs.",
-						type = "warning",
-						duration = 10
-					)
-					return()
-				}
-				
-				# Apply FC direction filter
-				TT_filtered <- filter_by_fc_direction(TT, "logFC", fc_direction)
-				sig_rows <- which(TT_filtered$P.Value < p_val & abs(TT_filtered$logFC) > log2(fc_cutoff))
-				
-				rv$limma_results$topTable <- TT_filtered
-				
-				if (length(sig_rows) < 1) {
-					removeNotification("limma_running")
-					
-					direction_text <- switch(fc_direction,
-																	 "up" = "up-regulated (positive FC)",
-																	 "down" = "down-regulated (negative FC)",
-																	 "both" = "in either direction")
-					
-					showNotification(
-						HTML(paste0(
-							"⚠️ No significant <strong>", direction_text, "</strong> features found.<br>",
-							"Total significant features (both directions): ", length(sig_rows_all), "<br>",
-							"Try changing FC direction filter or adjusting cutoffs."
-						)),
-						type = "warning",
-						duration = 10
-					)
-					return()
-				}
-				
-				# Calculate expected PN AAbs
-				sig_AAbs <- rownames(TT_filtered[sig_rows, ])
-				n_sig <- length(sig_AAbs)
-				rv$exp_PN_AAbs <- max(1, n_sig - 2):min(nrow(exprs_data), n_sig + 4)
-				rv$PN_AAbs <- sig_AAbs
-				
-				# Generate additional outputs
-				feat <- features_reactive()
-				
-				# Prepare filtered metadata
-				if (!continuous) {
-					meta_filtered <- metadata[metadata[[variable]] %in% c(class1_clean, class2_clean), ]
-				} else {
-					meta_filtered <- metadata
-				}
-				
-				# Create meta_2
-				if (!is.null(input$add_anno) && length(input$add_anno) > 0) {
-					cols_anno <- unique(c(variable, input$add_anno))
-					cols_anno <- cols_anno[cols_anno %in% colnames(meta_filtered)]
-					meta_2 <- as.data.frame(meta_filtered[, cols_anno, drop = FALSE], stringsAsFactors = FALSE)
-				} else {
-					meta_2 <- as.data.frame(meta_filtered[, variable, drop = FALSE], stringsAsFactors = FALSE)
-					if (colnames(meta_2)[1] != variable) {
-						colnames(meta_2) <- variable
-					}
-				}
-				
-				# Filter significant features
-				data_sig <- exprs_data[rownames(TT_filtered[sig_rows, ]), rownames(meta_2), drop = FALSE]
-				data_RC <- data.frame(t(scale(t(exprs_data), scale = FALSE, center = TRUE)), check.names = FALSE)
-				data_sig_RC <- data_RC[rownames(data_sig), colnames(data_sig), drop = FALSE]
-				
-				# Generate heatmaps
-				if (feat$generate_heatmaps && nrow(data_sig) > 2) {
-					rv$heatmap_data <- generate_heatmap_data(
-						data_sig = data_sig,
-						data_sig_RC = data_sig_RC,
-						meta_2 = meta_2,
-						variable = variable,
-						continuous = continuous,
-						class1 = class1_clean,
-						class2 = class2_clean,
-						add_anno = input$add_anno
-					)
-				}
-				
-				# Generate ROC
-				if (feat$generate_roc && !continuous && nrow(data_sig) > 0) {
-					rv$merged_results <- generate_roc_results(
-						exprs_data = exprs_data,
-						data_sig = data_sig,
-						meta_2 = meta_2,
-						TT = TT_filtered,
-						variable = variable,
-						class1 = class1_clean,
-						class2 = class2_clean,
-						sig_rows = sig_rows,
-						fc_direction = fc_direction
-					)
-				}
-				
-				# Generate violins
-				if (feat$generate_violins && input$plot_violins && !continuous && nrow(data_sig) > 0) {
-					tryCatch({
-						violin_input <- if (!is.null(rv$merged_results)) {
-							rv$merged_results
-						} else {
-							TT_filtered[sig_rows, ]
-						}
-						
-						rv$violin_plots <- generate_violin_plots(
-							exprs_data = exprs_data,
-							merged_results = violin_input,
-							meta_2 = meta_2,
-							variable = variable
-						)
-					}, error = function(e) {
-						warning("Failed to generate violin plots: ", e$message)
-						rv$violin_plots <- NULL
-					})
-				}
-				
-				removeNotification("limma_running")
-				
-				direction_text <- switch(fc_direction,
-																 "up" = "up-regulated",
-																 "down" = "down-regulated",
-																 "both" = "in both directions")
-				
-				showNotification(
-					HTML(paste0(
-						"<strong>✅ Limma analysis complete!</strong><br>",
-						"Found ", n_sig, " significant ", direction_text, " features<br>",
-						"Expected range: ", min(rv$exp_PN_AAbs), "-", max(rv$exp_PN_AAbs)
-					)),
-					type = "message",
-					duration = 10
-				)
-				
-			}, error = function(e) {
-				removeNotification("limma_running")
-				showNotification(
-					paste("❌ Limma analysis failed:", e$message),
-					type = "error",
-					duration = 10
-				)
-				print(e)
-			})
-		})
 		
 		## Results Outputs ####
 		
@@ -860,6 +1836,22 @@ mod_pn_limma_server <- function(id,
 		})
 		outputOptions(output, "has_violins", suspendWhenHidden = FALSE)
 		
+		output$has_frequency <- reactive({
+			!is.null(rv$frequency_results)
+		})
+		outputOptions(output, "has_frequency", suspendWhenHidden = FALSE)
+		
+		### Design Matrix Display ####
+		output$design_matrix_display <- renderPrint({
+			req(rv$design_matrix)
+			
+			cat("Design Matrix:\n")
+			cat("==============\n\n")
+			print(head(rv$design_matrix, 20))
+			cat("\n...")
+			cat("\nDimensions:", nrow(rv$design_matrix), "samples ×", ncol(rv$design_matrix), "coefficients\n")
+		})
+		
 		### Summary ####
 		output$limma_summary <- renderPrint({
 			req(rv$limma_results)
@@ -868,11 +1860,12 @@ mod_pn_limma_server <- function(id,
 			TT_full <- rv$limma_results$topTable_full
 			fc_direction <- rv$limma_results$fc_direction
 			
-			sig_count <- sum(TT$P.Value < rv$limma_results$p_val & abs(TT$logFC) > log2(rv$limma_results$fc_cutoff))
-			sig_count_full <- sum(TT_full$P.Value < rv$limma_results$p_val & abs(TT_full$logFC) > log2(rv$limma_results$fc_cutoff))
+			sig_count <- sum(TT$P.Value < rv$limma_results$p_val & abs(TT$logFC) > log2(rv$limma_results$fc_cutoff), na.rm = TRUE)
+			sig_count_full <- sum(TT_full$P.Value < rv$limma_results$p_val & abs(TT_full$logFC) > log2(rv$limma_results$fc_cutoff), na.rm = TRUE)
 			
 			cat("Limma Analysis Summary\n")
 			cat("======================\n\n")
+			cat("Analysis Mode:", rv$limma_results$analysis_mode, "\n")
 			cat("Variable:", rv$limma_results$variable, "\n")
 			cat("Type:", if (rv$limma_results$continuous) "Continuous" else "Categorical", "\n")
 			if (!rv$limma_results$continuous) {
@@ -885,7 +1878,8 @@ mod_pn_limma_server <- function(id,
 			direction_text <- switch(fc_direction,
 															 "up" = "Up-regulated (positive FC)",
 															 "down" = "Down-regulated (negative FC)",
-															 "both" = "Both directions")
+															 "both" = "Both directions"
+			)
 			
 			cat("FC Direction Filter:", direction_text, "\n\n")
 			cat("Significant Features (filtered):", sig_count, "\n")
@@ -894,8 +1888,15 @@ mod_pn_limma_server <- function(id,
 				cat("Total Significant (all directions):", sig_count_full, "\n")
 			}
 			
-			if (!is.null(rv$exp_PN_AAbs)) {
-				cat("\nExpected PN AAb Count:", paste(rv$exp_PN_AAbs, collapse = ", "), "\n")
+			if (rv$limma_results$analysis_mode == "autoab") {
+				cat("\nAutoAb Mode:\n")
+				cat("Delta % Cutoff:", rv$limma_results$delta_cutoff, "\n")
+				cat("Exclude Zeros:", rv$limma_results$exclude_zeros, "\n")
+				
+				if (!is.null(rv$frequency_results)) {
+					delta_hits <- sum(abs(rv$frequency_results$delta) >= rv$limma_results$delta_cutoff, na.rm = TRUE)
+					cat("Features with delta % >=", rv$limma_results$delta_cutoff, ":", delta_hits, "\n")
+				}
 			}
 		})
 		
@@ -916,13 +1917,33 @@ mod_pn_limma_server <- function(id,
 				sig_table$FC <- logratio2foldchange(sig_table$logFC)
 			}
 			
+			# Select columns to display
+			display_cols <- intersect(
+				c("logFC", "FC", "AveExpr", "t", "P.Value", "adj.P.Val", "B", "Aab_FC", "delta"),
+				colnames(sig_table)
+			)
+			
 			sig_table %>%
-				select(logFC, FC, AveExpr, t, P.Value, adj.P.Val, B) %>%
+				select(all_of(display_cols)) %>%
 				DT::datatable(
 					options = list(pageLength = 20, scrollX = TRUE),
 					rownames = TRUE
 				) %>%
-				DT::formatRound(columns = c("logFC", "FC", "AveExpr", "t", "B"), digits = 3) %>%
+				DT::formatRound(columns = intersect(c("logFC", "FC", "AveExpr", "t", "B", "Aab_FC", "delta"), display_cols), digits = 3) %>%
+				DT::formatSignif(columns = c("P.Value", "adj.P.Val"), digits = 3)
+		})
+		
+		### Frequency Table ####
+		output$frequency_table <- DT::renderDataTable({
+			req(rv$frequency_results)
+			
+			rv$frequency_results %>%
+				arrange(desc(abs(delta))) %>%
+				DT::datatable(
+					options = list(pageLength = 20, scrollX = TRUE),
+					rownames = TRUE
+				) %>%
+				DT::formatRound(columns = c("logFC", "Aab_FC", "delta"), digits = 2) %>%
 				DT::formatSignif(columns = c("P.Value", "adj.P.Val"), digits = 3)
 		})
 		
@@ -1029,12 +2050,19 @@ mod_pn_limma_server <- function(id,
 		output$roc_table <- DT::renderDataTable({
 			req(rv$merged_results)
 			
+			display_cols <- intersect(
+				c("logFC", "FC", "P.Value", "adj.P.Val", "AUC", "Sensitivity", "Specificity", "Optimal.Cutoff"),
+				colnames(rv$merged_results)
+			)
+			
 			rv$merged_results %>%
+				select(all_of(display_cols)) %>%
 				DT::datatable(
 					options = list(pageLength = 20, scrollX = TRUE),
 					rownames = TRUE
 				) %>%
-				DT::formatRound(columns = c("logFC", "FC", "AUC", "Sensitivity", "Specificity", "Optimal.Cutoff"), digits = 3)
+				DT::formatRound(columns = intersect(c("logFC", "FC", "AUC", "Sensitivity", "Specificity", "Optimal.Cutoff"), display_cols), digits = 3) %>%
+				DT::formatSignif(columns = c("P.Value", "adj.P.Val"), digits = 3)
 		})
 		
 		### Violin Plots ####
@@ -1065,11 +2093,23 @@ mod_pn_limma_server <- function(id,
 		
 		## Downloads ####
 		
+		### Download Design Matrix ####
+		output$download_design <- downloadHandler(
+			filename = function() {
+				paste0("design_matrix_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+			},
+			content = function(file) {
+				req(rv$design_matrix)
+				write.csv(rv$design_matrix, file, row.names = TRUE)
+			}
+		)
+		
 		### Download TopTable ####
 		output$download_toptable <- downloadHandler(
 			filename = function() {
+				mode <- rv$limma_results$analysis_mode
 				direction <- rv$limma_results$fc_direction
-				paste0("limma_full_table_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+				paste0("limma_toptable_", mode, "_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
 			},
 			content = function(file) {
 				req(rv$limma_results)
@@ -1080,8 +2120,7 @@ mod_pn_limma_server <- function(id,
 		### Download ROC ####
 		output$download_roc <- downloadHandler(
 			filename = function() {
-				direction <- rv$limma_results$fc_direction
-				paste0("limma_ROC_results_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+				paste0("limma_ROC_results_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
 			},
 			content = function(file) {
 				req(rv$merged_results)
@@ -1089,11 +2128,21 @@ mod_pn_limma_server <- function(id,
 			}
 		)
 		
+		### Download Frequency ####
+		output$download_frequency <- downloadHandler(
+			filename = function() {
+				paste0("autoab_frequency_results_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv")
+			},
+			content = function(file) {
+				req(rv$frequency_results)
+				write.csv(rv$frequency_results, file, row.names = TRUE)
+			}
+		)
+		
 		### Download Heatmaps ####
 		output$download_heatmaps <- downloadHandler(
 			filename = function() {
-				direction <- rv$limma_results$fc_direction
-				paste0("heatmaps_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
+				paste0("heatmaps_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
 			},
 			content = function(file) {
 				req(rv$heatmap_data)
@@ -1129,8 +2178,7 @@ mod_pn_limma_server <- function(id,
 		### Download Violins ####
 		output$download_violins <- downloadHandler(
 			filename = function() {
-				direction <- rv$limma_results$fc_direction
-				paste0("violin_plots_", direction, "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
+				paste0("violin_plots_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
 			},
 			content = function(file) {
 				req(rv$violin_plots)
@@ -1146,18 +2194,18 @@ mod_pn_limma_server <- function(id,
 		## Return Values ####
 		return(reactive({
 			list(
-				exp_PN_AAbs = rv$exp_PN_AAbs,
-				PN_AAbs = rv$PN_AAbs,
 				limma_results = rv$limma_results,
 				merged_results = rv$merged_results,
+				frequency_results = rv$frequency_results,
 				heatmap_data = rv$heatmap_data,
-				violin_plots = rv$violin_plots
+				violin_plots = rv$violin_plots,
+				design_matrix = rv$design_matrix
 			)
 		}))
 	})
 }
 
-# Helper Functions ####
+# Helper Functions (continued) ####
 
 ## Generate Heatmap Data ####
 
@@ -1272,71 +2320,130 @@ generate_heatmap_data <- function(data_sig, data_sig_RC, meta_2, variable,
 #'
 #' @return Data frame with merged limma + ROC results
 #' @keywords internal
+## Generate ROC Results ####
 generate_roc_results <- function(exprs_data, data_sig, meta_2, TT, variable, 
 																 class1, class2, sig_rows, fc_direction = "both") {
 	
-	# Run ROC analysis based on direction
-	if (fc_direction == "up" || fc_direction == "both") {
-		ROC_results_up <- ROC_mini(
-			input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
-			metadata = meta_2,
-			variable = variable,
-			groupPos = class1,
-			groupNeg = class2,
-			descriptor = "up",
-			folder = NULL
-		)
-		ROC_results_up <- data.frame(ROC_results_up)
-	}
-	
-	if (fc_direction == "down" || fc_direction == "both") {
-		ROC_results_down <- ROC_mini(
-			input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
-			metadata = meta_2,
-			variable = variable,
-			groupPos = class2,
-			groupNeg = class1,
-			descriptor = "down",
-			folder = NULL
-		)
-		ROC_results_down <- data.frame(ROC_results_down)
-	}
-	
-	# Merge with limma results
-	limma_results <- TT[rownames(data_sig), ]
-	limma_results$Protein <- rownames(limma_results)
-	
-	if (fc_direction == "up") {
-		merged_results <- left_join(limma_results, ROC_results_up, by = "Protein")
-	} else if (fc_direction == "down") {
-		merged_results <- left_join(limma_results, ROC_results_down, by = "Protein")
-	} else {
-		limma_up <- limma_results[limma_results$logFC > 0, ]
-		limma_down <- limma_results[limma_results$logFC < 0, ]
+	tryCatch({
+		# ✅ FIX: Ensure meta_2 has the variable column properly named
+		if (ncol(meta_2) == 1 && colnames(meta_2)[1] != variable) {
+			colnames(meta_2) <- variable
+		}
 		
-		merged_up <- left_join(limma_up, ROC_results_up, by = "Protein")
-		merged_down <- left_join(limma_down, ROC_results_down, by = "Protein")
+		# ✅ FIX: Ensure variable exists in meta_2
+		if (!variable %in% colnames(meta_2)) {
+			warning("Variable '", variable, "' not found in metadata for ROC analysis")
+			return(NULL)
+		}
 		
-		merged_results <- rbind(merged_up, merged_down)
-	}
-	
-	rownames(merged_results) <- merged_results$Protein
-	
-	# Clean up columns
-	merged_results <- merged_results %>%
-		dplyr::select(-c(AveExpr, B, t, Protein)) %>%
-		mutate(
-			P.Value = format(P.Value, scientific = TRUE, digits = 3),
-			adj.P.Val = format(adj.P.Val, scientific = TRUE, digits = 3),
-			FC = logratio2foldchange(logFC)
-		) %>%
-		arrange(desc(abs(FC)))
-	
-	# Reorder columns
-	col_order <- c("logFC", "FC", setdiff(names(merged_results), c("logFC", "FC")))
-	merged_results <- merged_results[, col_order]
-	
-	return(merged_results)
+		# Run ROC analysis based on direction
+		ROC_results_up <- NULL
+		ROC_results_down <- NULL
+		
+		if (fc_direction == "up" || fc_direction == "both") {
+			ROC_results_up <- ROC_mini(
+				input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
+				metadata = meta_2,
+				variable = variable,
+				groupPos = class1,
+				groupNeg = class2,
+				descriptor = "up",
+				folder = NULL
+			)
+			
+			# ✅ FIX: Check if ROC returned valid results
+			if (is.null(ROC_results_up) || nrow(ROC_results_up) == 0) {
+				warning("ROC analysis (up) returned no results")
+				ROC_results_up <- NULL
+			}
+		}
+		
+		if (fc_direction == "down" || fc_direction == "both") {
+			ROC_results_down <- ROC_mini(
+				input = exprs_data[rownames(data_sig), rownames(meta_2), drop = FALSE],
+				metadata = meta_2,
+				variable = variable,
+				groupPos = class2,
+				groupNeg = class1,
+				descriptor = "down",
+				folder = NULL
+			)
+			
+			# ✅ FIX: Check if ROC returned valid results
+			if (is.null(ROC_results_down) || nrow(ROC_results_down) == 0) {
+				warning("ROC analysis (down) returned no results")
+				ROC_results_down <- NULL
+			}
+		}
+		
+		# ✅ FIX: Handle case where ROC fails
+		if (is.null(ROC_results_up) && is.null(ROC_results_down)) {
+			warning("ROC analysis failed for both directions")
+			return(NULL)
+		}
+		
+		# Merge with limma results
+		limma_results <- TT[rownames(data_sig), ]
+		limma_results$Protein <- rownames(limma_results)
+		
+		if (fc_direction == "up" && !is.null(ROC_results_up)) {
+			merged_results <- left_join(limma_results, ROC_results_up, by = "Protein")
+			
+		} else if (fc_direction == "down" && !is.null(ROC_results_down)) {
+			merged_results <- left_join(limma_results, ROC_results_down, by = "Protein")
+			
+		} else {
+			# Both directions
+			limma_up <- limma_results[limma_results$logFC > 0, ]
+			limma_down <- limma_results[limma_results$logFC < 0, ]
+			
+			merged_up <- if (!is.null(ROC_results_up) && nrow(limma_up) > 0) {
+				left_join(limma_up, ROC_results_up, by = "Protein")
+			} else {
+				limma_up
+			}
+			
+			merged_down <- if (!is.null(ROC_results_down) && nrow(limma_down) > 0) {
+				left_join(limma_down, ROC_results_down, by = "Protein")
+			} else {
+				limma_down
+			}
+			
+			merged_results <- rbind(merged_up, merged_down)
+		}
+		
+		rownames(merged_results) <- merged_results$Protein
+		
+		# Clean up columns
+		merged_results <- merged_results %>%
+			dplyr::select(-Protein)
+		
+		# Only remove columns if they exist
+		cols_to_remove <- intersect(c("AveExpr", "B", "t"), colnames(merged_results))
+		if (length(cols_to_remove) > 0) {
+			merged_results <- merged_results %>% dplyr::select(-all_of(cols_to_remove))
+		}
+		
+		# Format p-values and add FC
+		merged_results <- merged_results %>%
+			mutate(
+				P.Value = format(P.Value, scientific = TRUE, digits = 3),
+				adj.P.Val = format(adj.P.Val, scientific = TRUE, digits = 3),
+				FC = logratio2foldchange(logFC)
+			) %>%
+			arrange(desc(abs(FC)))
+		
+		# Reorder columns
+		col_order <- c("logFC", "FC", setdiff(names(merged_results), c("logFC", "FC")))
+		merged_results <- merged_results[, col_order]
+		
+		return(merged_results)
+		
+	}, error = function(e) {
+		warning("Error in generate_roc_results: ", e$message)
+		print(e)
+		return(NULL)
+	})
 }
 
 ## Generate Violin Plots ####
@@ -1443,3 +2550,283 @@ generate_violin_plots <- function(exprs_data, merged_results, meta_2, variable) 
 		return(NULL)
 	})
 }
+
+## ROC Mini Function ####
+
+#' ROC Analysis for Features
+#'
+#' @param input Matrix, expression data
+#' @param metadata Data frame, sample metadata
+#' @param variable Character, grouping variable name
+#' @param groupPos Character, positive group name
+#' @param groupNeg Character, negative group name
+#' @param descriptor Character, descriptor for output
+#' @param folder Character, output folder (NULL to skip saving)
+#'
+#' @return Data frame with ROC metrics
+#' @keywords internal
+ROC_mini <- function(input, metadata, variable, groupPos, groupNeg, descriptor, folder = NULL) {
+	
+	tryCatch({
+		# Filter metadata to relevant groups
+		meta_filtered <- metadata[metadata[[variable]] %in% c(groupPos, groupNeg), ]
+		
+		# Match expression data
+		data_use <- input[, rownames(meta_filtered), drop = FALSE]
+		
+		# Create binary response (1 = groupPos, 0 = groupNeg)
+		response <- ifelse(meta_filtered[[variable]] == groupPos, 1, 0)
+		
+		# Calculate ROC for each feature
+		roc_results <- lapply(rownames(data_use), function(feature) {
+			feature_data <- as.numeric(data_use[feature, ])
+			
+			# Skip if all values are the same
+			if (length(unique(feature_data)) == 1) {
+				return(data.frame(
+					Protein = feature,
+					AUC = NA,
+					Sensitivity = NA,
+					Specificity = NA,
+					Optimal.Cutoff = NA
+				))
+			}
+			
+			# Calculate ROC
+			roc_obj <- pROC::roc(response, feature_data, quiet = TRUE)
+			
+			# Find optimal cutoff (Youden's index)
+			coords <- pROC::coords(roc_obj, "best", ret = c("threshold", "sensitivity", "specificity"), 
+														 best.method = "youden", quiet = TRUE)
+			
+			data.frame(
+				Protein = feature,
+				AUC = as.numeric(pROC::auc(roc_obj)),
+				Sensitivity = coords$sensitivity,
+				Specificity = coords$specificity,
+				Optimal.Cutoff = coords$threshold
+			)
+		})
+		
+		roc_df <- do.call(rbind, roc_results)
+		rownames(roc_df) <- roc_df$Protein
+		
+		# Save if folder provided
+		if (!is.null(folder)) {
+			write.csv(roc_df, file.path(folder, paste0("ROC_results_", descriptor, ".csv")))
+		}
+		
+		return(roc_df)
+		
+	}, error = function(e) {
+		warning("Error in ROC_mini: ", e$message)
+		return(NULL)
+	})
+}
+
+## AutoAb Counter Function ####
+
+#' Count AutoAntibody Frequencies by Group
+#'
+#' @param call_mat Matrix, expression data (features x samples)
+#' @param meta_use Data frame, metadata
+#' @param var Character, variable name for grouping
+#' @param groupPos Character, positive group name
+#' @param groupNeg Character, negative group name
+#' @param descriptor Character, descriptor for output (optional)
+#'
+#' @return Data frame with frequency counts
+#' @keywords internal
+Aab_counter <- function(call_mat, meta_use, var, groupPos, groupNeg, descriptor = NULL) {
+	
+	tryCatch({
+		# Filter metadata to relevant groups
+		meta_filtered <- meta_use[meta_use[[var]] %in% c(groupPos, groupNeg), ]
+		
+		# Match expression data
+		data_use <- call_mat[, rownames(meta_filtered), drop = FALSE]
+		
+		# Get sample indices for each group
+		groupPos_samples <- rownames(meta_filtered)[meta_filtered[[var]] == groupPos]
+		groupNeg_samples <- rownames(meta_filtered)[meta_filtered[[var]] == groupNeg]
+		
+		# Count positive calls (non-zero) per feature per group
+		groupPos_counts <- apply(data_use[, groupPos_samples, drop = FALSE], 1, function(x) sum(x != 0))
+		groupNeg_counts <- apply(data_use[, groupNeg_samples, drop = FALSE], 1, function(x) sum(x != 0))
+		
+		# Calculate frequencies
+		groupPos_freq <- groupPos_counts / length(groupPos_samples)
+		groupNeg_freq <- groupNeg_counts / length(groupNeg_samples)
+		
+		# Build results data frame
+		results <- data.frame(
+			row.names = rownames(data_use),
+			AAb_count_pos = groupPos_counts,
+			AAb_frequency_pos = groupPos_freq,
+			AAb_count_neg = groupNeg_counts,
+			AAb_frequency_neg = groupNeg_freq
+		)
+		
+		# Rename columns with actual group names
+		colnames(results) <- gsub("_pos$", paste0("_", groupPos), colnames(results))
+		colnames(results) <- gsub("_neg$", paste0("_", groupNeg), colnames(results))
+		
+		return(results)
+		
+	}, error = function(e) {
+		warning("Error in Aab_counter: ", e$message)
+		return(NULL)
+	})
+}
+
+## Performance Metrics Function ####
+
+#' Calculate Performance Metrics for AutoAbs
+#'
+#' @param input Matrix, expression data
+#' @param metadata Data frame, sample metadata
+#' @param variable Character, grouping variable
+#' @param flush Data frame, limma results with frequency data
+#' @param groupPos Character, positive group name
+#' @param groupNeg Character, negative group name
+#'
+#' @return Data frame with performance metrics
+#' @keywords internal
+performance_metrics <- function(input, metadata, variable, flush, groupPos, groupNeg) {
+	
+	tryCatch({
+		# Filter metadata to relevant groups
+		meta_filtered <- metadata[metadata[[variable]] %in% c(groupPos, groupNeg), ]
+		
+		# Match expression data
+		data_use <- input[rownames(flush), rownames(meta_filtered), drop = FALSE]
+		
+		# Create binary response
+		response <- ifelse(meta_filtered[[variable]] == groupPos, 1, 0)
+		
+		# Calculate metrics for each feature
+		metrics_list <- lapply(rownames(data_use), function(feature) {
+			feature_data <- as.numeric(data_use[feature, ])
+			
+			# Binary calls (positive if > 0)
+			calls <- ifelse(feature_data > 0, 1, 0)
+			
+			# Calculate confusion matrix elements
+			TP <- sum(calls == 1 & response == 1)
+			TN <- sum(calls == 0 & response == 0)
+			FP <- sum(calls == 1 & response == 0)
+			FN <- sum(calls == 0 & response == 1)
+			
+			# Calculate metrics
+			sensitivity <- if ((TP + FN) > 0) TP / (TP + FN) else NA
+			specificity <- if ((TN + FP) > 0) TN / (TN + FP) else NA
+			PPV <- if ((TP + FP) > 0) TP / (TP + FP) else NA
+			NPV <- if ((TN + FN) > 0) TN / (TN + FN) else NA
+			accuracy <- (TP + TN) / length(response)
+			
+			data.frame(
+				AAb = feature,
+				Sensitivity = sensitivity,
+				Specificity = specificity,
+				PPV = PPV,
+				NPV = NPV,
+				Accuracy = accuracy
+			)
+		})
+		
+		metrics_df <- do.call(rbind, metrics_list)
+		rownames(metrics_df) <- metrics_df$AAb
+		metrics_df <- metrics_df %>% select(-AAb)
+		
+		return(metrics_df)
+		
+	}, error = function(e) {
+		warning("Error in performance_metrics: ", e$message)
+		return(NULL)
+	})
+}
+
+## Color Distinct Function ####
+
+#' Generate Distinct Colors for Heatmap Annotations
+#'
+#' @param meta_colors Data frame, metadata for coloring
+#' @param variables Integer vector, which columns to color
+#'
+#' @return Named list of color vectors
+#' @keywords internal
+color_distinct <- function(meta_colors, variables) {
+	
+	# Define color palettes
+	palette_list <- list(
+		RColorBrewer::brewer.pal(8, "Dark2"),
+		RColorBrewer::brewer.pal(8, "Set2"),
+		RColorBrewer::brewer.pal(9, "Set1"),
+		RColorBrewer::brewer.pal(8, "Accent"),
+		RColorBrewer::brewer.pal(12, "Set3")
+	)
+	
+	all_colors <- unlist(palette_list)
+	
+	anno_col <- list()
+	
+	for (i in variables) {
+		var_name <- colnames(meta_colors)[i]
+		var_data <- meta_colors[[var_name]]
+		
+		if (is.numeric(var_data)) {
+			# Continuous variable - use gradient
+			anno_col[[var_name]] <- colorRampPalette(c("blue", "white", "red"))(100)
+		} else {
+			# Categorical variable - assign distinct colors
+			levels <- unique(as.character(var_data))
+			levels <- levels[!is.na(levels)]
+			
+			n_levels <- length(levels)
+			
+			if (n_levels <= length(all_colors)) {
+				colors <- all_colors[1:n_levels]
+			} else {
+				# Generate more colors if needed
+				colors <- colorRampPalette(all_colors)(n_levels)
+			}
+			
+			names(colors) <- levels
+			anno_col[[var_name]] <- colors
+		}
+	}
+	
+	return(anno_col)
+}
+
+## Log Ratio to Fold Change ####
+
+#' Convert Log Ratio to Fold Change
+#'
+#' @param x Numeric vector, log ratios
+#' @param base Numeric, log base (default 2)
+#'
+#' @return Numeric vector, fold changes
+#' @keywords internal
+logratio2foldchange <- function(x, base = 2) {
+	ifelse(x >= 0, base^x, -1 / (base^x))
+}
+
+## Utility: Make Names Safe ####
+
+#' Make Factor Levels Syntactically Valid
+#'
+#' @param metadata Data frame
+#' @param variable Character, variable name
+#'
+#' @return Data frame with cleaned variable
+#' @keywords internal
+clean_factor_levels <- function(metadata, variable) {
+	if (!is.numeric(metadata[[variable]]) && !is.integer(metadata[[variable]])) {
+		metadata[[variable]][!is.na(metadata[[variable]])] <- 
+			make.names(metadata[[variable]][!is.na(metadata[[variable]])])
+		metadata[[variable]] <- as.factor(metadata[[variable]])
+	}
+	return(metadata)
+}
+		

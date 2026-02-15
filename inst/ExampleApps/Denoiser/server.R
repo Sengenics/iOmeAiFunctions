@@ -519,11 +519,22 @@ server <- function(input, output, session) {
 	# Analysis Modules ####
 	
 	## PN Limma Analysis ####
+	# pn_limma_results <- mod_pn_limma_server(
+	# 	"pn_limma",
+	# 	eset = eset_norm,
+	# 	mode = "advanced",
+	# 	features = features_advanced,
+	# 	default_assay = reactive({
+	# 		req(eset_norm_selected$eset_name())
+	# 		eset_norm_selected$eset_name()
+	# 	})
+	# )
+	
+	
+	## PN Limma Analysis ####
 	pn_limma_results <- mod_pn_limma_server(
 		"pn_limma",
 		eset = eset_norm,
-		mode = "advanced",
-		features = features_advanced,
 		default_assay = reactive({
 			req(eset_norm_selected$eset_name())
 			eset_norm_selected$eset_name()

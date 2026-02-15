@@ -2,30 +2,20 @@
 % Please edit documentation in R/mod_pn_limma.R
 \name{mod_pn_limma_server}
 \alias{mod_pn_limma_server}
-\title{PN Limma Analysis Module - Server}
+\title{Enhanced Limma Analysis Module - Server}
 \usage{
-mod_pn_limma_server(
-  id,
-  eset,
-  mode = "basic",
-  features = list(),
-  default_assay = "exprs"
-)
+mod_pn_limma_server(id, eset, default_assay = "exprs")
 }
 \arguments{
 \item{id}{Character string. Namespace identifier.}
 
 \item{eset}{Reactive or static. ExpressionSet object.}
 
-\item{mode}{Character or reactive. "basic" or "advanced". Default "basic".}
-
-\item{features}{List or reactive. Feature flags controlling functionality.}
-
-\item{default_assay}{Character or reactive. Default assayData element to select (default "exprs").}
+\item{default_assay}{Character or reactive. Default assayData element (default "exprs").}
 }
 \value{
 Reactive list containing limma results
 }
 \description{
-PN Limma Analysis Module - Server
+Enhanced Limma Analysis Module - Server
 }
