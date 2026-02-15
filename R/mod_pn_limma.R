@@ -152,9 +152,9 @@ mod_pn_limma_ui <- function(id) {
 									 		"Class 1 (Positive)",
 									 		choices = NULL
 									 	)
-									 )
-						),
-						column(3,
+									 ),
+						# ),
+						# column(3,
 									 conditionalPanel(
 									 	condition = paste0("!input['", ns("continuous"), "']"),
 									 	selectInput(
@@ -162,9 +162,9 @@ mod_pn_limma_ui <- function(id) {
 									 		"Class 2 (Negative)",
 									 		choices = NULL
 									 	)
-									 )
-						),
-						column(3,
+									 ),
+						# ),
+						# column(3,
 									 selectInput(
 									 	ns("covariates"),
 									 	"Covariates",
@@ -177,10 +177,11 @@ mod_pn_limma_ui <- function(id) {
 				),
 				
 				## Advanced Mode Parameters ####
+				## Advanced Mode Parameters ####
 				conditionalPanel(
 					condition = paste0("input['", ns("analysis_mode"), "'] == 'advanced'"),
 					
-					h4("Custom Contrast Setup"),
+					h4("Custom Contrast Builder"),
 					
 					fluidRow(
 						column(6,
@@ -200,28 +201,88 @@ mod_pn_limma_ui <- function(id) {
 						)
 					),
 					
+					hr(),
+					
+					h5("Build Contrast:"),
+					
+					fluidRow(
+						column(5,
+									 wellPanel(
+									 	style = "background-color: #e8f5e9;",
+									 	h5(strong("Positive Group (Numerator)")),
+									 	selectInput(
+									 		ns("contrast_group_pos"),
+									 		"Select Group(s):",
+									 		choices = NULL,
+									 		multiple = TRUE
+									 	),
+									 	radioButtons(
+									 		ns("contrast_pos_operator"),
+									 		"If multiple groups:",
+									 		choices = c("Average (A+B)/2" = "avg", "Sum A+B" = "sum"),
+									 		selected = "avg",
+									 		inline = TRUE
+									 	)
+									 )
+						),
+						column(2,
+									 div(
+									 	style = "text-align: center; margin-top: 80px;",
+									 	h3(strong("−"))
+									 )
+						),
+						column(5,
+									 wellPanel(
+									 	style = "background-color: #ffebee;",
+									 	h5(strong("Negative Group (Denominator)")),
+									 	selectInput(
+									 		ns("contrast_group_neg"),
+									 		"Select Group(s):",
+									 		choices = NULL,
+									 		multiple = TRUE
+									 	),
+									 	radioButtons(
+									 		ns("contrast_neg_operator"),
+									 		"If multiple groups:",
+									 		choices = c("Average (C+D)/2" = "avg", "Sum C+D" = "sum"),
+									 		selected = "avg",
+									 		inline = TRUE
+									 	)
+									 )
+						)
+					),
+					
+					hr(),
+					
 					fluidRow(
 						column(12,
-									 textInput(
-									 	ns("user_contrast"),
-									 	"Contrast Specification:",
-									 	value = "",
-									 	placeholder = "e.g., 'case-control' or '(mild+severe)/2 - control'"
-									 ),
-									 helpText("Levels must match factor levels in your variable. Use '-' for minus (not hyphens in level names).")
+									 strong("Generated Contrast:"),
+									 helpText("Auto-generated from selections above. You can edit manually if needed.")
 						)
 					),
 					
 					fluidRow(
-						column(6,
-									 actionButton(
-									 	ns("validate_contrast"),
-									 	"Validate Contrast",
-									 	icon = icon("check-circle"),
-									 	class = "btn-info"
+						column(10,
+									 textInput(
+									 	ns("user_contrast"),
+									 	NULL,
+									 	value = "",
+									 	placeholder = "Select groups above to auto-generate, or type manually"
 									 )
 						),
-						column(6,
+						column(2,
+									 br(),
+									 actionButton(
+									 	ns("validate_contrast"),
+									 	"Validate",
+									 	icon = icon("check-circle"),
+									 	class = "btn-info btn-block"
+									 )
+						)
+					),
+					
+					fluidRow(
+						column(12,
 									 verbatimTextOutput(ns("contrast_validation"))
 						)
 					)
@@ -615,7 +676,7 @@ mod_pn_limma_server <- function(id,
 			col_names <- colnames(metadata)
 			
 			# Basic mode
-			updateSelectInput(session, "variable", choices = col_names, selected = col_names[1])
+			updateSelectInput(session, "variable", choices = col_names, selected = "Labels")
 			updateSelectInput(session, "covariates", choices = col_names)
 			
 			# Advanced mode
@@ -961,6 +1022,80 @@ mod_pn_limma_server <- function(id,
 			}
 		})
 		
+		
+		### Update Contrast Group Choices ####
+		observe({
+			req(eset_current(), input$contrast_variable)
+			
+			metadata <- Biobase::pData(eset_current())
+			
+			if (!input$contrast_variable %in% colnames(metadata)) {
+				return()
+			}
+			
+			# Make names syntactically valid for preview
+			var_levels <- unique(metadata[[input$contrast_variable]])
+			var_levels <- var_levels[!is.na(var_levels)]
+			var_levels_clean <- make.names(var_levels)
+			
+			# Show original names in UI, but store clean names
+			choices <- setNames(var_levels_clean, var_levels)
+			
+			updateSelectInput(session, "contrast_group_pos", choices = choices)
+			updateSelectInput(session, "contrast_group_neg", choices = choices)
+		})
+		
+		### Auto-Generate Contrast String ####
+		observe({
+			# Only auto-generate if user hasn't manually edited
+			# (or if groups change)
+			
+			req(input$contrast_variable)
+			
+			pos_groups <- input$contrast_group_pos
+			neg_groups <- input$contrast_group_neg
+			
+			# Skip if no groups selected
+			if (is.null(pos_groups) || is.null(neg_groups)) {
+				return()
+			}
+			
+			if (length(pos_groups) == 0 || length(neg_groups) == 0) {
+				return()
+			}
+			
+			# Build positive side
+			if (length(pos_groups) == 1) {
+				pos_string <- pos_groups[1]
+			} else {
+				if (input$contrast_pos_operator == "avg") {
+					pos_string <- paste0("(", paste(pos_groups, collapse = "+"), ")/", length(pos_groups))
+				} else {
+					pos_string <- paste0("(", paste(pos_groups, collapse = "+"), ")")
+				}
+			}
+			
+			# Build negative side
+			if (length(neg_groups) == 1) {
+				neg_string <- neg_groups[1]
+			} else {
+				if (input$contrast_neg_operator == "avg") {
+					neg_string <- paste0("(", paste(neg_groups, collapse = "+"), ")/", length(neg_groups))
+				} else {
+					neg_string <- paste0("(", paste(neg_groups, collapse = "+"), ")")
+				}
+			}
+			
+			# Combine
+			contrast_string <- paste0(pos_string, " - ", neg_string)
+			
+			# Update text input (only if different to avoid infinite loop)
+			if (!identical(input$user_contrast, contrast_string)) {
+				updateTextInput(session, "user_contrast", value = contrast_string)
+			}
+		})
+		
+		## Contrast Validation ####
 		## Contrast Validation ####
 		observeEvent(input$validate_contrast, {
 			req(input$contrast_variable, input$user_contrast)
@@ -972,38 +1107,89 @@ mod_pn_limma_server <- function(id,
 				# Make names syntactically valid
 				meta_clean <- metadata
 				if (!is.numeric(meta_clean[[variable]])) {
-					meta_clean[[variable]] <- make.names(meta_clean[[variable]])
+					meta_clean[[variable]][!is.na(meta_clean[[variable]])] <- 
+						make.names(meta_clean[[variable]][!is.na(meta_clean[[variable]])])
+					meta_clean[[variable]] <- as.factor(meta_clean[[variable]])
 				}
 				
 				# Build design
 				if (!is.null(input$contrast_covariates) && length(input$contrast_covariates) > 0) {
-					design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, input$contrast_covariates), collapse = " + ")))
+					covariates <- input$contrast_covariates
+					for (cov in covariates) {
+						if (!is.numeric(meta_clean[[cov]])) {
+							meta_clean[[cov]][!is.na(meta_clean[[cov]])] <- 
+								make.names(meta_clean[[cov]][!is.na(meta_clean[[cov]])])
+							meta_clean[[cov]] <- as.factor(meta_clean[[cov]])
+						}
+					}
+					design_formula <- as.formula(paste0("~ 0 + ", paste(c(variable, covariates), collapse = " + ")))
 				} else {
 					design_formula <- as.formula(paste0("~ 0 + ", variable))
 				}
 				
 				design <- model.matrix(design_formula, data = meta_clean)
 				
+				# Clean design column names
+				colnames(design) <- gsub(paste0("^", variable), "", colnames(design))
+				if (!is.null(input$contrast_covariates) && length(input$contrast_covariates) > 0) {
+					for (cov in input$contrast_covariates) {
+						colnames(design) <- gsub(paste0("^", cov), "", colnames(design))
+					}
+				}
+				
 				# Try to build contrast
 				user_contrast <- makeContrasts(contrasts = input$user_contrast, levels = design)
 				
+				# Calculate sample sizes
+				pos_groups <- names(user_contrast[user_contrast > 0, ])
+				neg_groups <- names(user_contrast[user_contrast < 0, ])
+				
+				pos_samples <- sum(rowSums(design[, pos_groups, drop = FALSE]) > 0)
+				neg_samples <- sum(rowSums(design[, neg_groups, drop = FALSE]) > 0)
+				
 				output$contrast_validation <- renderPrint({
-					cat("✅ Contrast is valid!\n\n")
-					cat("Contrast matrix:\n")
+					cat("✅ Contrast is VALID!\n\n")
+					cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+					cat("Contrast String:\n")
+					cat("  ", input$user_contrast, "\n\n")
+					
+					cat("Interpretation:\n")
+					cat("  Positive group(s):", paste(pos_groups, collapse = ", "), "\n")
+					cat("  Negative group(s):", paste(neg_groups, collapse = ", "), "\n\n")
+					
+					cat("Sample Counts:\n")
+					cat("  Positive group:", pos_samples, "samples\n")
+					cat("  Negative group:", neg_samples, "samples\n\n")
+					
+					cat("Contrast Matrix:\n")
 					print(user_contrast)
-					cat("\n")
-					cat("Groups involved:\n")
-					print(rownames(user_contrast)[user_contrast != 0])
+					cat("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 				})
 				
 				showNotification("✅ Contrast validated successfully!", type = "message", duration = 5)
 				
 			}, error = function(e) {
 				output$contrast_validation <- renderPrint({
-					cat("❌ Contrast validation failed:\n\n")
-					cat(e$message, "\n\n")
+					cat("❌ Contrast validation FAILED\n\n")
+					cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━��━\n")
+					cat("Error:\n")
+					cat("  ", e$message, "\n\n")
+					
+					cat("Your contrast string:\n")
+					cat("  ", input$user_contrast, "\n\n")
+					
 					cat("Available levels:\n")
-					cat(paste(levels(as.factor(make.names(metadata[[input$contrast_variable]]))), collapse = ", "))
+					metadata <- Biobase::pData(eset_current())
+					var_levels <- unique(metadata[[input$contrast_variable]])
+					var_levels_clean <- make.names(var_levels[!is.na(var_levels)])
+					cat("  ", paste(var_levels_clean, collapse = ", "), "\n\n")
+					
+					cat("Tips:\n")
+					cat("  • Level names must be syntactically valid (use make.names)\n")
+					cat("  • Use '+' to combine groups: A+B\n")
+					cat("  • Use '/' to average: (A+B)/2\n")
+					cat("  • Use '-' to subtract: (A+B)/2 - C\n")
+					cat("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 				})
 				
 				showNotification(
