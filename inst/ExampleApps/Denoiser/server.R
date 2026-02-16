@@ -542,7 +542,7 @@ server <- function(input, output, session) {
 	)
 	
 	## Denoiser Module ####
-	denoiser_results <- mod_denoiser_server(
+	denoiser_results <- mod_denoiser_server( 
 		"denoiser",
 		ExpSet_list = ExpSet_list,
 		eset_raw = eset_raw,

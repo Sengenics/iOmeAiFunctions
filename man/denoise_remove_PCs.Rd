@@ -9,7 +9,8 @@ denoise_remove_PCs(
   assay_name = NULL,
   n_PCs = 1,
   scale = TRUE,
-  center = TRUE
+  center = TRUE,
+  transpose = FALSE
 )
 }
 \arguments{

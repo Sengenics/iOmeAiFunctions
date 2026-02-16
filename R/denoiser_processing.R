@@ -22,7 +22,7 @@
 #' denoised_2PC <- denoised$denoised_data[[2]]
 #'
 #' @export
-denoise_remove_PCs <- function(eset, assay_name = NULL, n_PCs = 1, scale = TRUE, center = TRUE) {
+denoise_remove_PCs <- function(eset, assay_name = NULL, n_PCs = 1, scale = TRUE, center = TRUE, transpose = FALSE) {
 	
 	# Extract expression data from ExpressionSet
 	if (inherits(eset, "ExpressionSet")) {
@@ -41,6 +41,10 @@ denoise_remove_PCs <- function(eset, assay_name = NULL, n_PCs = 1, scale = TRUE,
 	}
 	
 	# Step 1: Perform PCA
+	
+	if(transpose == T){
+		expr_data = t(expr_data)
+	}
 	pca_result <- prcomp(expr_data, scale. = scale, center = center)
 	
 	# Step 2: Calculate variance explained by each PC
