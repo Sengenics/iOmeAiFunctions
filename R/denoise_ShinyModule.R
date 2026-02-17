@@ -977,10 +977,30 @@ mod_denoiser_ui <- function(id) {
 							tabPanel('Random',
 											 uiOutput(ns('random_pca_plots'))
 							),
-							tabPanel("Sample Scores",
-											 plotOutput(ns("pca_biplot"), height = "600px"),
-											 hr(),
-											 plotOutput(ns("pc_scores_violin"), height = "400px")
+							tabPanel("Feature Scores",
+											 column(3,
+											 			 selectInput(
+											 			 	ns("features_pca_color_by"),
+											 			 	"Color by:",
+											 			 	choices = NULL,  # Will be populated by observer
+											 			 	selected = NULL
+											 			 )
+											 ),
+											 column(3,
+											 			 selectInput(
+											 			 	ns("features_pca_shape_by"),
+											 			 	"Shape by:",
+											 			 	choices = NULL,  # Will be populated by observer
+											 			 	selected = NULL
+											 			 )
+											 ),
+											 column(12,
+												 plotOutput(ns("pca_biplot"), height = "600px"),
+												 hr(),
+												 plotOutput(ns("pca_feature_cont"), height = "600px"),
+												 hr(),
+												 plotOutput(ns("pc_scores_violin"), height = "400px")
+											 )
 							),
 							
 							tabPanel("Feature Loadings",
@@ -1601,6 +1621,22 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				choices = c("None" = "none", col_names),
 				selected = if ("Batch_ID" %in% col_names) "Batch_ID" else "none"
 			)
+			
+			featureData <- Biobase::fData(eset_raw())  
+			feature_col_names <- colnames(featureData)
+			updateSelectInput(
+				session,
+				"features_pca_color_by",
+				choices = feature_col_names,
+				selected = if ("PSA" %in% feature_col_names) "PSA" else col_names[1]
+			)
+			
+			updateSelectInput(
+				session,
+				"features_pca_shape_by",
+				choices = c("None" = "none", feature_col_names),
+				selected = if ("ncf" %in% feature_col_names) "ncf" else "none"
+			)
 		})
 		
 		# Add this helper function to your server (at the top, before observers):
@@ -1626,7 +1662,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 			))
 		}
 		
-		output$pca_biplot <- renderPlot({ 
+		output$pca_biplot <- renderPlot({    
 			req(rv$denoise_results, eset_raw())
 			
 			pca_result <- rv$denoise_results$pca_result
@@ -1634,22 +1670,42 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 			featureData = Biobase::fData(eset_raw())
 			
 			# Get scores for selected PCs
-			pc_x <- input$biplot_pc_x  # e.g., 1
-			pc_y <- input$biplot_pc_y  # e.g., 2
+			pc_x <- as.numeric(input$biplot_pc_x)  # e.g., 1
+			pc_y <- as.numeric(input$biplot_pc_y)  # e.g., 2
 			
 			# ❌ This assumed pca_result$x contains Samples × PCs
 			scores_df <- as.data.frame(pca_result$x[, c(pc_x, pc_y)])
-			scores_df$Sample <- rownames(scores_df)
+			scores_df$Protein <- rownames(scores_df)
+			
+	
+			
+			
 			
 			# Merge with metadata
-			plot_df <- merge(scores_df, metadata, by.x = "Sample", by.y = "row.names")
+			plot_df <- merge(scores_df, featureData, by.x = "Protein", by.y = "row.names")
 			
+			
+			# ✅ FIX: Get the input values and validate they exist in data
+			color_var <- input$features_pca_color_by
+			shape_var <- input$features_pca_shape_by
+			
+			# Check if variables exist in plot_df
+			if (!is.null(color_var) && !color_var %in% colnames(plot_df)) {
+				color_var <- NULL
+			}
+			if (!is.null(shape_var) && shape_var == "none") {
+				shape_var <- NULL
+			}
+			if (!is.null(shape_var) && !shape_var %in% colnames(plot_df)) {
+				shape_var <- NULL
+			}
 			# Plot
 			ggplot2::ggplot(plot_df, ggplot2::aes(x = .data[[paste0("PC", pc_x)]], 
 																						y = .data[[paste0("PC", pc_y)]])) +
-				ggplot2::geom_point(ggplot2::aes(color = Sample_Group, shape = Batch_ID), 
+				ggplot2::geom_point(ggplot2::aes(color = .data[[input$features_pca_color_by]], 
+																				 shape = .data[[input$features_pca_shape_by]]), 
 														size = 3, alpha = 0.7) +
-				ggplot2::stat_ellipse(ggplot2::aes(color = Sample_Group), level = 0.95) +
+				ggplot2::stat_ellipse(ggplot2::aes(color = .data[[input$features_pca_color_by]]), level = 0.95) +
 				ggplot2::labs(
 					title = paste0("PCA: PC", pc_x, " vs PC", pc_y),
 					x = paste0("PC", pc_x, " (", round(rv$denoise_results$variance_explained[pc_x], 1), "%)"),
@@ -1657,6 +1713,48 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				) +
 				ggplot2::theme_minimal(base_size = 14) +
 				ggplot2::theme(legend.position = "right")
+			
+			
+
+		})
+	
+		output$pca_feature_cont = renderPlot({
+			req(rv$denoise_results, eset_raw())
+			
+			pca_result <- rv$denoise_results$pca_result
+			metadata <- Biobase::pData(eset_raw())
+			featureData = Biobase::fData(eset_raw())
+			
+			pc_x <- as.numeric(input$biplot_pc_x)  # e.g., 1
+
+			
+			x_l = pca_result$x %>% 
+				as.data.frame() %>% 
+				rownames_to_column('Protein') %>% 
+				gather(key = PC,value = value,-1) %>% 
+				left_join(featureData)
+			
+			(PCx = paste0("PC", pc_x))
+
+			
+			# Get top and bottom 20 proteins for this PC
+			proteins_to_plot <- x_l %>% 
+				filter(PC == PCx) %>% 
+				arrange(value) %>% 
+				slice(c(1:50, (n()-49):n())) %>%  # First 20 and last 20
+				pull(Protein)
+			
+			# Filter and plot
+			x_l %>% 
+				filter(Protein %in% proteins_to_plot, PC == PCx) %>% 
+				mutate(Protein = factor(Protein, levels = proteins_to_plot)) %>% 
+				ggplot(aes(x = Protein, y = value, fill = PSA)) + 
+				geom_col() + 
+				#scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+				theme_minimal() +
+				theme(
+					axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+				)
 		})
 		
 		# output$pca_biplot <- renderPlot({  
@@ -1944,13 +2042,13 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				rownames_to_column('Sample') %>% 
 				gather(key = PC, value = value, -1) %>% 
 				left_join(metadata)
-			pheatmap(
-				as.matrix(pca_result$rotation),
-				cluster_rows = TRUE,                      # ✅ Boolean to enable clustering
-				cluster_cols = TRUE,                      # ✅ Boolean to enable clustering
-				clustering_distance_rows = "euclidean",   # ✅ Separate argument for distance
-				clustering_distance_cols = "euclidean"    # ✅ Separate argument for distance
-			)
+			# pheatmap(
+			# 	as.matrix(pca_result$rotation),
+			# 	cluster_rows = TRUE,                      # ✅ Boolean to enable clustering
+			# 	cluster_cols = TRUE,                      # ✅ Boolean to enable clustering
+			# 	clustering_distance_rows = "euclidean",   # ✅ Separate argument for distance
+			# 	clustering_distance_cols = "euclidean"    # ✅ Separate argument for distance
+			# )
 			
 			ggplot(rotation_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
 				geom_point(aes(x = Sample,y = value, col = PC)) +
