@@ -953,22 +953,6 @@ mod_denoiser_ui <- function(id) {
 										 	choices = NULL,  # Will be populated by observer
 										 	selected = NULL
 										 )
-							),
-							column(3,
-										 selectInput(
-										 	ns("pca_color_by"),
-										 	"Color by:",
-										 	choices = NULL,  # Will be populated by observer
-										 	selected = NULL
-										 )
-							),
-							column(3,
-										 selectInput(
-										 	ns("pca_shape_by"),
-										 	"Shape by:",
-										 	choices = NULL,  # Will be populated by observer
-										 	selected = NULL
-										 )
 							)
 						),
 						
@@ -1003,10 +987,33 @@ mod_denoiser_ui <- function(id) {
 											 )
 							),
 							
-							tabPanel("Feature Loadings",
-											 plotOutput(ns("pc_loadings_barplot"), height = "600px"),
-											 hr(),
-											 plotOutput(ns("loadings_heatmap"), height = "600px")
+							tabPanel("Sample Loadings",
+											 
+											 column(3,
+											 			 selectInput(
+											 			 	ns("pca_color_by"),
+											 			 	"Color by:",
+											 			 	choices = NULL,  # Will be populated by observer
+											 			 	selected = NULL
+											 			 )
+											 ),
+											 column(3,
+											 			 selectInput(
+											 			 	ns("pca_shape_by"),
+											 			 	"Shape by:",
+											 			 	choices = NULL,  # Will be populated by observer
+											 			 	selected = NULL
+											 			 )
+											 ),
+											 column(12,
+												 plotOutput(ns("pca_sample_biplot"), height = "600px"),
+												 hr(),
+												 plotOutput(ns("pca_sample_cont"), height = "600px"),
+												 hr(),
+												 plotOutput(ns("pc_loadings_barplot"), height = "600px"),
+												 hr(),
+												 plotOutput(ns("loadings_heatmap"), height = "600px")
+											 )
 							),
 							
 							tabPanel("Combined Biplot",
@@ -1718,7 +1725,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 
 		})
 	
-		output$pca_feature_cont = renderPlot({
+		output$pca_feature_cont = renderPlot({ 
 			req(rv$denoise_results, eset_raw())
 			
 			pca_result <- rv$denoise_results$pca_result
@@ -1726,6 +1733,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 			featureData = Biobase::fData(eset_raw())
 			
 			pc_x <- as.numeric(input$biplot_pc_x)  # e.g., 1
+			pc_y <- as.numeric(input$biplot_pc_y)
 
 			
 			x_l = pca_result$x %>% 
@@ -1735,26 +1743,136 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				left_join(featureData)
 			
 			(PCx = paste0("PC", pc_x))
+			(PCy = paste0("PC", pc_y))
 
 			
 			# Get top and bottom 20 proteins for this PC
-			proteins_to_plot <- x_l %>% 
-				filter(PC == PCx) %>% 
+			proteins_to_plot_x <- x_l %>% 
+				filter(PC %in% c(PCx)) %>% 
 				arrange(value) %>% 
-				slice(c(1:50, (n()-49):n())) %>%  # First 20 and last 20
+				slice(c(1:30, (n()-29):n())) %>%  # First 20 and last 20
 				pull(Protein)
-			
+			proteins_to_plot_y <- x_l %>% 
+				filter(PC %in% c(PCy)) %>% 
+				arrange(value) %>% 
+				slice(c(1:30, (n()-29):n())) %>%  # First 20 and last 20
+				pull(Protein)
+			proteins_to_plot = x_l %>% 
+				filter(PC %in% c(PCx,PCy)) %>% 
+				filter(Protein %in% c(proteins_to_plot_x,proteins_to_plot_y)) %>% 
+				arrange(value) %>% 
+				pull(Protein)
 			# Filter and plot
 			x_l %>% 
-				filter(Protein %in% proteins_to_plot, PC == PCx) %>% 
-				mutate(Protein = factor(Protein, levels = proteins_to_plot)) %>% 
-				ggplot(aes(x = Protein, y = value, fill = PSA)) + 
+				filter(Protein %in% proteins_to_plot, PC %in% c(PCx,PCy)) %>% 
+				mutate(Protein = factor(Protein, levels = unique(proteins_to_plot))) %>% 
+				ggplot(aes(x = Protein, y = value, fill = .data[[input$features_pca_color_by]])) + 
 				geom_col() + 
 				#scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
 				theme_minimal() +
 				theme(
 					axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
-				)
+				) +
+				facet_grid(PC ~ .)
+		})
+		
+		
+		output$pca_sample_biplot <- renderPlot({     
+			req(rv$denoise_results, eset_raw())
+			
+			pca_result <- rv$denoise_results$pca_result
+			metadata <- Biobase::pData(eset_raw())
+			featureData = Biobase::fData(eset_raw())
+			
+			# Get scores for selected PCs
+			pc_x <- as.numeric(input$biplot_pc_x)  # e.g., 1
+			pc_y <- as.numeric(input$biplot_pc_y)  # e.g., 2
+			
+			# ❌ This assumed pca_result$x contains Samples × PCs
+			scores_df <- as.data.frame(pca_result$rotation[, c(pc_x, pc_y)])
+			scores_df$Sample <- rownames(scores_df)
+			
+			
+			
+			
+			
+			# Merge with metadata
+			plot_df <- merge(scores_df, metadata, by.x = "Sample", by.y = "row.names")
+			
+			
+			# ✅ FIX: Get the input values and validate they exist in data
+			color_var <- input$features_pca_color_by
+			shape_var <- input$features_pca_shape_by
+			
+
+			# Plot
+			ggplot2::ggplot(plot_df, ggplot2::aes(x = .data[[paste0("PC", pc_x)]], 
+																						y = .data[[paste0("PC", pc_y)]])) +
+				ggplot2::geom_point(ggplot2::aes(color = .data[[input$pca_color_by]], 
+																				 shape = .data[[input$pca_shape_by]]), 
+														size = 3, alpha = 0.7) +
+				ggplot2::stat_ellipse(ggplot2::aes(color = .data[[input$pca_color_by]]), level = 0.95) +
+				ggplot2::labs(
+					title = paste0("PCA: PC", pc_x, " vs PC", pc_y),
+					x = paste0("PC", pc_x, " (", round(rv$denoise_results$variance_explained[pc_x], 1), "%)"),
+					y = paste0("PC", pc_y, " (", round(rv$denoise_results$variance_explained[pc_y], 1), "%)")
+				) +
+				ggplot2::theme_minimal(base_size = 14) +
+				ggplot2::theme(legend.position = "right")
+			
+			
+			
+		})
+		
+		output$pca_sample_cont = renderPlot({ 
+			req(rv$denoise_results, eset_raw())
+			
+			pca_result <- rv$denoise_results$pca_result
+			metadata <- Biobase::pData(eset_raw())
+			featureData = Biobase::fData(eset_raw())
+			
+			pc_x <- as.numeric(input$biplot_pc_x)  # e.g., 1
+			pc_y <- as.numeric(input$biplot_pc_y)
+			
+			
+			x_l = pca_result$rotation %>% 
+				as.data.frame() %>% 
+				rownames_to_column('Sample') %>% 
+				gather(key = PC,value = value,-1) %>% 
+				left_join(metadata)
+			
+			(PCx = paste0("PC", pc_x))
+			(PCy = paste0("PC", pc_y))
+			
+			
+			# Get top and bottom 20 proteins for this PC
+			proteins_to_plot_x <- x_l %>% 
+				filter(PC %in% c(PCx)) %>% 
+				arrange(value) %>% 
+				slice(c(1:30, (n()-29):n())) %>%  # First 20 and last 20
+				pull(Sample)
+			proteins_to_plot_y <- x_l %>% 
+				filter(PC %in% c(PCy)) %>% 
+				arrange(value) %>% 
+				slice(c(1:30, (n()-29):n())) %>%  # First 20 and last 20
+				pull(Sample)
+			proteins_to_plot = x_l %>% 
+				filter(PC %in% c(PCx,PCy)) %>% 
+				filter(Sample %in% c(proteins_to_plot_x,proteins_to_plot_y)) %>% 
+				arrange(value) %>% 
+				pull(Sample)
+			# Filter and plot
+			x_l %>% 
+				filter(Sample %in% proteins_to_plot, PC %in% c(PCx,PCy)) %>% 
+				mutate(Sample = factor(Sample, levels = unique(proteins_to_plot))) %>% 
+				ggplot(aes(x = Sample, y = value, fill = .data[[input$pca_color_by]])) + 
+				geom_col() + 
+				#scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+				theme_minimal() +
+				theme(
+					axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+				) +
+				facet_grid(PC ~ .)
 		})
 		
 		# output$pca_biplot <- renderPlot({  
