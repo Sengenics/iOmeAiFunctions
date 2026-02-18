@@ -209,12 +209,12 @@ mod_denoiser_ui <- function(id) {
 					
 					
 					# Add this at the top of the "Component Matrices" tab in mod_denoiser_ui:
-					
+					## Description Section ####
 					tabPanel(
 						"Denoiser Overview",
 						br(),
 						
-						## Description Section ####
+
 						div(
 							style = "background-color: #f8f9fa; padding: 20px; border-left: 4px solid #007bff; margin-bottom: 20px;",
 							
@@ -369,7 +369,7 @@ mod_denoiser_ui <- function(id) {
 							
 							hr(),
 							
-							## Component 1: Scores ####
+							### Component 1: Scores ####
 							div(
 								style = "background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 3px solid #007bff;",
 								
@@ -436,7 +436,7 @@ mod_denoiser_ui <- function(id) {
 								)
 							),
 							
-							## Component 2: Loadings ####
+							### Component 2: Loadings ####
 							div(
 								style = "background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 3px solid #28a745;",
 								
@@ -507,7 +507,7 @@ mod_denoiser_ui <- function(id) {
 								)
 							),
 							
-							## Component 3: Standard Deviations ####
+							### Component 3: Standard Deviations ####
 							div(
 								style = "background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 3px solid #ffc107;",
 								
@@ -580,7 +580,7 @@ mod_denoiser_ui <- function(id) {
 							
 							hr(),
 							
-							## How They Work Together ####
+							### How They Work Together ####
 							div(
 								style = "background-color: #e0f7fa; padding: 15px; border-radius: 5px;",
 								
@@ -613,7 +613,7 @@ mod_denoiser_ui <- function(id) {
 							
 							hr(),
 							
-							## Navigation Guide ####
+							### Navigation Guide ####
 							div(
 								style = "background-color: #fff9e6; padding: 15px; border-radius: 5px;",
 								
@@ -930,104 +930,79 @@ mod_denoiser_ui <- function(id) {
 					
 					# Add to your "Component Matrices" or new "PCA Visualization" tab:
 					## PCA Visualisation ####
-				
+					
 					tabPanel(
 						"PCA Visualization",
 						br(),
 						
-						# In mod_denoiser_ui, in the PCA Visualization tab:
-						
 						fluidRow(
 							column(3,
-										 selectInput(
-										 	ns("biplot_pc_x"),
-										 	"X-axis PC:",
-										 	choices = NULL,  # Will be populated by observer
-										 	selected = NULL
-										 )
+										 selectInput(ns("biplot_pc_x"), "X-axis PC:", choices = NULL)
 							),
 							column(3,
-										 selectInput(
-										 	ns("biplot_pc_y"),
-										 	"Y-axis PC:",
-										 	choices = NULL,  # Will be populated by observer
-										 	selected = NULL
-										 )
+										 selectInput(ns("biplot_pc_y"), "Y-axis PC:", choices = NULL)
 							)
 						),
 						
 						tabsetPanel(
-							
-							tabPanel('Random',
-											 uiOutput(ns('random_pca_plots'))
-							),
-							tabPanel("Feature Scores",
-											 column(3,
-											 			 selectInput(
-											 			 	ns("features_pca_color_by"),
-											 			 	"Color by:",
-											 			 	choices = NULL,  # Will be populated by observer
-											 			 	selected = NULL
-											 			 )
-											 ),
-											 column(3,
-											 			 selectInput(
-											 			 	ns("features_pca_shape_by"),
-											 			 	"Shape by:",
-											 			 	choices = NULL,  # Will be populated by observer
-											 			 	selected = NULL
-											 			 )
-											 ),
-											 column(12,
-												 plotOutput(ns("pca_biplot"), height = "600px"),
-												 hr(),
-												 plotOutput(ns("pca_feature_cont"), height = "600px"),
-												 hr(),
-												 plotOutput(ns("pc_scores_violin"), height = "400px")
-											 )
+							tabPanel(
+								"Feature Scores",
+								fluidRow(
+									column(3,
+												 selectInput(ns("features_pca_color_by"), "Color by:", choices = NULL)
+									),
+									column(3,
+												 selectInput(ns("features_pca_shape_by"), "Shape by:", choices = NULL)
+									)
+								),
+								plotOutput(ns("pca_biplot"), height = "600px"),
+								hr(),
+								plotOutput(ns("pca_feature_cont"), height = "600px"),
+								hr(),
+								plotOutput(ns("pc_scores_violin"), height = "400px")
 							),
 							
-							tabPanel("Sample Loadings",
-											 
-											 column(3,
-											 			 selectInput(
-											 			 	ns("pca_color_by"),
-											 			 	"Color by:",
-											 			 	choices = NULL,  # Will be populated by observer
-											 			 	selected = NULL
-											 			 )
-											 ),
-											 column(3,
-											 			 selectInput(
-											 			 	ns("pca_shape_by"),
-											 			 	"Shape by:",
-											 			 	choices = NULL,  # Will be populated by observer
-											 			 	selected = NULL
-											 			 )
-											 ),
-											 column(12,
-												 plotOutput(ns("pca_sample_biplot"), height = "600px"),
-												 hr(),
-												 plotOutput(ns("pca_sample_cont"), height = "600px"),
-												 hr(),
-												 plotOutput(ns("pc_loadings_barplot"), height = "600px"),
-												 hr(),
-												 plotOutput(ns("loadings_heatmap"), height = "600px")
-											 )
+							tabPanel(
+								"Sample Loadings",
+								fluidRow(
+									column(3,
+												 selectInput(ns("pca_color_by"), "Color by:", choices = NULL)
+									),
+									column(3,
+												 selectInput(ns("pca_shape_by"), "Shape by:", choices = NULL)
+									)
+								),
+								plotOutput(ns("pca_sample_biplot"), height = "600px"),
+								hr(),
+								plotOutput(ns("pca_sample_cont"), height = "600px"),
+								hr(),
+								plotOutput(ns("pc_loadings_barplot"), height = "600px"),
+								hr(),
+								plotOutput(ns("loadings_heatmap"), height = "600px")
 							),
 							
-							tabPanel("Combined Biplot",
-											 plotOutput(ns("pca_biplot_with_loadings"), height = "700px")
+							tabPanel(
+								"Combined Biplot",
+								plotOutput(ns("pca_biplot_with_loadings"), height = "700px")
 							),
 							
-							tabPanel("Variance",
-											 plotOutput(ns("scree_plot"), height = "500px"),
-											 hr(),
-											 plotOutput(ns("pca_scores_heatmap"), height = "600px")
+							tabPanel(
+								"Variance",
+								plotOutput(ns("scree_plot"), height = "500px"),
+								hr(),
+								plotOutput(ns("pca_scores_heatmap"), height = "600px")
+							),
+							
+							tabPanel(
+								'Random',
+								uiOutput(ns('random_pca_plots'))
 							)
 						)
 					),
+				
+		
 					
+					## Component Data Tab ####
 					tabPanel(
 						"Component Data",
 						br(),
@@ -1042,6 +1017,7 @@ mod_denoiser_ui <- function(id) {
 						tableOutput(ns("variance_table"))
 					),
 					
+					## Component Matrix tab ####
 					tabPanel(
 						"Component Matrices",
 						br(),
@@ -1582,13 +1558,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 		)
 		
 		# PCA visualisation #####
-		
-		# Add to your server:
-		# Replace the problematic pca_biplot output with this fixed version:
-		
-		# Add this observer BEFORE the output$pca_biplot code:
-		
-		## Update PCA plot controls ####
+
 		observe({
 			req(rv$denoise_results, eset_raw())
 			
@@ -1645,29 +1615,6 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				selected = if ("ncf" %in% feature_col_names) "ncf" else "none"
 			)
 		})
-		
-		# Add this helper function to your server (at the top, before observers):
-		
-		## Helper: Get PCA data in visualization-friendly format ####
-		get_pca_for_viz <- function(pca_result, metadata) {
-			# Your PCA structure:
-			# - pca_result$x = Features × PCs (feature scores)
-			# - pca_result$rotation = Samples × PCs (sample loadings)
-			
-			# For visualization, we want sample positions, which are in $rotation
-			sample_scores <- pca_result$rotation  # Samples × PCs
-			feature_loadings <- pca_result$x      # Features × PCs
-			
-			# Validate sample names match
-			if (!all(rownames(sample_scores) %in% rownames(metadata))) {
-				warning("Sample name mismatch between PCA and metadata")
-			}
-			
-			return(list(
-				sample_scores = sample_scores,      # Use for sample biplots
-				feature_loadings = feature_loadings # Use for feature contribution plots
-			))
-		}
 		
 		output$pca_biplot <- renderPlot({    
 			req(rv$denoise_results, eset_raw())
@@ -1776,7 +1723,6 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				facet_grid(PC ~ .)
 		})
 		
-		
 		output$pca_sample_biplot <- renderPlot({     
 			req(rv$denoise_results, eset_raw())
 			
@@ -1875,101 +1821,16 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				facet_grid(PC ~ .)
 		})
 		
-		# output$pca_biplot <- renderPlot({  
-		# 	req(rv$denoise_results, eset_raw())
-		# 	
-		# 	pca_result <- rv$denoise_results$pca_result
-		# 	
-		# 	metadata <- Biobase::pData(eset_raw())
-		# 	featureData = Biobase::fData(eset_raw())
-		# 	
-		# 	# Validate inputs
-		# 	req(input$biplot_pc_x, input$biplot_pc_y)
-		# 	
-		# 	pc_x <- as.integer(input$biplot_pc_x)
-		# 	pc_y <- as.integer(input$biplot_pc_y)
-		# 	
-		# 	# ✅ Get sample positions from rotation (not x)
-		# 	pca_viz <- get_pca_for_viz(pca_result, metadata)
-		# 	sample_scores <- pca_viz$sample_scores  # Samples × PCs
-		# 	
-		# 	# Validate PC indices
-		# 	max_pcs <- ncol(sample_scores)
-		# 	if (pc_x > max_pcs || pc_y > max_pcs || pc_x < 1 || pc_y < 1) {
-		# 		return(NULL)
-		# 	}
-		# 	
-		# 	# Extract selected PCs
-		# 	scores_df <- as.data.frame(sample_scores[, c(pc_x, pc_y), drop = FALSE])
-		# 	scores_df$Sample <- rownames(scores_df)
-		# 	
-		# 	# Rename columns
-		# 	colnames(scores_df)[1:2] <- c("PC_X", "PC_Y")
-		# 	
-		# 	# Merge with metadata
-		# 	plot_df <- merge(scores_df, metadata, by.x = "Sample", by.y = "row.names", all.x = TRUE)
-		# 	
-		# 	if (nrow(plot_df) == 0) {
-		# 		showNotification("Error: Unable to merge PCA scores with metadata", type = "error")
-		# 		return(NULL)
-		# 	}
-		# 	
-		# 	# Get color/shape variables
-		# 	color_var <- if (!is.null(input$pca_color_by) && input$pca_color_by %in% colnames(plot_df)) {
-		# 		input$pca_color_by
-		# 	} else {
-		# 		NULL
-		# 	}
-		# 	
-		# 	shape_var <- if (!is.null(input$pca_shape_by) && input$pca_shape_by != "none" && input$pca_shape_by %in% colnames(plot_df)) {
-		# 		input$pca_shape_by
-		# 	} else {
-		# 		NULL
-		# 	}
-		# 	
-		# 	# Build plot
-		# 	p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = PC_X, y = PC_Y))
-		# 	
-		# 	if (!is.null(color_var) && !is.null(shape_var)) {
-		# 		p <- p + ggplot2::geom_point(ggplot2::aes(color = .data[[color_var]], shape = .data[[shape_var]]), 
-		# 																 size = 3, alpha = 0.7)
-		# 		if (is.factor(plot_df[[color_var]]) || is.character(plot_df[[color_var]])) {
-		# 			p <- p + ggplot2::stat_ellipse(ggplot2::aes(color = .data[[color_var]]), level = 0.95)
-		# 		}
-		# 	} else if (!is.null(color_var)) {
-		# 		p <- p + ggplot2::geom_point(ggplot2::aes(color = .data[[color_var]]), size = 3, alpha = 0.7)
-		# 		if (is.factor(plot_df[[color_var]]) || is.character(plot_df[[color_var]])) {
-		# 			p <- p + ggplot2::stat_ellipse(ggplot2::aes(color = .data[[color_var]]), level = 0.95)
-		# 		}
-		# 	} else if (!is.null(shape_var)) {
-		# 		p <- p + ggplot2::geom_point(ggplot2::aes(shape = .data[[shape_var]]), size = 3, alpha = 0.7)
-		# 	} else {
-		# 		p <- p + ggplot2::geom_point(size = 3, alpha = 0.7, color = "steelblue")
-		# 	}
-		# 	
-		# 	p <- p + ggplot2::labs(
-		# 		title = paste0("PCA Sample Biplot: PC", pc_x, " vs PC", pc_y),
-		# 		x = paste0("PC", pc_x, " (", round(rv$denoise_results$variance_explained[pc_x], 1), "%)"),
-		# 		y = paste0("PC", pc_y, " (", round(rv$denoise_results$variance_explained[pc_y], 1), "%)")
-		# 	) +
-		# 		ggplot2::theme_minimal(base_size = 14) +
-		# 		ggplot2::theme(legend.position = "right")
-		# 	
-		# 	p
-		# })
-		
-		output$pca_scores_heatmap <- renderPlot({
+		output$pca_scores_heatmap <- renderPlot({ 
 			req(rv$denoise_results, eset_raw())
 			
 			pca_result <- rv$denoise_results$pca_result
-			metadata <- Biobase::pData(eset_raw())
+			featureData = Biobase::fData(eset_raw())
 			
-			# Get first N PCs
 			n_pcs <- min(10, ncol(pca_result$x))
 			scores_matrix <- t(pca_result$x[, 1:n_pcs])
 			
-			# Annotation
-			anno_df <- metadata[colnames(scores_matrix), input$annotation_cols, drop = FALSE]
+			anno_df <- featureData[colnames(scores_matrix), c('PSA','ncf'), drop = FALSE]
 			anno_col <- color_distinct(anno_df, 1:ncol(anno_df))
 			
 			pheatmap::pheatmap(
@@ -1979,11 +1840,14 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				cluster_rows = FALSE,
 				cluster_cols = TRUE,
 				show_colnames = FALSE,
-				main = "PCA Scores Heatmap (First 10 PCs)",
+				main = "PCA Scores Heatmap (First 10 PCs) - Proteins",
 				labels_row = paste0("PC", 1:n_pcs, " (", 
 														round(rv$denoise_results$variance_explained[1:n_pcs], 1), "%)")
+				#silent = TRUE  # ✅ Add this!
 			)
 		})
+		
+
 		
 		output$pc_scores_violin <- renderPlot({
 			req(rv$denoise_results, eset_raw()) 
@@ -2051,16 +1915,14 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 		})
 		
 		output$loadings_heatmap <- renderPlot({
-			req(rv$denoise_results)
+			req(rv$denoise_results) 
 			
 			pca_result <- rv$denoise_results$pca_result
 			
-			# Get first N PCs
 			n_pcs <- min(10, ncol(pca_result$rotation))
 			loadings_matrix <- pca_result$rotation[, 1:n_pcs]
 			
-			# Optional: Filter to top varying features
-			feature_variance <- apply(loadings_matrix, 1, var)
+			feature_variance <- apply(loadings_matrix, 1, stats::var)
 			top_features <- names(sort(feature_variance, decreasing = TRUE)[1:100])
 			loadings_subset <- loadings_matrix[top_features, ]
 			
@@ -2070,43 +1932,61 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				cluster_cols = FALSE,
 				show_rownames = TRUE,
 				fontsize_row = 6,
-				main = "Feature Loadings Across First 10 PCs",
+				#silent = TRUE  # ✅ Add this!
+				main = "Sample Loadings Across First 10 PCs",
 				color = colorRampPalette(c("blue", "white", "red"))(100),
 				breaks = seq(-max(abs(loadings_subset)), max(abs(loadings_subset)), length.out = 101)
+			
 			)
 		})
 		
-		output$pca_biplot_with_loadings <- renderPlot({
+		output$pca_biplot_with_loadings <- renderPlot({  
 			req(rv$denoise_results, eset_raw())
 			
 			pca_result <- rv$denoise_results$pca_result
 			metadata <- Biobase::pData(eset_raw())
+			featureData <- Biobase::fData(eset_raw())
 			
+			pc_x <- as.numeric(input$biplot_pc_x)  # e.g., 1
+			pc_y <- as.numeric(input$biplot_pc_y)
 			# Scores
-			scores <- as.data.frame(pca_result$x[, 1:2])
-			scores$Sample_Group <- metadata[rownames(scores), "Sample_Group"]
+			scores <- as.data.frame(pca_result$x[, c(pc_x,pc_y)])
+			scores$Protein = rownames(scores)
+			scores = scores %>% 
+				left_join(featureData)
+			#scores$Sample_Group <- metadata[rownames(scores), "Sample_Group"]
 			
 			# Loadings (top 10 features)
-			loadings <- pca_result$rotation[, 1:2]
+			
+		 
+			
+			loadings <- pca_result$rotation[, c(pc_x,pc_y)]
 			loading_importance <- sqrt(loadings[,1]^2 + loadings[,2]^2)
 			top_features <- names(sort(loading_importance, decreasing = TRUE)[1:10])
 			loadings_plot <- loadings[top_features, ] * 10  # Scale for visibility
 			loadings_df <- as.data.frame(loadings_plot)
-			loadings_df$Feature <- rownames(loadings_df)
+			loadings_df$Sample <- rownames(loadings_df)
+			loadings_df = loadings_df %>% 
+				left_join(metadata)
+			
+			(PCx = paste0("PC", pc_x))
+			(PCy = paste0("PC", pc_y))
 			
 			ggplot2::ggplot() +
 				# Samples
 				ggplot2::geom_point(data = scores, 
-														ggplot2::aes(x = PC1, y = PC2, color = Sample_Group), 
+														ggplot2::aes_string(x = PCx, y = PCy, color = input$features_pca_color_by), 
 														size = 3, alpha = 0.6) +
 				# Loading arrows
 				ggplot2::geom_segment(data = loadings_df,
-															ggplot2::aes(x = 0, y = 0, xend = PC1, yend = PC2),
+															ggplot2::aes_string(x = 0, y = 0, 
+																									xend = PCx, yend = PCy,
+																									colour = input$pca_color_by),
 															arrow = arrow(length = unit(0.2, "cm")),
-															color = "red", alpha = 0.7) +
-				ggplot2::geom_text(data = loadings_df,
-													 ggplot2::aes(x = PC1, y = PC2, label = Feature),
-													 hjust = 0, vjust = 0, size = 3, color = "darkred") +
+															alpha = 0.7) +
+				# ggplot2::geom_text(data = loadings_df,
+				# 									 ggplot2::aes(x = PC1, y = PC2, label = Feature),
+				# 									 hjust = 0, vjust = 0, size = 3, color = "darkred") +
 				ggplot2::labs(title = "PCA Biplot: Samples and Feature Loadings") +
 				ggplot2::theme_minimal()
 		})
@@ -2148,33 +2028,12 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 			metadata <- Biobase::pData(eset_raw())
 			feature_data = Biobase::fData(eset_raw())
 			
-			names(pca_result)
-			sdev = pca_result$sdev
-			pca_result$center
-			pca_result$scale
-			pca_result$x
-			dim(pca_result$rotation)
-			
+			# ✅ Don't execute plots here - just prepare data
 			rotation_long = pca_result$rotation %>% 
 				as.data.frame() %>% 
 				rownames_to_column('Sample') %>% 
 				gather(key = PC, value = value, -1) %>% 
 				left_join(metadata)
-			# pheatmap(
-			# 	as.matrix(pca_result$rotation),
-			# 	cluster_rows = TRUE,                      # ✅ Boolean to enable clustering
-			# 	cluster_cols = TRUE,                      # ✅ Boolean to enable clustering
-			# 	clustering_distance_rows = "euclidean",   # ✅ Separate argument for distance
-			# 	clustering_distance_cols = "euclidean"    # ✅ Separate argument for distance
-			# )
-			
-			ggplot(rotation_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
-				geom_point(aes(x = Sample,y = value, col = PC)) +
-				theme(axis.text.x = element_text(angle = 90))
-			
-			sample_pca_psa = ggplot(rotation_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
-				geom_point(aes(x = PSA_score,y = value, col = PC))
-			plot(density(sdev))
 			
 			x_long = pca_result$x %>% 
 				as.data.frame() %>% 
@@ -2182,41 +2041,50 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				gather(key = PC, value = value, -1) %>% 
 				left_join(feature_data)
 			
-			x_long$Protein = factor(x_long$Protein, rownames(pca_result$x %>% as.data.frame() %>% arrange(PC1)))
-			ggplot(x_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
-				geom_point(aes(x = Protein,y = value, col = PC)) +
-				geom_point(aes(x = Protein,y = PSA_logFC)) +
-				theme(axis.text.x = element_text(angle = 90))
+			# ✅ Store data in reactive values for plotting
+			rv$random_plot_data_rotation <- rotation_long
+			rv$random_plot_data_x <- x_long
+			rv$random_plot_sdev <- pca_result$sdev
 			
-			x_long$Protein = factor(x_long$Protein, rownames(pca_result$x %>% as.data.frame() %>% arrange(PC3)))
-			ggplot(x_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
-				geom_point(aes(x = Protein,y = value, col = PC)) +
-				geom_point(aes(x = Protein,y = PSA_logFC)) +
-				theme(axis.text.x = element_text(angle = 90))
-			protein_pca_psa = ggplot(x_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
-				geom_point(aes(x = PSA_logFC,y = value, col = PC))
+			# Return UI
+			tagList(
+				column(12,
+							 plotOutput(ns('sample_pca_psa'), height = "400px"),
+							 plotOutput(ns('protein_pca_psa'), height = "400px"),
+							 plotOutput(ns('protein_pca_correlation'), height = "400px"),
+							 plotOutput(ns('sdev_density'), height = "400px")
+				)
+			)
+		})
+		
+		output$sample_pca_psa <- renderPlot({
+			req(rv$random_plot_data_rotation)
 			
-			protein_pca_correlation = ggplot(x_long %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
-				geom_point(aes(x = correlation,y = value, col = PC))
+			ggplot(rv$random_plot_data_rotation %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
+				geom_point(aes(x = PSA_score, y = value, col = PC)) +
+				theme_minimal()
+		})
+		
+		output$protein_pca_psa <- renderPlot({
+			req(rv$random_plot_data_x)
 			
-			output$sample_pca_psa = renderPlot({
-				sample_pca_psa
-			})
+			ggplot(rv$random_plot_data_x %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
+				geom_point(aes(x = PSA_logFC, y = value, col = PC)) +
+				theme_minimal()
+		})
+		
+		output$protein_pca_correlation <- renderPlot({
+			req(rv$random_plot_data_x)
 			
-			output$protein_pca_psa = renderPlot({
-				protein_pca_psa
-			})
+			ggplot(rv$random_plot_data_x %>% filter(PC %in% c('PC1','PC2','PC3','PC4','PC5'))) + 
+				geom_point(aes(x = correlation, y = value, col = PC)) +
+				theme_minimal()
+		})
+		
+		output$sdev_density <- renderPlot({
+			req(rv$random_plot_sdev)
 			
-			output$protein_pca_correlation = renderPlot({
-				protein_pca_correlation
-			})
-			
-			lst = list(column(12,
-											plotOutput(ns('sample_pca_psa')),
-											plotOutput(ns('protein_pca_psa')),
-											plotOutput(ns('protein_pca_correlation'))))
-			
-			do.call(tagList,lst)
+			plot(density(rv$random_plot_sdev), main = "Density of sdev")
 		})
 		
 		
