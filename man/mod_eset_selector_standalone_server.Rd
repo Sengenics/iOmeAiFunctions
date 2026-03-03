@@ -2,7 +2,8 @@
 % Please edit documentation in R/mod_eset.R
 \name{mod_eset_selector_standalone_server}
 \alias{mod_eset_selector_standalone_server}
-\title{Standalone ExpressionSet Selector Server with Subset & Transform}
+\title{Standalone ExpressionSet Selector Server with Subset & Transform
+Complete data preparation pipeline}
 \usage{
 mod_eset_selector_standalone_server(
   id,
@@ -26,9 +27,8 @@ mod_eset_selector_standalone_server(
 \item{enable_transform}{Enable transformation (default TRUE)}
 
 \item{debug}{Enable debug mode (default FALSE)}
-
-\item{source}{Reactive returning data source ("uploaded", "package", etc.)}
 }
 \description{
+Standalone ExpressionSet Selector Server with Subset & Transform
 Complete data preparation pipeline
 }
