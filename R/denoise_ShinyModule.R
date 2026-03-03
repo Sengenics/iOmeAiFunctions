@@ -148,18 +148,56 @@ mod_denoiser_ui <- function(id) {
 					hr(),
 					
 					# Expected PN AAbs
+					# h4("Expected PN AAbs"),
+					# textAreaInput(
+					# 	ns("PN_AAbs"),
+					# 	"Expected PN AAbs (comma-separated):",
+					# 	value = "PSIP1, MAPK9, MX1, UBE2I, PTPN11, MLH1",
+					# 	rows = 3
+					# ),
+					
+					# Expected PN AAbs
 					h4("Expected PN AAbs"),
-					textAreaInput(
-						ns("PN_AAbs"),
-						"Expected PN AAbs (comma-separated):",
-						value = "PSIP1, MAPK9, MX1, UBE2I, PTPN11, MLH1",
-						rows = 3
+					
+					# NEW: Selectable list from limma results
+					selectizeInput(
+						ns("PN_AAbs_select"),
+						"Select Expected PN AAbs:",
+						choices = NULL,  # Will be populated from featureData
+						selected = NULL,
+						multiple = TRUE,
+						options = list(
+							placeholder = 'Select proteins...',
+							maxItems = 50,
+							plugins = list('remove_button')
+						)
 					),
+					
+					# Action button to apply selection
+					# actionButton(
+					# 	ns("apply_pn_aabs"),
+					# 	"Apply Selection to Text Box",
+					# 	icon = icon("arrow-down"),
+					# 	class = "btn-info btn-sm btn-block"
+					# ),
+					
+					# br(),
+					
+					# Keep the text area for manual editing
+					# textAreaInput(
+					# 	ns("PN_AAbs"),
+					# 	"Expected PN AAbs (manual edit):",
+					# 	value = "PSIP1, MAPK9, MX1, UBE2I, PTPN11, MLH1",
+					# 	rows = 3
+					# ),
+					
+					helpText(icon("info-circle"), 
+									 "Select from limma results above, or manually edit the text box below."),
 					
 					numericInput(
 						ns("exp_PN_min"),
 						"Expected PN AAb Count - Min:",
-						value = 6,
+						value = 2,
 						min = 0,
 						step = 1
 					),
@@ -167,7 +205,7 @@ mod_denoiser_ui <- function(id) {
 					numericInput(
 						ns("exp_PN_max"),
 						"Expected PN AAb Count - Max:",
-						value = 12,
+						value = 8,
 						min = 0,
 						step = 1
 					),
@@ -1125,10 +1163,22 @@ mod_denoiser_ui <- function(id) {
 						fluidRow(
 							column(
 								width = 12,
+							
 								shinydashboard::box(
 									title = "Cutpoint Results Table",
 									width = NULL,
 									DTOutput(ns("cutpoint_table"))
+								),
+								
+								shinydashboard::box(
+									title = "Selection DataFrame (s_df) Original",
+									width = NULL,
+									DTOutput(ns("s_df_table_original"))
+								),
+								shinydashboard::box(
+									title = "Selection DataFrame (s_df)",
+									width = NULL,
+									DTOutput(ns("s_df_table"))
 								)
 							)
 						)
@@ -1517,35 +1567,6 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 		observeEvent(input$denoise_mod_debug, {
 			browser()
 		})
-		
-		# Auto-populate expected PN AAbs from limma results
-		# observe({
-		# 	req(pn_limma_results())
-		# 	
-		# 	limma_res <- pn_limma_results()
-		# 	
-		# 	if (!is.null(limma_res$exp_PN_AAbs)) {
-		# 		# Update expected AAbs range input
-		# 		updateTextInput(
-		# 			session,
-		# 			"expected_pn_count",
-		# 			value = paste(limma_res$exp_PN_AAbs, collapse = ",")
-		# 		)
-		# 		
-		# 		# Update expected AAbs list
-		# 		updateTextAreaInput(
-		# 			session,
-		# 			"expected_pn_aabs",
-		# 			value = paste(limma_res$PN_AAbs, collapse = "\n")
-		# 		)
-		# 		
-		# 		showNotification(
-		# 			"✅ Expected PN AAbs auto-populated from limma analysis!",
-		# 			type = "message",
-		# 			duration = 5
-		# 		)
-		# 	}
-		# })
 		
 		# Reactive values ####
 		rv <- reactiveValues(
@@ -2577,16 +2598,139 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 		})
 		
 		# Parse PN AAbs input ####
+		
+		
+		
+		# Populate PN_AAbs selector from limma results ####
+		# observe({
+		# 	req(pn_limma_results())
+		# 	
+		# 	limma_res <- pn_limma_results()
+		# 	
+		# 	# Get proteins from sig_results
+		# 	if (!is.null(limma_res$sig_results)) {
+		# 		available_proteins <- rownames(limma_res$sig_results)
+		# 		
+		# 		# Optionally filter by significance
+		# 		if ("adj.P.Val" %in% colnames(limma_res$sig_results)) {
+		# 			sig_proteins <- rownames(limma_res$sig_results[limma_res$sig_results$adj.P.Val < 0.05, ])
+		# 			
+		# 			# Update with all proteins, but pre-select significant ones
+		# 			updateSelectizeInput(
+		# 				session,
+		# 				"PN_AAbs_select",
+		# 				choices = available_proteins,
+		# 				selected = sig_proteins[1:min(8, length(sig_proteins))]  # Select top 8 sig proteins
+		# 			)
+		# 			
+		# 			showNotification(
+		# 				paste0("✓ Loaded ", length(available_proteins), " proteins from limma results. ",
+		# 							 length(sig_proteins), " significant proteins pre-selected."),
+		# 				type = "message",
+		# 				duration = 5
+		# 			)
+		# 		} else {
+		# 			# No p-value column, just populate choices
+		# 			updateSelectizeInput(
+		# 				session,
+		# 				"PN_AAbs_select",
+		# 				choices = available_proteins,
+		# 				selected = available_proteins[1:min(8, length(available_proteins))]
+		# 			)
+		# 			
+		# 			showNotification(
+		# 				paste0("✓ Loaded ", length(available_proteins), " proteins from limma results."),
+		# 				type = "message",
+		# 				duration = 5
+		# 			)
+		# 		}
+		# 	}
+		# })
+		
+		# Populate PN_AAbs selector from featureData, pre-select from limma ####
+		observe({
+			req(eset_raw())
+			
+			# Get ALL proteins from featureData
+			featureData <- Biobase::fData(eset_raw())
+			all_proteins <- rownames(featureData)
+			
+			# Default: no pre-selection
+			preselected_proteins <- NULL
+			
+			# If limma results available, pre-select significant proteins
+			if (!is.null(pn_limma_results())) {
+				limma_res <- pn_limma_results()
+				
+				if (!is.null(limma_res$sig_results)) {
+					sig_proteins <- rownames(limma_res$sig_results)
+					
+					# Only pre-select proteins that exist in featureData
+					preselected_proteins <- intersect(sig_proteins, all_proteins)
+					
+					showNotification(
+						paste0("✓ Loaded ", length(all_proteins), " proteins. ",
+									 "Pre-selected ", length(preselected_proteins), " from limma results."),
+						type = "message",
+						duration = 5
+					)
+				}
+			}
+			
+			# Update dropdown
+			updateSelectizeInput(
+				session,
+				"PN_AAbs_select",
+				choices = all_proteins,
+				selected = preselected_proteins
+			)
+		})
+		
+		# Update PN_AAbs text area when selection is applied ####
+		observeEvent(input$apply_pn_aabs, {
+			req(input$PN_AAbs_select)
+			
+			selected_proteins <- input$PN_AAbs_select
+			
+			if (length(selected_proteins) > 0) {
+				# Update text area with comma-separated list
+				updateTextAreaInput(
+					session,
+					"PN_AAbs",
+					value = paste(selected_proteins, collapse = ", ")
+				)
+				
+				showNotification(
+					paste0("✓ Applied ", length(selected_proteins), " proteins to text box"),
+					type = "message",
+					duration = 3
+				)
+			} else {
+				showNotification(
+					"⚠ No proteins selected",
+					type = "warning",
+					duration = 3
+				)
+			}
+		})
+		
+
+		
+		# PN_AAbs_parsed <- reactive({
+		# 	req(input$PN_AAbs)
+		# 	aabs <- unlist(strsplit(input$PN_AAbs, ","))
+		# 	aabs <- trimws(aabs)
+		# 	aabs[aabs != ""]
+		# })
+		
 		PN_AAbs_parsed <- reactive({
-			req(input$PN_AAbs)
-			aabs <- unlist(strsplit(input$PN_AAbs, ","))
-			aabs <- trimws(aabs)
-			aabs[aabs != ""]
+			req(input$PN_AAbs_select)
+			input$PN_AAbs_select
 		})
 		
 		# Run denoising pipeline ####
-		observeEvent(input$run_denoise, {
-			req(eset_raw())
+		observeEvent(input$run_denoise, { 
+			req(eset_raw()) 
 			
 			withProgress(message = 'Running denoising pipeline...', value = 0, {
 				
@@ -2625,6 +2769,12 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 					all_cutpoint_results[[i]] <- cutpoint_results
 				}
 				rv$cutpoint_results <- do.call(rbind, all_cutpoint_results)
+				
+				rv$s_df <- label_candidate_cutpoints(
+					cutpoint_results = rv$cutpoint_results,
+					exp_PN_AAbs = seq(input$exp_PN_min, input$exp_PN_max),
+					cut_step = input$cut_step
+				)
 				
 				# Step 4: Select optimal cutpoint
 				incProgress(0.2, detail = "Selecting optimal cutpoint...")
@@ -2707,6 +2857,28 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 				DT::formatStyle('TP_FP_ratio', background = DT::styleColorBar(cutpoint_subset$TP_FP_ratio, 'lightblue'),
 												backgroundSize = '100% 90%', backgroundRepeat = 'no-repeat', backgroundPosition = 'center')
 		})
+		
+		output$s_df_table_original <- renderDT({
+			req(rv$cutpoint_results)
+			datatable(
+				rv$cutpoint_results,
+				options = list(scrollX = TRUE, pageLength = 25),
+				rownames = FALSE
+			) %>%
+				formatRound(columns = c("TP_FP_ratio", "zz_2_frac", "zz_4_frac"), digits = 3)
+		})
+		
+		output$s_df_table <- renderDT({
+			req(rv$s_df)
+			datatable(
+				rv$s_df,
+				options = list(scrollX = TRUE, pageLength = 28),
+				rownames = TRUE  # now rownames are meaningful
+			) %>%
+				formatRound(columns = c("TP_FP_ratio", "zz_2_frac", "zz_4_frac"), digits = 3)
+		})
+		
+		
 		
 		# AAb-Called Data Tab Outputs ####
 		current_aab_data <- reactive({
@@ -3056,45 +3228,7 @@ mod_denoiser_server <- function(id, ExpSet_list, eset_raw, eset_norm = NULL,pn_l
 			show_density = TRUE
 		)
 		
-		# # Call AAb PN Visualization Modules (no density for binary data) ####
-		# mod_pn_viz_server(
-		# 	id = "aab_pn_neti",
-		# 	data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_neti }),
-		# 	metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
-		# 	title = "PN - NetI Data",
-		# 	annotation_cols = reactive({ input$annotation_cols }),
-		# 	highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
-		# 	cluster_rows = FALSE,
-		# 	cluster_cols = reactive({ input$aab_cluster_samples }),
-		# 	show_density = FALSE
-		# )
-		# 
-		# mod_pn_viz_server(
-		# 	id = "aab_pn_norm",
-		# 	data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_norm }),
-		# 	metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
-		# 	title = "PN - Normalized Data",
-		# 	annotation_cols = reactive({ input$annotation_cols }),
-		# 	highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
-		# 	cluster_rows = FALSE,
-		# 	cluster_cols = reactive({ input$aab_cluster_samples }),
-		# 	show_density = FALSE
-		# )
-		# 
-		# mod_pn_viz_server(
-		# 	id = "aab_pn_called",
-		# 	data = reactive({ req(aab_pn_data()); aab_pn_data()$pn_denoised }),
-		# 	metadata = reactive({ req(aab_pn_data()); aab_pn_data()$pn_metadata }),
-		# 	title = reactive({
-		# 		paste0("PN - AAb-Called Data (Cutpoint: ", input$cutpoint_slider, ")")
-		# 	}),
-		# 	annotation_cols = reactive({ input$annotation_cols }),
-		# 	highlight_features = reactive({ if (input$aab_show_expected_aabs) PN_AAbs_parsed() else NULL }),
-		# 	cluster_rows = FALSE,
-		# 	cluster_cols = FALSE,
-		# 	show_density = FALSE
-		# )
-		# 
+	
 		
 		# Call AAb PN Visualization Modules (no density for binary data) ####
 		mod_pn_viz_server(

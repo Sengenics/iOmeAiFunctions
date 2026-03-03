@@ -2087,7 +2087,7 @@ mod_pn_limma_server <- function(id,
 		})
 		
 		### Top Table ####
-		output$limma_top_table <- DT::renderDataTable({
+		limma_sig_results = reactive({
 			req(rv$limma_results)
 			
 			TT <- rv$limma_results$topTable
@@ -2102,6 +2102,26 @@ mod_pn_limma_server <- function(id,
 			if (!"FC" %in% colnames(sig_table)) {
 				sig_table$FC <- logratio2foldchange(sig_table$logFC)
 			}
+			sig_table
+		})
+		
+		output$limma_top_table <- DT::renderDataTable({
+			# req(rv$limma_results)
+			# 
+			# TT <- rv$limma_results$topTable
+			# sig_rows <- which(TT$P.Value < rv$limma_results$p_val & abs(TT$logFC) > log2(rv$limma_results$fc_cutoff))
+			# 
+			# if (length(sig_rows) > 0) {
+			# 	sig_table <- TT[sig_rows, ] %>% arrange(P.Value)
+			# } else {
+			# 	sig_table <- TT[1:min(10, nrow(TT)), ]
+			# }
+			# 
+			# if (!"FC" %in% colnames(sig_table)) {
+			# 	sig_table$FC <- logratio2foldchange(sig_table$logFC)
+			# }
+			
+			sig_table = limma_sig_results()
 			
 			# Select columns to display
 			display_cols <- intersect(
@@ -2382,6 +2402,7 @@ mod_pn_limma_server <- function(id,
 			list(
 				limma_results = rv$limma_results,
 				merged_results = rv$merged_results,
+				sig_results = limma_sig_results(),
 				frequency_results = rv$frequency_results,
 				heatmap_data = rv$heatmap_data,
 				violin_plots = rv$violin_plots,

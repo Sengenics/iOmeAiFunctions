@@ -41,7 +41,7 @@ ui <- dashboardPage(
       "))
 		),
 		
-		## tabs ####
+		## Main App ####
 		tabItems(
 			### Data selection tab ####
 			tabItem(
@@ -108,7 +108,7 @@ ui <- dashboardPage(
 						width = 12,
 						status = "success",
 						solidHeader = TRUE,
-						mod_expset_import_ui("expset_import", debug = run_debug)
+						mod_expset_import_ui("expset_import", debug = run_debug, dataset_choices = dev_datasets)
 					)
 				),
 				
@@ -193,7 +193,7 @@ ui <- dashboardPage(
 	
 			
 			
-			# #### PN LIMMA #####
+			### PN LIMMA #####
 			tabItem(
 				tabName = "pn_limma",
 				mod_pn_limma_ui("pn_limma")

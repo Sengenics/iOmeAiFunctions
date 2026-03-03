@@ -8,28 +8,39 @@ mod_expset_import_server(id, debug = FALSE)
 }
 \arguments{
 \item{id}{Character; module namespace ID}
+
+\item{debug}{Logical; enable debug observer. Default FALSE.}
 }
 \value{
 List with reactive elements:
 \describe{
-\item{ExpSet_list}{Reactive returning list of ExpressionSets (uploaded or default)}
-\item{source}{Reactive returning "uploaded", "package", or "none"}
-\item{status}{Reactive returning status message}
+\item{ExpSet_list}{Reactive returning list of ExpressionSets}
+\item{source}{Reactive returning "uploaded", "selected", "package", or "none"}
+\item{status}{Reactive returning status message string}
 }
 }
 \description{
-Server logic for uploading, validating, and loading ExpressionSet data.
-Handles file upload, validation, and provides reactive ExpSet_list.
-If no file is uploaded, attempts to load from package data.
+Server logic for loading ExpressionSet data via quick-select menu or file upload.
+Priority order: (1) uploaded file, (2) quick-select dataset, (3) package data.
 }
 \note{
+Version 2.0 - Added quick-select dataset support
 Version 1.0 - Created for modular ExpSet import
 Original pattern from Denoiser app server.R
 }
 \examples{
 \dontrun{
-# In server
-expset_data <- mod_expset_import_server("expset_import")
+# In global.R - define available datasets
+dev_datasets <- c(
+  "PAD4 IgA (2024)"    = "~/SBI/.../ExpSet_list.rds",
+  "Study B"            = "~/SBI/.../StudyB_ExpSet_list.rds"
+)
+
+# In ui.R
+mod_expset_import_ui("expset_import", debug = run_debug, dataset_choices = dev_datasets)
+
+# In server.R
+expset_data <- mod_expset_import_server("expset_import", debug = run_debug)
 
 # Access the ExpSet_list
 observe({

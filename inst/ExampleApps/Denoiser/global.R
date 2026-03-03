@@ -10,7 +10,7 @@ run_debug <- !is.na(Sys.getenv("RSTUDIO", unset = NA))
 print(run_debug)
 
 # Package Management #####
-
+dev_datasets = c()
 ## iOmeAiFunctions ####
 if (run_debug) {
   ### Local Development ###
@@ -23,6 +23,7 @@ if (run_debug) {
     devtools::document(local_path)
   }
   pkgload::load_all(local_path)
+  source('dev_datasets.R')
 
 } else {
   ### Production: GitHub Release v0.1.1 ###

@@ -452,3 +452,136 @@ denoise_select_optimal_cutpoint <- function(cutpoint_results,
 	
 	return(optimal)
 }
+
+
+#' Label Candidate Cutpoints per PC Level
+#'
+#' Identifies the four candidate cutpoints (a, b, c, d) for each PC removal
+#' level in the cutpoint results table, mirroring the logic in cut_and_drying().
+#'
+#' Candidate definitions:
+#' - b: one step below the first cutpoint where BOTH zz_2_frac AND zz_4_frac == 0
+#' - a: one step below b
+#' - c: one step above b
+#' - d: cutpoint with highest TP:FP ratio where PN_Aab_count_67_perc is in
+#'      exp_PN_AAbs AND PN_AAb_hit_rate >= 65. Falls back to max TP:FP overall
+#'      if no candidates meet criteria.
+#'
+#' @param cutpoint_results Data frame; output from denoise_find_cutpoints() with
+#'   PCs_removed column added. Must contain columns: cutpoint, zz_2_frac,
+#'   zz_4_frac, TP_FP_ratio, PN_Aab_count_67_perc, PN_AAb_hit_rate, PCs_removed
+#' @param exp_PN_AAbs Numeric vector; expected range of PN AAb counts (e.g. 4:8)
+#' @param cut_step Numeric; increment used in cut_seq (e.g. 0.1)
+#'
+#' @return Data frame with labelled candidate rows and a `label` column in the
+#'   format "PC1_a", "PC1_2_b", "PC1to4_d" etc. Returns NULL if no valid
+#'   candidates found.
+#'
+#' @export
+#'
+#' @note Original logic from cut_and_drying() in Sengenics_accessory_functions.R
+#'
+#' @examples
+#' \dontrun{
+#' s_df <- label_candidate_cutpoints(
+#'   cutpoint_results = rv$cutpoint_results,
+#'   exp_PN_AAbs = seq(input$exp_PN_min, input$exp_PN_max),
+#'   cut_step = input$cut_step
+#' )
+#' }
+label_candidate_cutpoints <- function(cutpoint_results, exp_PN_AAbs, cut_step) {
+	
+	# Input checks
+	required_cols <- c("cutpoint", "zz_2_frac", "zz_4_frac", 
+										 "TP_FP_ratio", "PN_Aab_count_67_perc", 
+										 "PN_AAb_hit_rate", "PCs_removed")
+	
+	missing_cols <- setdiff(required_cols, colnames(cutpoint_results))
+	if (length(missing_cols) > 0) {
+		stop(paste("Missing required columns:", paste(missing_cols, collapse = ", ")))
+	}
+	
+	pc_levels <- sort(unique(cutpoint_results$PCs_removed))
+	labelled_list <- list()
+	
+	for (pc in pc_levels) {
+		
+		df <- cutpoint_results[cutpoint_results$PCs_removed == pc, ]
+		
+		# --- Build PC label (matches original rowname convention) ---
+		pc_label <- switch(as.character(pc),
+											 "1" = "PC1",
+											 "2" = "PC1_2",
+											 "3" = "PC1_2_3",
+											 paste0("PC1to", pc)  # PC1to4, PC1to5 etc.
+		)
+		
+		# --- Find b: one step below first point where BOTH zz fracs == 0 ---
+		zz_zero <- df[df$zz_2_frac == 0 & df$zz_4_frac == 0, ]
+		
+		if (nrow(zz_zero) == 0) {
+			warning(paste("No zero ZZ point found for PC level", pc, "- skipping"))
+			next
+		}
+		
+		b <- zz_zero$cutpoint[1] - cut_step
+		a <- b - cut_step
+		c_ <- b + cut_step
+		
+		# --- Find d: max TP:FP in expected PN AAb range with hit rate >= 65 ---
+		d_candidates <- df[df$PN_Aab_count_67_perc %in% exp_PN_AAbs &
+											 	df$PN_AAb_hit_rate >= 65, ]
+		
+		if (nrow(d_candidates) == 0) {
+			# Fallback 1: relax hit rate filter, keep PN AAb range
+			d_candidates <- df[df$PN_Aab_count_67_perc %in% exp_PN_AAbs, ]
+		}
+		
+		if (nrow(d_candidates) == 0) {
+			# Fallback 2: just take max TP:FP across all cutpoints
+			warning(paste("No d candidates meet PN AAb criteria for PC level", pc,
+										"- using global max TP:FP"))
+			d_candidates <- df
+		}
+		
+		d <- d_candidates$cutpoint[which.max(d_candidates$TP_FP_ratio)]
+		
+		# --- Pull matching rows using factor matching to avoid floating point issues ---
+		target_cutpoints <- c(a, b, c_, d)
+		
+		df$cutpoint_f   <- as.factor(round(df$cutpoint, 8))
+		target_f        <- as.factor(round(target_cutpoints, 8))
+		
+		candidates <- df[df$cutpoint_f %in% target_f, ]
+		
+		if (nrow(candidates) == 0) {
+			warning(paste("No candidate rows found for PC level", pc,
+										"- candidates may fall outside cut_seq range"))
+			next
+		}
+		
+		# --- Assign a/b/c/d labels ---
+		candidates$label <- paste0(
+			pc_label, "_",
+			c("a", "b", "c", "d")[match(
+				as.character(candidates$cutpoint_f),
+				as.character(target_f)
+			)]
+		)
+		
+		# Clean up helper column
+		candidates$cutpoint_f <- NULL
+		
+		labelled_list[[as.character(pc)]] <- candidates
+	}
+	
+	if (length(labelled_list) == 0) {
+		warning("No labelled candidates produced - check zz_2_frac/zz_4_frac columns")
+		return(NULL)
+	}
+	
+	result <- do.call(rbind, labelled_list)
+	rownames(result) <- result$label
+	
+	return(result)
+}

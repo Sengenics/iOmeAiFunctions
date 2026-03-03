@@ -4,19 +4,26 @@
 \alias{mod_expset_import_ui}
 \title{ExpressionSet Import Module UI}
 \usage{
-mod_expset_import_ui(id, debug = FALSE)
+mod_expset_import_ui(id, debug = FALSE, dataset_choices = NULL)
 }
 \arguments{
 \item{id}{Character; module namespace ID}
+
+\item{debug}{Logical; show debug button. Default FALSE.}
+
+\item{dataset_choices}{Named character vector of dataset labels to file paths.
+If NULL, the quick-select menu is hidden. Pass from global.R.
+Example: c("PAD4 IgA" = "~/path/to/ExpSet_list.rds", "Study B" = "~/path/B.rds")}
 }
 \value{
-tagList with file input and status UI elements
+tagList with dataset selector, file input, and status UI elements
 }
 \description{
 UI for uploading and importing ExpressionSet data files.
-Provides file upload, validation, and status display.
+Provides a quick-select dataset menu, file upload, validation, and status display.
 }
 \note{
+Version 2.0 - Added dataset_choices quick-select menu
 Version 1.0 - Created for modular ExpSet import
 Original pattern from Denoiser app server.R
 }
