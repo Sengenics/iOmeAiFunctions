@@ -36,7 +36,7 @@ unlink("man", recursive = TRUE)
 
 # 4. Restore all dependencies from renv.lock
 source("renv/activate.R")
-renv::restore(promt = FALSE)
+renv::restore(prompt = F)
 
 # 4. Build the package
 source("tools/setup_package.R")

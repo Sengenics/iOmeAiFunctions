@@ -121,8 +121,8 @@ SUGGESTS <- c(
 	"conflicted",
 	"testthat",
 	"knitr",
-	"rmarkdown",
-	"usethis"
+	#"usethis",
+	"rmarkdown"
 )
 
 # Specific imports (for R/imports.R generation)
