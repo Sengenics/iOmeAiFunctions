@@ -122,7 +122,8 @@
       "NeedsCompilation": "no",
       "Author": "Dirk Eddelbuettel [aut, cre] (<https://orcid.org/0000-0001-6419-907X>), John W. Emerson [aut], Michael J. Kane [aut] (<https://orcid.org/0000-0003-1899-6662>)",
       "Maintainer": "Dirk Eddelbuettel <edd@debian.org>",
-      "Repository": "CRAN"
+      "Repository": "RSPM",
+      "Encoding": "UTF-8"
     },
     "Biobase": {
       "Package": "Biobase",
@@ -4041,7 +4042,8 @@
       "ByteCompile": "yes",
       "Collate": "'options.R' 'appender.R' 'constants.R' 'layout.R' 'logger.R' 'scat.R' 'futile.logger-package.R'",
       "RoxygenNote": "5.0.1",
-      "Repository": "CRAN"
+      "Repository": "RSPM",
+      "Encoding": "UTF-8"
     },
     "futile.options": {
       "Package": "futile.options",
@@ -4765,10 +4767,11 @@
       ],
       "License": "GPL (>= 2)",
       "VignetteBuilder": "knitr",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Repository/R-Forge/Project": "gmm",
       "Repository/R-Forge/Revision": "212",
-      "Repository/R-Forge/DateTimeStamp": "2023-06-06 14:44:35"
+      "Repository/R-Forge/DateTimeStamp": "2023-06-06 14:44:35",
+      "Encoding": "UTF-8"
     },
     "googledrive": {
       "Package": "googledrive",
@@ -7714,7 +7717,7 @@
       "NeedsCompilation": "no",
       "Author": "Carson Sievert [aut, cre] (ORCID: <https://orcid.org/0000-0002-4958-2844>), Chris Parmer [aut], Toby Hocking [aut], Scott Chamberlain [aut], Karthik Ram [aut], Marianne Corvellec [aut] (ORCID: <https://orcid.org/0000-0002-1994-3581>), Pedro Despouy [aut], Salim Brüggemann [ctb] (ORCID: <https://orcid.org/0000-0002-5329-5987>), Plotly Technologies Inc. [cph]",
       "Maintainer": "Carson Sievert <cpsievert1@gmail.com>",
-      "Repository": "CRAN"
+      "Repository": "https://packagemanager.posit.co/cran/latest"
     },
     "plyr": {
       "Package": "plyr",
@@ -9831,7 +9834,8 @@
       "Description": "A collection of algorithms and functions to aid statistical modeling. Includes limiting dilution analysis (aka ELDA), growth curve comparisons, mixed linear models, heteroscedastic regression, inverse-Gaussian probability calculations, Gauss quadrature and a secure convergence algorithm for nonlinear models. Also includes advanced generalized linear model functions including Tweedie and Digamma distributional families, secure convergence and exact distributional calculations for unit deviances.",
       "License": "GPL-2 | GPL-3",
       "NeedsCompilation": "yes",
-      "Repository": "CRAN"
+      "Repository": "RSPM",
+      "Encoding": "UTF-8"
     },
     "streamR": {
       "Package": "streamR",

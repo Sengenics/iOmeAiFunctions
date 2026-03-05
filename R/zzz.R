@@ -1,3 +1,4 @@
+
 #' @keywords internal
 .onLoad <- function(libname, pkgname) {
 	# Suppress import conflict warnings during package load
@@ -7,6 +8,11 @@
 			error = FALSE
 		)
 	)
+	
+	# Resolve box conflict DURING load (before export)
+	if (requireNamespace("conflicted", quietly = TRUE)) {
+		conflicted::conflict_prefer("box", "shinydashboard", quiet = TRUE)
+	}
 }
 
 #' @keywords internal
@@ -30,7 +36,7 @@
 		conflicted::conflict_prefer("dataTableOutput", "DT", quiet = TRUE)
 		conflicted::conflict_prefer("renderDataTable", "DT", quiet = TRUE)
 		
-		# shinydashboard preferences
+		# shinydashboard preferences (redundant but explicit)
 		conflicted::conflict_prefer("box", "shinydashboard", quiet = TRUE)
 		
 		# plyr preferences (if you use plyr)

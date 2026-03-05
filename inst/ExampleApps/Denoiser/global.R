@@ -5,7 +5,7 @@
 # Detect Environment ----
 run_debug <- !is.na(Sys.getenv("RSTUDIO", unset = NA))
 message("Running in ", if(run_debug) "DEVELOPMENT" else "PRODUCTION", " mode")
-
+#run_debug = F
 # Load iOmeAiFunctions ----
 if (run_debug) {
 	## Local Development ##
@@ -39,6 +39,7 @@ if (run_debug) {
 		
 		# Install specific version
 		iOmeAiFunction_version <- "v0.1.4"
+		iOmeAiFunction_version <- "denoiser_debug"
 		remotes::install_github(
 			paste0("Sengenics/iOmeAiFunctions@", iOmeAiFunction_version),
 			upgrade = "never",
