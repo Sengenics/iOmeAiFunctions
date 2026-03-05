@@ -176,6 +176,7 @@ ExpSet_select_function_2 <- function(ExpSet_list, name) {
 #'
 #' @return Character; name of ExpressionSet containing the assay
 #' @keywords internal
+#' @export
 get_ExpSet_name <- function(name, ExpSet_list) {
 	
 	# Parse the name to get the prefix (e.g., "clinical" from "clinical_loess_normalised")
