@@ -1,165 +1,156 @@
 # tools/setup_package.R
-version = "0.1.4"
-version = 'BatchCorrect_v1.1.1'
-release_data = '2025-12-11'
+# =============================================================================
+# iOmeAiFunctions Package Setup (with renv)
+# =============================================================================
 
-install.packages('devtools')
+cat("\n╔══════════════════════════���═════════════════════════════════╗\n")
+cat("║  iOmeAiFunctions Package Setup (renv mode)                ║\n")
+cat("╚════════════════════════════════════════════════════════════╝\n\n")
+
+# Setup options
 options(
 	renv.consent = TRUE,
 	renv.config.install.prompt = FALSE,
-	renv.config.restore.prompt = FALSE,
-	renv.config.snapshot.prompt = FALSE,
 	install.packages.check.source = "no",
-	install.packages.compile.from.source = "never",
-	menu.graphics = FALSE
+	install.packages.compile.from.source = "never"
 )
 
-# --- Scaffolding ---
-if (!requireNamespace("usethis", quietly = TRUE)) install.packages("usethis")
-if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
-
-if (file.exists("renv/activate.R")) {
+# Step 0: Initialize renv (if needed) ----
+if (!file.exists("renv/activate.R")) {
+	cat("Step 0: Initializing renv...\n")
+	if (!requireNamespace("renv", quietly = TRUE)) {
+		install.packages("renv")
+	}
+	renv::init()
+	message("  ✓ renv initialized")
+	cat("\n")
+} else {
+	cat("Step 0: Activating renv...\n")
 	source("renv/activate.R")
+	message("  ✓ renv activated")
+	cat("\n")
 }
 
-usethis::use_mit_license("Shaun Garnett")
-usethis::use_readme_rmd()
-usethis::use_build_ignore("tools/")
+# Load requirements
+source("tools/package_requirements.R")
 
-# Source the PSA_ROs vector from the temp directory
-source("data-raw/PSA_ROs_data.R")
-usethis::use_data(PSA_ROs_pkg, overwrite = TRUE)
-usethis::use_data(PSA_ROs_pkg, internal = TRUE, overwrite = TRUE)
+# Step 1: Install dependencies via renv ----
+cat("Step 1: Installing dependencies (via renv)...\n")
 
-# Source and prepare ExpSet example data
-source("data-raw/ExpSet_data.R")
-
-# --- Install & sync dependencies ---
-source("tools/install_dependencies.R")
-
-# --- Set Version and Encoding if missing ---
-desc_path <- "DESCRIPTION"
-desc <- readLines(desc_path)
-
-if (!any(grepl("^Version:", desc))) {
-	desc <- append(desc, paste("Version:", version), after = grep("^Package:", desc))
-	writeLines(desc, desc_path)
-	message(paste("✔ DESCRIPTION Version set to", version))
-}
-if (!any(grepl("^Encoding:", desc))) {
-	desc <- append(desc, "Encoding: UTF-8", after = grep("^Version:", desc))
-	writeLines(desc, desc_path)
-	message("✔ DESCRIPTION Encoding set to UTF-8")
-}
-
-# ✅ Clean up DESCRIPTION - remove base packages from Imports
-desc <- readLines(desc_path)
-base_packages <- c("base", "stats", "utils", "graphics", "grDevices", "datasets", "methods")
-
-in_imports <- FALSE
-cleaned_desc <- c()
-skip_next <- FALSE
-
-for (i in seq_along(desc)) {
-	if (skip_next) {
-		skip_next <- FALSE
-		next
-	}
-	
-	line <- desc[i]
-	
-	# Detect Imports section
-	if (grepl("^Imports:", line)) {
-		in_imports <- TRUE
-		cleaned_desc <- c(cleaned_desc, line)
-		next
-	}
-	
-	# Detect end of Imports section
-	if (in_imports && grepl("^[A-Z][a-zA-Z]+:", line)) {
-		in_imports <- FALSE
-	}
-	
-	# Remove base packages from Imports
-	if (in_imports) {
-		# Check if line contains a base package
-		is_base <- any(sapply(base_packages, function(pkg) {
-			grepl(paste0("^\\s*", pkg, "\\s*(,|$)"), line)
-		}))
-		
-		if (is_base) {
-			message("✔ Removed base package from Imports: ", trimws(line))
-			next
+install_if_missing <- function(pkg, type = "cran") {
+	if (!requireNamespace(pkg, quietly = TRUE)) {
+		message("  Installing: ", pkg)
+		if (type == "bioc") {
+			if (!requireNamespace("BiocManager", quietly = TRUE)) {
+				renv::install("BiocManager")
+			}
+			renv::install(paste0("bioc::", pkg))
+		} else {
+			renv::install(pkg)
 		}
-	}
-	
-	cleaned_desc <- c(cleaned_desc, line)
-}
-
-writeLines(cleaned_desc, desc_path)
-message("✔ DESCRIPTION cleaned of base package imports")
-
-message("✔ Created R/zzz.R for conflict resolution")
-
-# ✅ Remove problematic @importFrom in R files
-message("✔ Scanning R files for base package imports...")
-
-r_files <- list.files("R", pattern = "\\.R$", full.names = TRUE)
-
-for (r_file in r_files) {
-	content <- readLines(r_file, warn = FALSE)
-	original_content <- content
-	
-	# Remove @importFrom for base packages
-	content <- content[!grepl("^#'\\s*@importFrom\\s+(base|stats|utils|graphics|grDevices|datasets|methods)\\s+", content)]
-	
-	# Write back if changed
-	if (! identical(content, original_content)) {
-		writeLines(content, r_file)
-		message("  ✔ Cleaned: ", basename(r_file))
+	} else {
+		message("  ✓ ", pkg)
 	}
 }
 
-# ✅ Clean everything before rebuild
-message("✔ Cleaning previous build artifacts...")
-unlink("NAMESPACE")
-unlink("man", recursive = TRUE)
-
-# Try to clean DLL if devtools is available
-if (requireNamespace("devtools", quietly = TRUE)) {
-	try(devtools::clean_dll(), silent = TRUE)
+# Install CRAN packages
+message("\nCRAN packages:")
+all_cran <- c(PACKAGE_REQUIREMENTS$core_depends, 
+							PACKAGE_REQUIREMENTS$imports_cran,
+							PACKAGE_REQUIREMENTS$suggests)
+for (pkg in all_cran) {
+	install_if_missing(pkg, "cran")
 }
 
-# --- Finalize ---
-message("✔ Documenting package...")
-devtools::document()
+# Install Bioconductor packages
+message("\nBioconductor packages:")
+for (pkg in PACKAGE_REQUIREMENTS$imports_bioc) {
+	install_if_missing(pkg, "bioc")
+}
 
-# ✅ NEW: Clean up NAMESPACE duplicates
-message("✔ Cleaning NAMESPACE duplicates...")
+cat("\n✓ All dependencies installed\n\n")
+
+# Step 2: Generate DESCRIPTION ----
+cat("Step 2: Generating DESCRIPTION...\n")
+source("tools/update_description.R")
+cat("\n")
+
+# Step 3: Generate R/imports.R ----
+cat("Step 3: Generating R/imports.R...\n")
+source("tools/update_imports.R")
+cat("\n")
+
+# Step 4: Process data ----
+cat("Step 4: Processing package data...\n")
+
+if (file.exists("data-raw/PSA_ROs_data.R")) {
+	source("data-raw/PSA_ROs_data.R")
+	if (exists("PSA_ROs_pkg")) {
+		usethis::use_data(PSA_ROs_pkg, overwrite = TRUE)
+		usethis::use_data(PSA_ROs_pkg, internal = TRUE, overwrite = TRUE)
+		message("  ✓ PSA_ROs_pkg data added")
+	}
+}
+
+if (file.exists("data-raw/ExpSet_data.R")) {
+	source("data-raw/ExpSet_data.R")
+	message("  ✓ ExpSet example data processed")
+}
+
+cat("\n")
+
+# Step 5: Clean previous build ----
+cat("Step 5: Cleaning previous build...\n")
 
 if (file.exists("NAMESPACE")) {
-	namespace_lines <- readLines("NAMESPACE")
-	
-	# Remove exact duplicates while preserving order
-	cleaned_namespace <- unique(namespace_lines)
-	
-	# Count how many duplicates were removed
-	n_duplicates <- length(namespace_lines) - length(cleaned_namespace)
-	
-	if (n_duplicates > 0) {
-		writeLines(cleaned_namespace, "NAMESPACE")
-		message(sprintf("  ✔ Removed %d duplicate entries from NAMESPACE", n_duplicates))
-	} else {
-		message("  ✔ No duplicates found in NAMESPACE")
-	}
+	unlink("NAMESPACE")
+	message("  ✓ Removed old NAMESPACE")
 }
 
-message("✔ Installing package...")
+if (dir.exists("man")) {
+	unlink("man", recursive = TRUE)
+	message("  ✓ Removed old documentation")
+}
+
+cat("\n")
+
+# Step 6: Document package ----
+cat("Step 6: Documenting package...\n")
+
+if (requireNamespace("devtools", quietly = TRUE)) {
+	devtools::document()
+	message("  ✓ Documentation generated")
+} else {
+	stop("devtools not available")
+}
+
+cat("\n")
+
+# Step 7: Install package ----
+cat("Step 7: Installing package...\n")
 devtools::install(upgrade = "never")
+cat("\n")
 
-message("✔ Snapshotting renv...")
+# Step 8: Snapshot renv ----
+cat("Step 8: Updating renv.lock...\n")
 renv::snapshot(prompt = FALSE, force = TRUE)
+message("  ✓ renv.lock updated with all package versions")
+cat("\n")
 
-message("✔ Package setup complete!")
-message(paste("  Version:", version))
-message(paste("  Release:", release_data))
+# Summary ----
+cat("╔════════════════════════════════════════════════════════════╗\n")
+cat("║  ✓ Package Setup Complete (renv mode)                     ║\n")
+cat("╚════════════════════════════════════════════════════════════╝\n\n")
+
+cat("Package:", PACKAGE_REQUIREMENTS$info$name, 
+		"v", PACKAGE_REQUIREMENTS$info$version, "\n")
+cat("Dependencies:", 
+		length(PACKAGE_REQUIREMENTS$core_depends), "core +",
+		length(c(PACKAGE_REQUIREMENTS$imports_cran, PACKAGE_REQUIREMENTS$imports_bioc)), 
+		"imports\n")
+cat("renv.lock: ", nrow(renv::status()$library), " packages locked\n\n")
+
+cat("Next steps:\n")
+cat("  • Test: library(iOmeAiFunctions)\n")
+cat("  • Check: check_dependencies()\n")
+cat("  • Restore on other machine: renv::restore()\n\n")
