@@ -4,8 +4,9 @@
 
 # Detect Environment ----
 run_debug <- !is.na(Sys.getenv("RSTUDIO", unset = NA))
+run_debug = F
 message("Running in ", if(run_debug) "DEVELOPMENT" else "PRODUCTION", " mode")
-#run_debug = F
+
 # Load iOmeAiFunctions ----
 if (run_debug) {
 	## Local Development ##
