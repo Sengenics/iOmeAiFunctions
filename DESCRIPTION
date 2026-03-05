@@ -1,7 +1,7 @@
 Package: iOmeAiFunctions
 Type: Package
 Title: Protein Microarray Analysis Tools
-Version: 0.1.5
+Version: 0.1.6
 Authors@R: person('Shaun', 'Garnett',
     email = 'shaun.garnett@standardbio.com',
     role = c('aut', 'cre'))
