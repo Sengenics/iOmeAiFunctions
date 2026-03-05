@@ -30,6 +30,7 @@ R
 getwd()
 # 3.  Clean Up
 unlink("NAMESPACE")
+unlink("DESCRIPTION")
 unlink("man", recursive = TRUE)
 #unlink("src", recursive = TRUE)
 

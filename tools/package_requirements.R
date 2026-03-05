@@ -132,28 +132,108 @@ SPECIFIC_IMPORTS <- list(
 	ggplot2 = "@import",
 	tidyr = "@import",
 	
-	# Bioconductor
+	# Bioconductor - specific functions only (no combine)
 	Biobase = c("ExpressionSet", "AnnotatedDataFrame", "exprs", "pData", 
 							"fData", "assayData", "assayDataElement", "assayDataElementNames"),
 	limma = c("makeContrasts", "lmFit", "contrasts.fit", "eBayes", "topTable"),
 	
-	# Visualization
+	# Visualization - specific functions only (no combine)
 	pheatmap = "pheatmap",
 	ggrepel = "geom_text_repel",
 	ggforce = c("facet_wrap_paginate", "n_pages"),
+	gridExtra = c("grid.arrange", "arrangeGrob"),
 	
 	# Data manipulation
 	tibble = c("rownames_to_column", "column_to_rownames"),
 	reshape2 = "melt",
 	
+	# DT - use specific functions
+	DT = c("datatable", "DTOutput", "renderDT", "dataTableProxy", "replaceData"),
+	
+	# Shiny ecosystem - FULL imports for apps
+	shiny = "@import",
+	shinydashboard = "@import",
+	shinyjs = "@import",
+	
 	# Statistics
 	vegan = "vegdist",
 	pROC = c("roc", "auc"),
 	
-	# Base R (needed for proper functionality)
+	# Base R
 	stats = c("model.matrix", "hclust", "prcomp", "cor", "sd", "median"),
 	utils = c("write.csv", "read.csv")
 )
+# SPECIFIC_IMPORTS <- list(
+# 	# Core tidyverse
+# 	dplyr = "@import",
+# 	ggplot2 = "@import",
+# 	tidyr = "@import",
+# 	
+# 	# Bioconductor - DON'T import combine
+# 	Biobase = c("ExpressionSet", "AnnotatedDataFrame", "exprs", "pData", 
+# 							"fData", "assayData", "assayDataElement", "assayDataElementNames"),
+# 	limma = c("makeContrasts", "lmFit", "contrasts.fit", "eBayes", "topTable"),
+# 	
+# 	# Visualization - DON'T import combine
+# 	pheatmap = "pheatmap",
+# 	ggrepel = "geom_text_repel",
+# 	ggforce = c("facet_wrap_paginate", "n_pages"),
+# 	gridExtra = c("grid.arrange", "arrangeGrob"),  # Don't import combine
+# 	
+# 	# Data manipulation
+# 	tibble = c("rownames_to_column", "column_to_rownames"),
+# 	reshape2 = "melt",
+# 	
+# 	# DT - use DT versions, not shiny versions
+# 	DT = c("datatable", "DTOutput", "renderDT"),  # Use DT:: versions
+# 	
+# 	# Shiny - re-export for apps
+# 	shiny = "@import",
+# 	shinydashboard = "@import",
+# 	
+# 	# Statistics
+# 	vegan = "vegdist",
+# 	pROC = c("roc", "auc"),
+# 	
+# 	# Base R
+# 	stats = c("model.matrix", "hclust", "prcomp", "cor", "sd", "median"),
+# 	utils = c("write.csv", "read.csv")
+# )
+# SPECIFIC_IMPORTS <- list(
+# 	# Core tidyverse
+# 	dplyr = "@import",
+# 	ggplot2 = "@import",
+# 	tidyr = "@import",
+# 	
+# 	# Bioconductor
+# 	Biobase = c("ExpressionSet", "AnnotatedDataFrame", "exprs", "pData", 
+# 							"fData", "assayData", "assayDataElement", "assayDataElementNames"),
+# 	limma = c("makeContrasts", "lmFit", "contrasts.fit", "eBayes", "topTable"),
+# 	
+# 	# Visualization
+# 	pheatmap = "pheatmap",
+# 	ggrepel = "geom_text_repel",
+# 	ggforce = c("facet_wrap_paginate", "n_pages"),
+# 	
+# 	# Data manipulation
+# 	tibble = c("rownames_to_column", "column_to_rownames"),
+# 	reshape2 = "melt",
+# 	
+# 	# Statistics
+# 	vegan = "vegdist",
+# 	pROC = c("roc", "auc"),
+# 	
+# 	# Base R (needed for proper functionality)
+# 	stats = c("model.matrix", "hclust", "prcomp", "cor", "sd", "median"),
+# 	utils = c("write.csv", "read.csv"),
+# 	
+# 	# Shiny packages (for apps)
+# 	shiny = "@import",
+# 	shinydashboard = "@import",
+# 	shinyjs = "@import",
+# 	shinyWidgets = "@import",
+# 	DT = c("datatable", "DTOutput", "renderDT")
+#)
 
 # Export all
 PACKAGE_REQUIREMENTS <- list(

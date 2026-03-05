@@ -6,6 +6,7 @@ source("tools/package_requirements.R")
 # Build roxygen import statements
 import_lines <- c(
 	"#' Package Imports",
+	"#' @name imports",
 	"#' @keywords internal",
 	"#' Auto-generated - DO NOT EDIT",
 	"NULL",

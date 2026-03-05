@@ -1,4 +1,5 @@
 #' Package Imports
+#' @name imports
 #' @keywords internal
 #' Auto-generated - DO NOT EDIT
 NULL
@@ -23,9 +24,19 @@ NULL
 #' @importFrom ggrepel geom_text_repel
 #' @importFrom ggforce facet_wrap_paginate
 #' @importFrom ggforce n_pages
+#' @importFrom gridExtra grid.arrange
+#' @importFrom gridExtra arrangeGrob
 #' @importFrom tibble rownames_to_column
 #' @importFrom tibble column_to_rownames
 #' @importFrom reshape2 melt
+#' @importFrom DT datatable
+#' @importFrom DT DTOutput
+#' @importFrom DT renderDT
+#' @importFrom DT dataTableProxy
+#' @importFrom DT replaceData
+#' @import shiny
+#' @import shinydashboard
+#' @import shinyjs
 #' @importFrom vegan vegdist
 #' @importFrom pROC roc
 #' @importFrom pROC auc
