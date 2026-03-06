@@ -2,7 +2,7 @@
 % Please edit documentation in R/QC_plots.R
 \name{R2_plot_list_function}
 \alias{R2_plot_list_function}
-\title{Generate RÂ² Plot from Sub-data}
+\title{Generate R² Plot from Sub-data}
 \usage{
 R2_plot_list_function(sub_data, plot_name, ylab, log2)
 }
@@ -17,9 +17,9 @@ R2_plot_list_function(sub_data, plot_name, ylab, log2)
 \item{log2}{Logical. If TRUE, apply log2 transformation to axes.}
 }
 \value{
-A ggplot2 object showing the dilution series with RÂ² and slope statistics.
+A ggplot2 object showing the dilution series with R² and slope statistics.
 }
 \description{
 Wrapper function that extracts the appropriate data from sub_data structure
-and generates an RÂ² line plot for detection antibody dilution series.
+and generates an R² line plot for detection antibody dilution series.
 }

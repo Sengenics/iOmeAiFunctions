@@ -18,10 +18,10 @@ QC_ctrl_repot_plots(
 \item{feature_column}{Character. The name of the feature column (e.g., "Protein"). Default is "Protein".}
 }
 \value{
-A list of QC outputs including Cy3 control CVs and IgG dilution RÂ² results.
+A list of QC outputs including Cy3 control CVs and IgG dilution R² results.
 }
 \description{
-Generates QC metrics for control probes (e.g., BSA and IgG), including CV and RÂ² checks.
+Generates QC metrics for control probes (e.g., BSA and IgG), including CV and R² checks.
 Allows flexibility in feature column naming (e.g., "Protein" or "Feature").
 }
 \note{

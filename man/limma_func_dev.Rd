@@ -28,7 +28,7 @@ limma_func_dev(
 \arguments{
 \item{metadata}{Data frame with sample metadata}
 
-\item{input}{Expression matrix (features Ã samples)}
+\item{input}{Expression matrix (features × samples)}
 
 \item{variable}{Character; column name for variable of interest}
 

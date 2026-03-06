@@ -97,7 +97,7 @@ The layout adapts based on:
 \enumerate{
 \item \strong{Number of blocks}: Adjusts plot dimensions based on array block count
 \itemize{
-\item Single block (1): Uses larger pseudo array dimensions (1204 Ã 512)
+\item Single block (1): Uses larger pseudo array dimensions (1204 × 512)
 \item Multiple blocks (>1): Scales dimensions proportionally (512 / n_blocks)
 }
 \item \strong{Image availability}:

@@ -2,7 +2,7 @@
 % Please edit documentation in R/QC_plots.R
 \name{QC_R2_line_plot_function}
 \alias{QC_R2_line_plot_function}
-\title{Create RÂ² Line Plot (Static ggplot)}
+\title{Create R² Line Plot (Static ggplot)}
 \usage{
 QC_R2_line_plot_function(plot_data, title, subtitle, ylab, log2 = FALSE)
 }
@@ -11,7 +11,7 @@ QC_R2_line_plot_function(plot_data, title, subtitle, ylab, log2 = FALSE)
 
 \item{title}{Character. Plot title.}
 
-\item{subtitle}{Expression or character. Plot subtitle (typically RÂ² statistics).}
+\item{subtitle}{Expression or character. Plot subtitle (typically R² statistics).}
 
 \item{ylab}{Character. Y-axis label.}
 
@@ -21,7 +21,7 @@ QC_R2_line_plot_function(plot_data, title, subtitle, ylab, log2 = FALSE)
 A ggplot2 object.
 }
 \description{
-Generates a static ggplot2 line plot for RÂ² QC data with dilution series.
+Generates a static ggplot2 line plot for R² QC data with dilution series.
 Lines are colored by QC status (pass/flag), with flagged samples highlighted
 with thicker lines.
 }

@@ -41,6 +41,10 @@
 		conflicted::conflict_prefer("dataTableOutput", "DT", quiet = TRUE)
 		conflicted::conflict_prefer("renderDataTable", "DT", quiet = TRUE)
 		
+		# shinyjs preferences (for Shiny apps)
+		conflicted::conflict_prefer("show", "shinyjs", quiet = TRUE)
+		conflicted::conflict_prefer("hide", "shinyjs", quiet = TRUE)
+		
 		# shinydashboard preferences (redundant but explicit)
 		conflicted::conflict_prefer("box", "shinydashboard", quiet = TRUE)
 		

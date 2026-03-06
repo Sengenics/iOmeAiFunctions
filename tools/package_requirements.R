@@ -15,7 +15,7 @@
 # Package metadata
 PACKAGE_INFO <- list(
 	name = "iOmeAiFunctions",
-	version = "0.1.8.1",
+	version = "0.1.8.3",
 	title = "I-Ome AI Analysis Tools",
 	description = "Complete toolkit for protein microarray analysis including denoising, differential expression with limma, and interactive visualization.",
 	author = "Shaun Garnett",
@@ -29,7 +29,8 @@ PACKAGE_INFO <- list(
 CORE_DEPENDS <- c(
 	"dplyr",
 	"ggplot2", 
-	"tidyr"
+	"tidyr",
+	"shiny"
 )
 
 # CRAN imports (available to your functions)

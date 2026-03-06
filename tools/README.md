@@ -244,25 +244,26 @@ devtools::document()
 #### Step 3: Commit Changes
 
 ```
-system("cd ~/iOmeAiFunctions && git add . && git commit -m 'Bump version to 0.1.5'")
-system("cd ~/iOmeAiFunctions && git push")
+git status
+git commit -am 'update message'
+git push github master
 ```
 
 #### Step 4: Create Git Tag
 
 ```
 # Create annotated tag
-system("cd ~/iOmeAiFunctions && git tag -a v0.1.5 -m 'Release version 0.1.5: Added denoiser module'")
+git tag InHouse_3_14 -m 'Release version for InHouse 3.14 all necessary packages exported
 
 # Push tag to GitHub
-system("cd ~/iOmeAiFunctions && git push origin v0.1.5")
+ git push github InHouse_3_14
 ```
 
 #### Step 5: Create GitHub Release (Optional)
 
 1. Go to https://github.com/Sengenics/iOmeAiFunctions/releases
 2. Click "Draft a new release"
-3. Choose tag `v0.1.5`
+3. Choose tag `InHouse_3_14`
 4. Add release notes
 5. Click "Publish release"
 
