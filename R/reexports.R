@@ -151,3 +151,15 @@ NULL
 #' @export ph_location_right
 #' @export external_img
 NULL
+
+#' Re-exported plotly functions
+#' 
+#' @name plotly-reexports
+#' @importFrom plotly renderPlotly plotlyOutput ggplotly plot_ly layout add_trace
+#' @export renderPlotly
+#' @export plotlyOutput
+#' @export ggplotly
+#' @export plot_ly
+#' @export layout
+#' @export add_trace
+NULL
