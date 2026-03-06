@@ -19,6 +19,11 @@
 .onAttach <- function(libname, pkgname) {
 	# Set package-level conflict preferences (only if conflicted is installed)
 	if (requireNamespace("conflicted", quietly = TRUE)) {
+		# Base R preferences (for set operations)
+		conflicted::conflict_prefer("setdiff", "base", quiet = TRUE)
+		conflicted::conflict_prefer("intersect", "base", quiet = TRUE)
+		conflicted::conflict_prefer("union", "base", quiet = TRUE)
+		
 		# Biobase preferences (for ExpressionSet operations)
 		conflicted::conflict_prefer("exprs", "Biobase", quiet = TRUE)
 		conflicted::conflict_prefer("pData", "Biobase", quiet = TRUE)
@@ -41,5 +46,7 @@
 		
 		# plyr preferences (if you use plyr)
 		conflicted::conflict_prefer("rename", "plyr", quiet = TRUE)
+		# plotly preferences
+		conflicted::conflict_prefer("layout", "plotly", quiet = TRUE)
 	}
 }

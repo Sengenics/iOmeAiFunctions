@@ -20,7 +20,7 @@ run_limma_analysis(
 \arguments{
 \item{metadata}{Data frame with sample metadata}
 
-\item{input}{Expression matrix (features × samples)}
+\item{input}{Expression matrix (features Ã samples)}
 
 \item{variable}{Character; column name for variable of interest}
 

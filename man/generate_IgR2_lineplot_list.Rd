@@ -21,7 +21,7 @@ A named list of ggplot2 objects:
 }
 }
 \description{
-Creates diagnostic QC plots for IgG control antibody R² statistics, including:
+Creates diagnostic QC plots for IgG control antibody RÂ² statistics, including:
 \itemize{
 \item Ratio to first probe replicate
 \item Mean Net Intensity

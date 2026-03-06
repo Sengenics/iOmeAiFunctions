@@ -2,7 +2,7 @@
 % Please edit documentation in R/QC_sub_functions.R
 \name{igR2_function}
 \alias{igR2_function}
-\title{IgG R² QC Function}
+\title{IgG RÂ² QC Function}
 \usage{
 igR2_function(
   igR2_data,
@@ -25,7 +25,7 @@ igR2_function(
 
 \item{metric}{Character. Name of the metric being evaluated.}
 
-\item{R2_threshold}{Numeric. Minimum R² value to pass QC.}
+\item{R2_threshold}{Numeric. Minimum RÂ² value to pass QC.}
 
 \item{slope_threshold}{Numeric. Allowed deviation from slope = 1.}
 
@@ -38,15 +38,15 @@ igR2_function(
 \value{
 A list with:
 \describe{
-\item{data}{QC summary per sample, including R², slope, and QC flag.}
+\item{data}{QC summary per sample, including RÂ², slope, and QC flag.}
 \item{Data}{Input igR2_data joined with QC info.}
-\item{AvgR2}{Overall mean R².}
+\item{AvgR2}{Overall mean RÂ².}
 \item{AvgSlope}{Overall mean slope.}
 \item{data_type}{Fixed label: "ctrl".}
 }
 }
 \description{
-Evaluates R², slope, and signal quality across a dilution series for control antibody probes.
+Evaluates RÂ², slope, and signal quality across a dilution series for control antibody probes.
 Flags non-linear relationships or low signal intensity in each sample's response curve.
 }
 \note{

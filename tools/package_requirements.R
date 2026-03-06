@@ -15,8 +15,8 @@
 # Package metadata
 PACKAGE_INFO <- list(
 	name = "iOmeAiFunctions",
-	version = "0.1.7",
-	title = "Protein Microarray Analysis Tools",
+	version = "0.1.8.1",
+	title = "I-Ome AI Analysis Tools",
 	description = "Complete toolkit for protein microarray analysis including denoising, differential expression with limma, and interactive visualization.",
 	author = "Shaun Garnett",
 	email = "shaun.garnett@standardbio.com",

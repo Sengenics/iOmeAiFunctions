@@ -28,13 +28,13 @@ when \code{test = TRUE}. Defaults to the first sample in the data.}
 \value{
 The input \code{datCollate} with:
 \itemize{
-\item \code{datCollate$data$Data} — updated with threshold columns and \code{source} flagged as \code{"lowNetI"} where applicable
-\item \code{datCollate$data$lowIntensityThresholds} — per-sample summary and thresholds
+\item \code{datCollate$data$Data} â updated with threshold columns and \code{source} flagged as \code{"lowNetI"} where applicable
+\item \code{datCollate$data$lowIntensityThresholds} â per-sample summary and thresholds
 }
 }
 \description{
 Computes per-sample log2 NetI summaries on feature rows, defines a low-intensity
-RFU cutoff as median − 2 × MAD (on the log2 scale), converts that cutoff back
+RFU cutoff as median â 2 Ã MAD (on the log2 scale), converts that cutoff back
 to RFU, and flags rows with \code{mean} below the cutoff by setting \code{source = "lowNetI"}.
 }
 \note{
