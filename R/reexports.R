@@ -162,3 +162,13 @@ NULL
 #' @export plot_ly
 #' @export add_trace
 NULL
+
+#' Re-exported tibble functions
+#' 
+#' @name tibble-reexports
+#' @importFrom tibble rownames_to_column column_to_rownames tibble as_tibble
+#' @export rownames_to_column
+#' @export column_to_rownames
+#' @export tibble
+#' @export as_tibble
+NULL
