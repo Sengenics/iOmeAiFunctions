@@ -15,7 +15,9 @@ Depends:
     R (>= 4.0.0),
     dplyr,
     ggplot2,
+    purrr,
     shiny,
+    tibble,
     tidyr
 Imports:
     AUC,

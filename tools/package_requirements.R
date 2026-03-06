@@ -30,6 +30,8 @@ CORE_DEPENDS <- c(
 	"dplyr",
 	"ggplot2", 
 	"tidyr",
+	"tibble",
+	"purrr",
 	"shiny"
 )
 
