@@ -172,3 +172,15 @@ NULL
 #' @export tibble
 #' @export as_tibble
 NULL
+
+#' Re-exported limma functions
+#' 
+#' @name limma-reexports
+#' @importFrom limma normalizeBetweenArrays normalizeQuantiles normalizeCyclicLoess lmFit eBayes topTable
+#' @export normalizeBetweenArrays
+#' @export normalizeQuantiles
+#' @export normalizeCyclicLoess
+#' @export lmFit
+#' @export eBayes
+#' @export topTable
+NULL
