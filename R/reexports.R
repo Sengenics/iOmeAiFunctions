@@ -184,3 +184,22 @@ NULL
 #' @export eBayes
 #' @export topTable
 NULL
+
+#' Re-exported PerformanceAnalytics functions
+#' 
+#' @name PerformanceAnalytics-reexports
+#' @importFrom PerformanceAnalytics chart.Correlation
+#' @export chart.Correlation
+NULL
+
+#' Re-exported Biobase functions
+#' 
+#' @name Biobase-reexports
+#' @importFrom Biobase pData exprs fData featureNames sampleNames ExpressionSet
+#' @export pData
+#' @export exprs
+#' @export fData
+#' @export featureNames
+#' @export sampleNames
+#' @export ExpressionSet
+NULL
