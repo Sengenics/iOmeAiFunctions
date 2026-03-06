@@ -160,6 +160,5 @@ NULL
 #' @export plotlyOutput
 #' @export ggplotly
 #' @export plot_ly
-#' @export layout
 #' @export add_trace
 NULL
