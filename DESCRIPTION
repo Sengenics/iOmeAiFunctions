@@ -1,7 +1,7 @@
 Package: iOmeAiFunctions
 Type: Package
 Title: I-Ome AI Analysis Tools
-Version: 0.1.8.3
+Version: 0.1.8.4
 Authors@R: person('Shaun', 'Garnett',
     email = 'shaun.garnett@standardbio.com',
     role = c('aut', 'cre'))
@@ -13,6 +13,7 @@ RoxygenNote: 7.3.3
 LazyData: true
 Depends:
     R (>= 4.0.0),
+    Biobase,
     dplyr,
     ggplot2,
     purrr,
