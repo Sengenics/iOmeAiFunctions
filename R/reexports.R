@@ -195,7 +195,7 @@ NULL
 #' Re-exported Biobase functions
 #' 
 #' @name Biobase-reexports
-#' @importFrom Biobase pData pData<- exprs exprs<- fData fData<- featureNames sampleNames ExpressionSet AnnotatedDataFrame assayDataNew assayData assayData<-
+#' @importFrom Biobase pData pData<- exprs exprs<- fData fData<- featureNames sampleNames ExpressionSet AnnotatedDataFrame assayDataNew assayData assayData<- annotation annotation<-
 #' @export pData
 #' @export pData<-
 #' @export exprs
@@ -209,4 +209,8 @@ NULL
 #' @export assayDataNew
 #' @export assayData
 #' @export assayData<-
+#' @export annotation
+#' @export annotation<-
 NULL
+
+
