@@ -192,6 +192,13 @@ NULL
 #' @export chart.Correlation
 NULL
 
+#' Re-exported vegan functions
+#' 
+#' @name vegan-reexports
+#' @importFrom vegan vegdist
+#' @export vegdist
+NULL
+
 
 
 

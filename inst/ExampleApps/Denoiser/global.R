@@ -45,6 +45,7 @@ if (run_debug) {
 				paste0("Sengenics/iOmeAiFunctions@", iOmeAiFunction_version),
 				upgrade = "never", force = FALSE
 			)
+			rsconnect::writeManifest()
 		}
 	}
 	dev_datasets = NULL
