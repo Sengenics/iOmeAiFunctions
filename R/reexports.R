@@ -58,10 +58,13 @@ NULL
 #' Re-exported openxlsx functions
 #' 
 #' @name openxlsx-reexports
-#' @importFrom openxlsx read.xlsx write.xlsx getSheetNames
+#' @importFrom openxlsx read.xlsx write.xlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @export read.xlsx
 #' @export write.xlsx
-#' @export getSheetNames
+#' @export createWorkbook
+#' @export addWorksheet
+#' @export writeData
+#' @export saveWorkbook
 NULL
 
 #' Re-exported data.table functions
@@ -204,6 +207,22 @@ NULL
 #' @name pheatmap-reexports
 #' @importFrom pheatmap pheatmap
 #' @export pheatmap
+NULL
+
+#' Re-exported Rtsne functions
+#' 
+#' @name Rtsne-reexports
+#' @importFrom Rtsne Rtsne
+#' @export Rtsne
+NULL
+
+
+#' Re-exported ggforce functions
+#' 
+#' @name ggforce-reexports
+#' @importFrom ggforce facet_wrap_paginate n_pages
+#' @export facet_wrap_paginate
+#' @export n_pages
 NULL
 
 
