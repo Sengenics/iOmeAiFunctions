@@ -199,6 +199,13 @@ NULL
 #' @export vegdist
 NULL
 
+#' Re-exported pheatmap functions
+#' 
+#' @name pheatmap-reexports
+#' @importFrom pheatmap pheatmap
+#' @export pheatmap
+NULL
+
 
 
 
