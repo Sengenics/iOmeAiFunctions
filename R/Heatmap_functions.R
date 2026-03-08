@@ -93,10 +93,18 @@ heatmap_module_server <- function(id,
 	moduleServer(id, function(input, output, session) {
 		ns <- session$ns
 		
+		# Handle both reactive and static view parameter
+		view_val <- reactive({
+			if (is.reactive(view)) {
+				view()
+			} else {
+				view
+			}
+		})
+		
 		heatmap_data <- reactive({
 			data <- data_list()
 			if (data$rows != 0) {
-				# Create simplified and detailed versions of the heatmap
 				simple <- pheatmap::pheatmap(data$m,
 																		 annotation_col = data$meta,
 																		 annotation_colors = data$anno_col,
@@ -112,17 +120,6 @@ heatmap_module_server <- function(id,
 																		 clustering_distance_cols = clustering_distance_cols,
 																		 show_rownames = TRUE,
 																		 show_colnames = TRUE)
-				
-				
-				# if (heatmap_view() == "zoom") {
-				# 	p <- simple
-				# 	row_width <- 0.01
-				# 	plot_height <- heatmap_zoom_height
-				# } else {
-				# 	p <- detail
-				# 	row_width <- 0.15
-				# 	plot_height <- plot_height_function(nrow(data$m), row_width)
-				# }
 				
 				list(
 					simple = simple,
@@ -149,7 +146,8 @@ heatmap_module_server <- function(id,
 				p
 			}, height = plot_height)
 			
-			if(view() == 'basic'){
+			# USE view_val() instead of view()
+			if(view_val() == 'basic'){
 				lst = list(
 					plotOutput(ns("heatmap_mod_plot"), height = plot_height) %>%
 						shinycssloaders::withSpinner(type = 4, color = style_defaults$spinner_colour)
@@ -170,6 +168,101 @@ heatmap_module_server <- function(id,
 		return(heatmap_data)
 	})
 }
+# heatmap_module_server <- function(id,
+# 																	data_list,
+# 																	heatmap_view = 'zoom',
+# 																	show_rownames = FALSE,
+# 																	show_colnames = FALSE,
+# 																	clustering_distance_cols = "euclidean",
+# 																	view = 'basic') {
+# 	moduleServer(id, function(input, output, session) {
+# 		ns <- session$ns
+# 		
+# 		view_val <- reactive({
+# 			if (is.reactive(view)) {
+# 				view()
+# 			} else {
+# 				view
+# 			}
+# 		})
+# 		
+# 		heatmap_data <- reactive({
+# 			data <- data_list()
+# 			if (data$rows != 0) {
+# 				# Create simplified and detailed versions of the heatmap
+# 				simple <- pheatmap::pheatmap(data$m,
+# 																		 annotation_col = data$meta,
+# 																		 annotation_colors = data$anno_col,
+# 																		 cluster_cols = TRUE,
+# 																		 clustering_distance_cols = clustering_distance_cols,
+# 																		 show_rownames = show_rownames,
+# 																		 show_colnames = show_colnames)
+# 				
+# 				detail <- pheatmap::pheatmap(data$m,
+# 																		 annotation_col = data$meta,
+# 																		 annotation_colors = data$anno_col,
+# 																		 cluster_cols = TRUE,
+# 																		 clustering_distance_cols = clustering_distance_cols,
+# 																		 show_rownames = TRUE,
+# 																		 show_colnames = TRUE)
+# 				
+# 				
+# 				# if (heatmap_view() == "zoom") {
+# 				# 	p <- simple
+# 				# 	row_width <- 0.01
+# 				# 	plot_height <- heatmap_zoom_height
+# 				# } else {
+# 				# 	p <- detail
+# 				# 	row_width <- 0.15
+# 				# 	plot_height <- plot_height_function(nrow(data$m), row_width)
+# 				# }
+# 				
+# 				list(
+# 					simple = simple,
+# 					detail = detail,
+# 					rows = nrow(data$m)
+# 				)
+# 			}
+# 		})
+# 		
+# 		output$heatmap_mod_ui <- renderUI({
+# 			heatmap_list <- heatmap_data()
+# 			
+# 			if (heatmap_view() == "zoom") {
+# 				p <- heatmap_list$simple
+# 				row_width <- 0.01
+# 				plot_height <- heatmap_zoom_height
+# 			} else {
+# 				p <- heatmap_list$detail
+# 				row_width <- 0.15
+# 				plot_height <- plot_height_function(heatmap_list$rows, row_width)
+# 			}
+# 			
+# 			output$heatmap_mod_plot <- renderPlot({
+# 				p
+# 			}, height = plot_height)
+# 			
+# 			if(view() == 'basic'){
+# 				lst = list(
+# 					plotOutput(ns("heatmap_mod_plot"), height = plot_height) %>%
+# 						shinycssloaders::withSpinner(type = 4, color = style_defaults$spinner_colour)
+# 				)
+# 			}else{
+# 				lst = list(
+# 					tabsetPanel(selected = "Heatmap",
+# 											tabPanel('Overview'),
+# 											tabPanel('Heatmap',
+# 															 plotOutput(ns("heatmap_mod_plot"), height = plot_height) %>%
+# 															 	shinycssloaders::withSpinner(type = 4, color = style_defaults$spinner_colour)
+# 											)
+# 					)
+# 				)
+# 			}
+# 			do.call(tagList,lst)
+# 		})
+# 		return(heatmap_data)
+# 	})
+# }
 
 
 # ============================================================================

@@ -19,17 +19,10 @@ if (run_debug) {
 	
 	message("→ Loading LOCAL iOmeAiFunctions from ", local_path)
 	
-	# Document and load
-	# if (requireNamespace("devtools", quietly = TRUE)) {
-	# 	#devtools::document(local_path)
-	# 	do.call("::", list(as.name("devtools"), as.name("document")))(local_path)
-	# }
-	
 	devtools_pkg <- "devtools"
 	if (require(devtools_pkg, character.only = TRUE, quietly = TRUE)) {
 		get("document", envir = asNamespace(devtools_pkg))(local_path)
 	}
-	#pkgload::load_all(local_path, export_all = FALSE, helpers = FALSE)
 	do.call("::", list(as.name("pkgload"), as.name("load_all")))(local_path)
 	
 	# Load dev datasets if available
@@ -41,19 +34,6 @@ if (run_debug) {
 	## Production: GitHub ##
 	if (!requireNamespace("iOmeAiFunctions", quietly = TRUE)) {
 		message("→ Installing iOmeAiFunctions from GitHub")
-		
-		# if (!requireNamespace("remotes", quietly = TRUE)) {
-		# 	install.packages("remotes")
-		# }
-		# 
-		# # Install specific version
-		# iOmeAiFunction_version <- "v0.1.4"
-		# iOmeAiFunction_version <- "denoiser_debug"
-		# remotes::install_github(
-		# 	paste0("Sengenics/iOmeAiFunctions@", iOmeAiFunction_version),
-		# 	upgrade = "never",
-		# 	force = FALSE
-		# )
 		
 		if (!requireNamespace("iOmeAiFunctions", quietly = TRUE)) {
 			remotes_pkg <- "remotes"
