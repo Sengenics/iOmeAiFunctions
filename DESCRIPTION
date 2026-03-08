@@ -1,7 +1,7 @@
 Package: iOmeAiFunctions
 Type: Package
 Title: I-Ome AI Analysis Tools
-Version: 0.1.8.9
+Version: 0.1.8.10
 Authors@R: person('Shaun', 'Garnett',
     email = 'shaun.garnett@standardbio.com',
     role = c('aut', 'cre'))
