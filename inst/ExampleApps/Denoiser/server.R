@@ -124,6 +124,18 @@ server <- function(input, output, session) {
 		debug = run_debug
 	)
 	
+	eset_pFC_selected <- mod_eset_selector_standalone_server(
+		"eset_pFC",
+		ExpSet_list = ExpSet_list,
+		ExpSet_list_version = ExpSet_list_version,
+		default_selection = "clinical_loess_normalised",
+		enable_subset = TRUE,
+		enable_transform = FALSE,
+		debug = run_debug
+	)
+	
+	
+	
 	## Selected Data Reactives ####
 	
 	expset_list_version <- reactive({
@@ -193,26 +205,12 @@ server <- function(input, output, session) {
 		req(ExpSet_list())
 		req(eset_norm_selected$eset_subset())
 		eset_norm_selected$eset_subset()
-		# expset_list <- ExpSet_list()
-		# 
-		# # Get selected name
-		# selected_name <- eset_norm_selected$eset_name()
-		# 
-		# # Handle NULL/empty selection (norm is optional)
-		# if (is.null(selected_name) || selected_name == "") {
-		# 	return(NULL)
-		# }
-		# 
-		# # Get ExpSet name
-		# ExpSet_name <- get_ExpSet_name(selected_name, expset_list)
-		# 
-		# # Fetch from current list
-		# #if (ExpSet_name %in% names(expset_list)) {
-		# 	#expset_list[[ExpSet_name]]
-		# eset_norm_selected$eset_subset()
-		#} else {
-		#	NULL
-		#}
+	})
+	
+	eset_pFC <- reactive({
+		req(ExpSet_list())
+		req(eset_pFC_selected$eset_subset())
+		eset_pFC_selected$eset_subset()
 	})
 	
 	# Status Dashboard ####
@@ -505,7 +503,163 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	## Navigate to Denoiser ####
+	## Data Seletct ######
+	
+	### Primary Variable Select ######
+	
+	observe({
+		req(eset_norm())  # Use normalized data as source for metadata
+		
+		eset <- eset_norm()
+		metadata <- Biobase::pData(eset)
+		col_names <- colnames(metadata)
+		
+		# Exclude PN samples from variable if present
+		col_names <- col_names[!grepl("^PN", col_names, ignore.case = TRUE)]
+		
+		# Try to auto-select common variable names
+		default_var <- NULL
+		possible_defaults <- c("Sample_Group", "Group", "sample_status", 
+													 "Sample_Status", "Status", "Labels", "Label")
+		
+		for (var in possible_defaults) {
+			if (var %in% col_names) {
+				default_var <- var
+				break
+			}
+		}
+		
+		# If no default found, use first column
+		if (is.null(default_var) && length(col_names) > 0) {
+			default_var <- col_names[1]
+		}
+		
+		updateSelectInput(
+			session, 
+			"primary_variable", 
+			choices = col_names,
+			selected = default_var
+		)
+	})
+	
+	## Create reactive for selected variable ####
+	primary_variable <- reactive({
+		req(input$primary_variable)
+		input$primary_variable
+	})
+	
+	## Variable summary table ####
+	output$variable_summary <- renderTable({
+		req(eset_norm(), primary_variable())
+		
+		metadata <- Biobase::pData(eset_norm())
+		var_name <- primary_variable()
+		
+		if (!var_name %in% colnames(metadata)) {
+			return(data.frame(Note = "Variable not found in metadata"))
+		}
+		
+		var_data <- metadata[[var_name]]
+		
+		if (is.numeric(var_data)) {
+			# Numeric variable summary
+			data.frame(
+				Statistic = c("Min", "Max", "Mean", "Median", "SD", "NAs"),
+				Value = c(
+					round(min(var_data, na.rm = TRUE), 2),
+					round(max(var_data, na.rm = TRUE), 2),
+					round(mean(var_data, na.rm = TRUE), 2),
+					round(median(var_data, na.rm = TRUE), 2),
+					round(sd(var_data, na.rm = TRUE), 2),
+					sum(is.na(var_data))
+				)
+			)
+		} else {
+			# Categorical variable summary
+			tbl <- table(var_data, useNA = "ifany")
+			tbl_sorted <- sort(tbl, decreasing = TRUE)
+			
+			data.frame(
+				Group = names(tbl_sorted),
+				Count = as.numeric(tbl_sorted),
+				Percentage = paste0(round(as.numeric(tbl_sorted) / sum(tbl_sorted) * 100, 1), "%")
+			)
+		}
+	}, striped = TRUE, hover = TRUE, bordered = TRUE, spacing = "xs", width = "100%", align = "lrr")
+	
+	
+
+	
+	# Analysis Modules ####
+	
+
+	
+	### pFC Analysis Module #####
+	pfc_results <- pFC_Server(
+		"pfc_module",
+		eset_reactive = eset_pFC,  # Use normalized data
+		assay_name = eset_pFC_selected$eset_name(),
+		default_var_reactive = reactive({
+			# Try to auto-detect the sample group column
+			req(eset_pFC())
+			eset <- eset_pFC()
+			pdata <- Biobase::pData(eset)
+			
+			# Look for common column names
+			possible_vars <- c("Sample_Group", "Group", "sample_status", "Sample_Status", "Status")
+			matching_vars <- possible_vars[possible_vars %in% colnames(pdata)]
+			
+			if (length(matching_vars) > 0) {
+				return(matching_vars[1])
+			} else {
+				return(NULL)
+			}
+		}),
+		debug = run_debug
+	)
+	
+	#### Log pFC Results (Optional) ####
+	observe({
+		req(pfc_results())
+		
+		results <- pfc_results()
+		
+		if (!is.null(results$results)) {
+			showNotification(
+				HTML(paste0(
+					"<strong>✅ pFC Analysis Complete!</strong><br>",
+					"Significant hits: ", nrow(results$results$pfc_significant), "<br>",
+					"Total features tested: ", nrow(results$results$pfc_stats)
+				)),
+				type = "message",
+				duration = 5
+			)
+		}
+	})
+	
+	
+	### PN Limma Analysis ####
+	pn_limma_results <- mod_pn_limma_server(
+		"pn_limma",
+		eset = eset_norm,
+		default_assay = reactive({
+			req(eset_norm_selected$eset_name())
+			eset_norm_selected$eset_name()
+		})
+	)
+	
+	### Denoiser Module ####
+	
+	
+	denoiser_results <- mod_denoiser_server( 
+		"denoiser",
+		ExpSet_list = ExpSet_list,
+		eset_raw = eset_raw,
+		eset_norm = eset_norm,
+		pn_limma_results = pn_limma_results
+	)
+	
+	#### Navigate to Denoiser ####
 	observeEvent(input$goto_denoiser, {
 		updateTabItems(session, "sidebar", "denoise")
 		
@@ -516,41 +670,14 @@ server <- function(input, output, session) {
 		)
 	})
 	
-	# Analysis Modules ####
-	
-	## PN Limma Analysis ####
-	# pn_limma_results <- mod_pn_limma_server(
-	# 	"pn_limma",
-	# 	eset = eset_norm,
-	# 	mode = "advanced",
-	# 	features = features_advanced,
-	# 	default_assay = reactive({
-	# 		req(eset_norm_selected$eset_name())
-	# 		eset_norm_selected$eset_name()
-	# 	})
-	# )
-	
-	
-	## PN Limma Analysis ####
-	pn_limma_results <- mod_pn_limma_server(
-		"pn_limma",
-		eset = eset_norm,
-		default_assay = reactive({
-			req(eset_norm_selected$eset_name())
-			eset_norm_selected$eset_name()
-		})
-	)
-	
-	## Denoiser Module ####
-	denoiser_results <- mod_denoiser_server( 
-		"denoiser",
-		ExpSet_list = ExpSet_list,
+	#### PC Visualizer Module ####
+	pc_viz_results <- mod_pc_visualizer_server(
+		"pc_viz",
 		eset_raw = eset_raw,
-		eset_norm = eset_norm,
-		pn_limma_results = pn_limma_results
+		denoiser_results = denoiser_results
 	)
 	
-	### Log Denoising Results ####
+	#### Log Denoising Results ####
 	observe({
 		req(denoiser_results())
 		

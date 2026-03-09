@@ -63,6 +63,7 @@
 #'
 #' @export
 pFC_process <- function(eset, 
+												assay_name = NULL,
 												var, 
 												groupPos, 
 												groupNeg,
@@ -72,8 +73,25 @@ pFC_process <- function(eset,
 												PSA_colname = "PSA_class",
 												cores = 1) {
 	
-	# Extract data from ExpressionSet
-	input_data <- exprs(eset)  # log2-transformed expression data
+	# Check if assay exists
+	available_assays <- Biobase::assayDataElementNames(eset)
+	
+	if (!assay_name %in% available_assays) {
+		stop("Assay '", assay_name, "' not found in ExpressionSet.\n",
+				 "Available assays: ", paste(available_assays, collapse = ", "))
+	}
+	
+	# Extract specified assay
+	if (assay_name == "exprs") {
+		input_data <- Biobase::exprs(eset)
+	} else {
+		input_data <- Biobase::assayDataElement(eset, assay_name)
+	}
+	
+	# # Extract data from ExpressionSet
+	# if(!is.null(assay_name){
+	# 	input_date = eset@assayData[]
+	# input_data <- exprs(eset)  # log2-transformed expression data
 	metadata <- pData(eset)
 	
 	# Subset metadata to include only relevant groups
@@ -491,7 +509,7 @@ pFC_plot <- function(pfc_results,
 #'
 #' @param pfc_results List output from pFC_process()
 #' @param pfc_plots List output from pFC_plot()
-#' @param descriptor Character string; output directory and file descriptor
+#' @param descriptor Character string; output directory path OR base filename descriptor
 #' @param plot_width Numeric; width for saved plots (default: 15)
 #' @param plot_height Numeric; height for saved plots (default: 10)
 #'
@@ -504,50 +522,65 @@ pFC_save <- function(pfc_results,
 										 plot_width = 15,
 										 plot_height = 10) {
 	
+	# Separate directory and base name ----
+	# If descriptor is a path, extract directory and basename
+	if (dirname(descriptor) != ".") {
+		output_dir <- descriptor
+		base_name <- basename(descriptor)
+	} else {
+		# descriptor is just a name, not a path
+		output_dir <- descriptor
+		base_name <- descriptor
+	}
+	
 	# Create output directory
-	if (!dir.exists(descriptor)) {
-		dir.create(descriptor, recursive = TRUE)
+	if (!dir.exists(output_dir)) {
+		dir.create(output_dir, recursive = TRUE)
 	}
 	
 	params <- pfc_results$parameters
 	p_val <- params$p_val
+	
+	message("Saving results to: ", output_dir)
 	
 	# ---- Save Tables ----
 	
 	# Normalized data (non-log2)
 	write.csv(
 		pfc_results$normalized_data,
-		file.path(descriptor, paste0("pFC_Normalised_NetI_nonlog2_", descriptor, ".csv")),
+		file.path(output_dir, paste0("pFC_Normalised_NetI_nonlog2_", base_name, ".csv")),
 		row.names = FALSE
 	)
 	
 	# Fold change data
 	write.csv(
 		pfc_results$fc_data,
-		file.path(descriptor, paste0("pFC_per_feature_per_sample_FC_vs_groupNeg_mean_", descriptor, ".csv")),
+		file.path(output_dir, paste0("pFC_per_feature_per_sample_FC_vs_groupNeg_mean_", base_name, ".csv")),
 		row.names = FALSE
 	)
 	
 	# All statistics
 	write.csv(
 		pfc_results$pfc_stats,
-		file.path(descriptor, paste0("pFC_all_stats_", descriptor, ".csv")),
+		file.path(output_dir, paste0("pFC_all_stats_", base_name, ".csv")),
 		row.names = FALSE
 	)
 	
 	# Significant results
 	write.csv(
 		pfc_results$pfc_significant,
-		file.path(descriptor, paste0("pFC_Fishers_exact_p_", p_val, "_", descriptor, ".csv")),
+		file.path(output_dir, paste0("pFC_Fishers_exact_p_", p_val, "_", base_name, ".csv")),
 		row.names = FALSE
 	)
+	
+	message("✓ Saved ", nrow(pfc_results$pfc_stats), " features to CSV files")
 	
 	# ---- Save Plots ----
 	
 	# Violin plots
-	if (!is.null(pfc_plots$violin_plots)) {
+	if (!is.null(pfc_plots$violin_plots) && length(pfc_plots$violin_plots) > 0) {
 		pdf(
-			file.path(descriptor, paste0("violin_pFC_", p_val, "_", descriptor, ".pdf")),
+			file.path(output_dir, paste0("violin_pFC_", p_val, "_", base_name, ".pdf")),
 			width = plot_width,
 			height = plot_height
 		)
@@ -555,13 +588,14 @@ pFC_save <- function(pfc_results,
 			print(p)
 		}
 		dev.off()
+		message("✓ Saved violin plots")
 	}
 	
 	# Heatmaps
 	if (!is.null(pfc_plots$heatmap_manual)) {
 		# Manual sort
 		pdf(
-			file.path(descriptor, paste0("heatmap_", p_val, "_", descriptor, "_manualsort.pdf")),
+			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_manualsort.pdf")),
 			width = plot_width,
 			height = plot_height
 		)
@@ -570,7 +604,7 @@ pFC_save <- function(pfc_results,
 		
 		# Manual sort, row-centered
 		pdf(
-			file.path(descriptor, paste0("heatmap_", p_val, "_", descriptor, "_manualsort_RC.pdf")),
+			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_manualsort_RC.pdf")),
 			width = plot_width,
 			height = plot_height
 		)
@@ -579,13 +613,18 @@ pFC_save <- function(pfc_results,
 		
 		# Clustered, row-centered
 		pdf(
-			file.path(descriptor, paste0("heatmap_", p_val, "_", descriptor, "_RC.pdf")),
+			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_RC.pdf")),
 			width = plot_width,
 			height = plot_height
 		)
 		print(pfc_plots$heatmap_clustered_RC)
 		dev.off()
+		
+		message("✓ Saved heatmaps")
 	}
+	
+	message("\n✓ All pFC results saved successfully!")
+	message("  Output directory: ", normalizePath(output_dir))
 	
 	invisible(NULL)
 }
@@ -686,6 +725,219 @@ pFC_analysis <- function(input,
 		results = pfc_results,
 		plots = pfc_plots
 	))
+}
+
+#' Penetrance Association Analysis via Fisher's Exact Test
+#'
+#' Performs parallel Fisher's exact test for each feature to calculate odds ratios,
+#' confidence intervals, and p-values for association with class membership.
+#' This is the core statistical function for penetrance fold-change (pFC) analysis.
+#'
+#' @param obj Matrix, data.frame, or ExpressionSet containing expression data.
+#'   Features as rows, samples as columns. Will be converted to binary based on threshold.
+#' @param cl Factor with exactly 2 levels defining sample classes (e.g., case vs control).
+#'   Length must match number of columns in obj.
+#' @param thres Numeric threshold for binarization. Values > thres become 1 (present),
+#'   values <= thres become 0 (absent). Default: 0.
+#' @param adjust.method Character string specifying p-value adjustment method.
+#'   Passed to \code{\link[stats]{p.adjust}}. Default: "fdr" (Benjamini-Hochberg).
+#'   Options include "holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none".
+#' @param cores Integer specifying number of CPU cores to use for parallel processing.
+#'   Default: 1. Passed to \code{\link[parallel]{makeCluster}}.
+#' @param ... Additional arguments passed to \code{\link[parallel]{makeCluster}}.
+#'
+#' @return Data frame with one row per feature containing:
+#'   \describe{
+#'     \item{oddsRatio}{Odds ratio from Fisher's exact test}
+#'     \item{lower}{Lower bound of 95% confidence interval for odds ratio}
+#'     \item{upper}{Upper bound of 95% confidence interval for odds ratio}
+#'     \item{pvalues}{Raw p-values from Fisher's exact test}
+#'     \item{adjPvalues}{Adjusted p-values using specified method}
+#'   }
+#'   Rownames match input feature names (or indices if none provided).
+#'
+#' @details
+#' This function performs the following steps:
+#' \enumerate{
+#'   \item Converts expression data to binary (present/absent) based on threshold
+#'   \item For each feature, constructs 2x2 contingency table (present/absent × class1/class2)
+#'   \item Performs two-sided Fisher's exact test in parallel
+#'   \item Adjusts p-values for multiple testing
+#' }
+#'
+#' The odds ratio represents the odds of a feature being present in class 1 relative to class 2.
+#' Values > 1 indicate enrichment in class 1, < 1 indicate enrichment in class 2.
+#'
+#' @note Original location: pFC_script.R (Sengenics Analysis-Pipeline)
+#' @note This function requires the helper function \code{returnAppropriateObj} to be available
+#'
+#' @importFrom parallel makeCluster stopCluster parRapply
+#' @importFrom stats fisher.test p.adjust
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' # Basic example with matrix input
+#' data_matrix <- matrix(rnorm(100 * 20), nrow = 100, ncol = 20)
+#' rownames(data_matrix) <- paste0("Feature_", 1:100)
+#' sample_class <- factor(rep(c("Case", "Control"), each = 10))
+#'
+#' # Run penetrance analysis with default threshold
+#' results <- fitPA_StandAlone(
+#'   obj = data_matrix,
+#'   cl = sample_class,
+#'   thres = 0,
+#'   adjust.method = "fdr",
+#'   cores = 2
+#' )
+#'
+#' # View top results by adjusted p-value
+#' head(results[order(results$adjPvalues), ])
+#'
+#' # Filter significant results (adj p < 0.05, OR > 2)
+#' significant <- results[results$adjPvalues < 0.05 & results$oddsRatio > 2, ]
+#'
+#' # Example with ExpressionSet
+#' library(Biobase)
+#' eset <- ExpressionSet(assayData = data_matrix)
+#' pData(eset)$Group <- sample_class
+#'
+#' results_eset <- fitPA_StandAlone(
+#'   obj = eset,
+#'   cl = pData(eset)$Group,
+#'   thres = median(exprs(eset)),  # Use median as threshold
+#'   cores = 4
+#' )
+#' }
+#'
+#' @seealso
+#' \code{\link[stats]{fisher.test}} for Fisher's exact test
+#' \code{\link[stats]{p.adjust}} for multiple testing correction
+#' \code{\link[parallel]{makeCluster}} for parallel processing setup
+#' @export
+fitPA_StandAlone <- function(obj, cl, thres = 0, adjust.method = "fdr", cores = 1, ...) {
+	
+	# Convert object to appropriate format and binarize
+	x <- returnAppropriateObj(obj, norm = FALSE, log = FALSE) > thres
+	nrows <- nrow(x)
+	
+	# Add rownames if missing
+	if (is.null(rownames(x))) {
+		rownames(x) <- 1:nrows
+	}
+	
+	# Count samples per class
+	nClass1 <- sum(cl == levels(cl)[1])
+	nClass2 <- sum(cl == levels(cl)[2])
+	
+	# Set up parallel cluster
+	cores <- makeCluster(getOption("cl.cores", cores), ...)
+	
+	# Perform Fisher's exact test in parallel for each feature
+	res <- parRapply(cl = cores, x, function(i) {
+		# Construct 2x2 contingency table
+		tbl <- table(1 - i, cl)
+		
+		# Handle edge case where table doesn't have full dimensions
+		if (sum(dim(tbl)) != 4) {
+			tbl <- array(0, dim = c(2, 2))
+			tbl[1, 1] <- sum(i[cl == levels(cl)[1]])
+			tbl[1, 2] <- sum(i[cl == levels(cl)[2]])
+			tbl[2, 1] <- nClass1 - tbl[1, 1]
+			tbl[2, 2] <- nClass2 - tbl[1, 2]
+		}
+		
+		# Perform Fisher's exact test
+		ft <- fisher.test(tbl, 
+											workspace = 8e+06, 
+											alternative = "two.sided", 
+											conf.int = TRUE)
+		
+		# Return results as vector
+		cbind(o = ft$estimate, 
+					cl = ft$conf.int[1], 
+					cu = ft$conf.int[2], 
+					p = ft$p.value)
+	})
+	
+	# Clean up parallel cluster
+	stopCluster(cores)
+	
+	# Extract results from vectorized output
+	nres <- nrows * 4
+	seqs <- seq(1, nres, by = 4)
+	p <- res[seqs + 3]
+	adjp <- p.adjust(p, method = adjust.method)
+	o <- res[seqs]
+	cl <- res[seqs + 1]
+	cu <- res[seqs + 2]
+	
+	# Construct results data frame
+	res <- data.frame(cbind(o, cl, cu, p, adjp))
+	colnames(res) <- c("oddsRatio", "lower", "upper", "pvalues", "adjPvalues")
+	rownames(res) <- rownames(x)
+	
+	return(res)
+}
+
+#' Extract Expression Data in Appropriate Format
+#'
+#' Helper function to extract expression data from various object types
+#' and optionally normalize and/or log-transform.
+#'
+#' @param obj Matrix, data.frame, ExpressionSet, or MRexperiment containing expression data.
+#' @param norm Logical; should data be normalized? Default: FALSE.
+#'   For MRexperiment objects, passed to MRcounts().
+#' @param log Logical; should data be log-transformed? Default: FALSE.
+#'   For MRexperiment objects, passed to MRcounts().
+#' @param sl Numeric; scaling factor for MRexperiment objects. Default: 1000.
+#'   Only used when obj is an MRexperiment.
+#'
+#' @return Numeric matrix with features as rows, samples as columns.
+#'
+#' @note Original location: pFC_script.R (Sengenics Analysis-Pipeline)
+#' @note Supports both metagenomics (MRexperiment) and microarray (ExpressionSet) data
+#'
+#' @importFrom Biobase exprs
+#' @keywords internal
+#' @export
+returnAppropriateObj <- function(obj, norm = FALSE, log = FALSE, sl = 1000) {
+	
+	# Handle different object types
+	if (inherits(obj, "MRexperiment")) {
+		# Metagenomics data (legacy support)
+		if (!requireNamespace("metagenomeSeq", quietly = TRUE)) {
+			stop("metagenomeSeq package required for MRexperiment objects")
+		}
+		mat <- metagenomeSeq::MRcounts(obj, norm = norm, log = log, sl = sl)
+		
+	} else if (inherits(obj, "ExpressionSet")) {
+		# Microarray data (primary use case)
+		mat <- Biobase::exprs(obj)
+		
+		# Apply log transformation if requested
+		if (log) {
+			mat <- log2(mat + 1)  # Add 1 to avoid log(0)
+		}
+		
+		# Normalization would typically be done upstream for ExpressionSet
+		if (norm) {
+			warning("Normalization for ExpressionSet should be done upstream. Skipping.")
+		}
+		
+	} else if (inherits(obj, "matrix")) {
+		# Raw matrix
+		mat <- obj
+		
+	} else if (inherits(obj, "data.frame")) {
+		# Data frame
+		mat <- as.matrix(obj)
+		
+	} else {
+		stop("Object must be ExpressionSet, matrix, data.frame, or MRexperiment")
+	}
+	
+	return(mat)
 }
 
 

@@ -14,6 +14,7 @@ ui <- dashboardPage(
 			id = "sidebar",
 			menuItem("ExpSet List Import", tabName = "data_select", icon = icon("database")),
 			menuItem("Data Selection ", tabName = "data_select_2", icon = icon("database")),
+			menuItem("pFC Analysis", tabName = "pfc", icon = icon("chart-line")),
 			menuItem("Limma Analysis", tabName = "pn_limma", icon = icon("chart-bar")),
 			menuItem("Denoiser", tabName = "denoise", icon = icon("filter")),
 			
@@ -181,7 +182,40 @@ ui <- dashboardPage(
 									p(strong("Selected Data Info:")),
 									verbatimTextOutput("norm_info")
 								)
+							),
+							
+							fluidRow(
+								shinydashboard::box(
+									title = "Primary Analysis Variable",
+									width = 12,
+									status = "success",
+									solidHeader = TRUE,
+									collapsible = TRUE,
+									
+									p("Select the primary metadata variable for downstream analyses (limma, pFC, etc.):"),
+									
+									fluidRow(
+										column(
+											width = 4,
+											selectInput(
+												"primary_variable",
+												"Primary Variable:",
+												choices = NULL
+											),
+											
+											p(class = "text-muted", 
+												"This variable will be auto-selected in analysis modules. You can change it there if needed.")
+										),
+										column(
+											width = 8,
+											h4("Variable Summary:"),
+											tableOutput("variable_summary")
+										)
+									)
+								)
 							)
+						
+							
 						)
 					)
 				
@@ -189,7 +223,100 @@ ui <- dashboardPage(
 			),
 				
 			
+			### pFC Analysis tab ####
+			tabItem(
+				tabName = "pfc",
 				
+				column(
+					width = 6,
+					shinydashboard::box(
+						title = "Normalized Data (Optional)",
+						width = NULL,
+						status = "warning",
+						solidHeader = TRUE,
+						
+						p("Select normalized data for background visualization:"),
+						#mod_eset_selector_ui("eset_norm"),
+						mod_eset_selector_standalone_ui(
+							"eset_pFC",
+							show_summary = TRUE,
+							show_subset = TRUE,      # ✅ Enable subsetting
+							show_transform = FALSE,
+							show_info = TRUE,
+							debug = run_debug
+						),
+						
+						hr(),
+						
+						p(strong("Selected Data Info:")),
+						verbatimTextOutput("norm_info")
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "pFC Analysis",
+						width = 12,
+						status = "primary",
+						solidHeader = TRUE,
+						
+						p("Penetrance Fold Change (pFC) analysis identifies features enriched in a case group compared to controls."),
+						p("This analysis uses normalized data. Select your groups below."),
+						
+						hr(),
+						
+						pFC_UI("pfc_module")
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "Help: pFC Analysis",
+						width = 12,
+						status = "info",
+						solidHeader = TRUE,
+						collapsible = TRUE,
+						collapsed = TRUE,
+						
+						h4("What is pFC?"),
+						p("Penetrance Fold Change (pFC) analysis calculates, per feature:"),
+						tags$ul(
+							tags$li("The percentage of case samples with FC > threshold vs. control mean"),
+							tags$li("Fisher's exact test for enrichment in cases"),
+							tags$li("Effect size and penetrance metrics")
+						),
+						
+						h4("Input Requirements:"),
+						tags$ul(
+							tags$li(strong("Normalized data:"), "Uses your selected normalized ExpressionSet"),
+							tags$li(strong("Variable:"), "The metadata column containing case/control labels"),
+							tags$li(strong("Groups:"), "Select which groups to compare")
+						),
+						
+						h4("Output:"),
+						tags$ul(
+							tags$li(strong("Summary:"), "Overall statistics and hit counts"),
+							tags$li(strong("Significant Results:"), "Features passing p-value threshold"),
+							tags$li(strong("Violin Plots:"), "Distribution of significant features across groups"),
+							tags$li(strong("Heatmaps:"), "Visual representation of hits"),
+							tags$li(strong("Downloads:"), "Export all results as CSV/PDF/ZIP")
+						),
+						
+						h4("Typical Workflow:"),
+						tags$ol(
+							tags$li("Select normalized data in 'Data Selection' tab"),
+							tags$li("Come to this tab"),
+							tags$li("Select variable (e.g., 'Sample_Group')"),
+							tags$li("Choose case group (e.g., 'Cancer')"),
+							tags$li("Choose control group (e.g., 'Healthy')"),
+							tags$li("Adjust FC threshold (default: 2)"),
+							tags$li("Adjust p-value threshold (default: 0.2)"),
+							tags$li("Click 'Run pFC Analysis'"),
+							tags$li("Explore results in tabs")
+						)
+					)
+				)
+			),	
 	
 			
 			

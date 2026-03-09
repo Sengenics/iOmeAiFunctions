@@ -11,7 +11,7 @@ pFC_save(pfc_results, pfc_plots, descriptor, plot_width = 15, plot_height = 10)
 
 \item{pfc_plots}{List output from pFC_plot()}
 
-\item{descriptor}{Character string; output directory and file descriptor}
+\item{descriptor}{Character string; output directory path OR base filename descriptor}
 
 \item{plot_width}{Numeric; width for saved plots (default: 15)}
 

@@ -33,6 +33,14 @@ ui <- dashboardPage(
 																 "text/tab-separated-values", "text/plain",
 																 ".csv", ".tsv", ".txt")),
 						textOutput("file1_status"),
+						conditionalPanel(
+							condition = "output.file1_loaded == 'TRUE'",
+							selectInput(
+								"file1_protein_col",
+								"Select Protein Column:",
+								choices = NULL
+							)
+						),
 						hr(),
 						h4("File 1 Summary:"),
 						verbatimTextOutput("file1_summary")
@@ -48,9 +56,36 @@ ui <- dashboardPage(
 																 "text/tab-separated-values", "text/plain",
 																 ".csv", ".tsv", ".txt")),
 						textOutput("file2_status"),
+						conditionalPanel(
+							condition = "output.file2_loaded == 'TRUE'",
+							selectInput(
+								"file2_protein_col",
+								"Select Protein Column:",
+								choices = NULL
+							)
+						),
 						hr(),
 						h4("File 2 Summary:"),
 						verbatimTextOutput("file2_summary")
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "Ready to Compare?",
+						status = "success",
+						solidHeader = TRUE,
+						width = 12,
+						conditionalPanel(
+							condition = "output.file1_loaded == 'TRUE' && output.file2_loaded == 'TRUE'",
+							p("Both files loaded. Click below to run comparison:"),
+							actionButton(
+								"run_comparison",
+								"Compare Files",
+								icon = icon("balance-scale"),
+								class = "btn-success btn-lg"
+							)
+						)
 					)
 				),
 				
@@ -122,6 +157,69 @@ ui <- dashboardPage(
 						solidHeader = TRUE,
 						width = 6,
 						verbatimTextOutput("comparison_summary")
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "Shared Column Analysis",
+						status = "primary",
+						solidHeader = TRUE,
+						width = 12,
+						collapsible = TRUE,
+						
+						p("Select shared columns to compare between files:"),
+						
+						fluidRow(
+							column(
+								width = 6,
+								h4("Numeric Columns (Continuous Data)"),
+								uiOutput("numeric_cols_checkboxes"),
+								br(),
+								actionButton(
+									"compare_numeric",
+									"Compare Selected Numeric Columns",
+									icon = icon("chart-line"),
+									class = "btn-primary"
+								)
+							),
+							column(
+								width = 6,
+								h4("Categorical Columns (Discrete Data)"),
+								uiOutput("character_cols_checkboxes"),
+								br(),
+								actionButton(
+									"compare_categorical",
+									"Compare Selected Categorical Columns",
+									icon = icon("list"),
+									class = "btn-primary"
+								)
+							)
+						)
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "Column Comparison Results - Numeric",
+						status = "success",
+						solidHeader = TRUE,
+						width = 12,
+						collapsible = TRUE,
+						collapsed = TRUE,
+						verbatimTextOutput("numeric_comparison_results")
+					)
+				),
+				
+				fluidRow(
+					box(
+						title = "Column Comparison Results - Categorical",
+						status = "warning",
+						solidHeader = TRUE,
+						width = 12,
+						collapsible = TRUE,
+						collapsed = TRUE,
+						verbatimTextOutput("categorical_comparison_results")
 					)
 				),
 				

@@ -18,6 +18,19 @@ server <- function(input, output, session) {
 	data_file2 <- reactiveVal(NULL)
 	comparison_results <- reactiveVal(NULL)
 	
+	output$file1_loaded <- reactive({
+		!is.null(data_file1())
+	})
+	output$file1_loaded <- reactive({
+		if (!is.null(data_file1())) "TRUE" else "FALSE"
+	})
+	outputOptions(output, "file1_loaded", suspendWhenHidden = FALSE)
+	
+	output$file2_loaded <- reactive({
+		if (!is.null(data_file2())) "TRUE" else "FALSE"
+	})
+	outputOptions(output, "file2_loaded", suspendWhenHidden = FALSE)
+	
 	# Load File 1
 	observeEvent(input$file1, {
 		req(input$file1)
@@ -29,6 +42,27 @@ server <- function(input, output, session) {
 			output$file1_status <- renderText({
 				paste("✓ File loaded successfully:", loaded$file_name)
 			})
+			
+			all_cols <- names(loaded$data)
+			
+			# Try to auto-detect protein column
+			protein_candidates <- grep("protein|gene|id|name|symbol", 
+																 all_cols, 
+																 ignore.case = TRUE, 
+																 value = TRUE)
+			
+			default_col <- if (length(protein_candidates) > 0) {
+				protein_candidates[1]
+			} else {
+				all_cols[1]
+			}
+			
+			updateSelectInput(
+				session,
+				"file1_protein_col",
+				choices = all_cols,
+				selected = default_col
+			)
 		} else {
 			output$file1_status <- renderText({
 				"✗ Error loading file"
@@ -47,6 +81,27 @@ server <- function(input, output, session) {
 			output$file2_status <- renderText({
 				paste("✓ File loaded successfully:", loaded$file_name)
 			})
+			
+			all_cols <- names(loaded$data)
+			
+			# Try to auto-detect protein column
+			protein_candidates <- grep("protein|gene|id|name|symbol", 
+																 all_cols, 
+																 ignore.case = TRUE, 
+																 value = TRUE)
+			
+			default_col <- if (length(protein_candidates) > 0) {
+				protein_candidates[1]
+			} else {
+				all_cols[1]
+			}
+			
+			updateSelectInput(
+				session,
+				"file2_protein_col",
+				choices = all_cols,
+				selected = default_col
+			)
 		} else {
 			output$file2_status <- renderText({
 				"✗ Error loading file"
@@ -54,26 +109,34 @@ server <- function(input, output, session) {
 		}
 	})
 	
-	# File 1 Summary
+	# ← FIX: File 1 Summary (use new structure)
 	output$file1_summary <- renderPrint({
 		req(data_file1())
 		d <- data_file1()
+		
 		cat("File:", d$file_name, "\n")
-		cat("Proteins:", d$n_proteins, "\n")
-		cat("Samples:", d$n_samples, "\n")
-		cat("Protein Column:", d$protein_col, "\n")
-		cat("Sample Columns:", paste(d$sample_cols, collapse = ", "), "\n")
+		cat("Total Rows:", d$n_rows, "\n")
+		cat("Total Columns:", d$n_cols, "\n")
+		
+		if (!is.null(input$file1_protein_col)) {
+			cat("Selected Protein Column:", input$file1_protein_col, "\n")
+			cat("Sample Columns:", d$n_cols - 1, "\n")
+		}
 	})
 	
-	# File 2 Summary
+	# ← FIX: File 2 Summary (use new structure)
 	output$file2_summary <- renderPrint({
 		req(data_file2())
 		d <- data_file2()
+		
 		cat("File:", d$file_name, "\n")
-		cat("Proteins:", d$n_proteins, "\n")
-		cat("Samples:", d$n_samples, "\n")
-		cat("Protein Column:", d$protein_col, "\n")
-		cat("Sample Columns:", paste(d$sample_cols, collapse = ", "), "\n")
+		cat("Total Rows:", d$n_rows, "\n")
+		cat("Total Columns:", d$n_cols, "\n")
+		
+		if (!is.null(input$file2_protein_col)) {
+			cat("Selected Protein Column:", input$file2_protein_col, "\n")
+			cat("Sample Columns:", d$n_cols - 1, "\n")
+		}
 	})
 	
 	# Display File 1 Data
@@ -107,11 +170,184 @@ server <- function(input, output, session) {
 	})
 	
 	# Run comparison when both files are loaded
-	observe({
-		req(data_file1(), data_file2())
+	observeEvent(input$run_comparison, {
+		req(data_file1(), data_file2(), input$file1_protein_col, input$file2_protein_col)
 		
-		comparison <- compare_files(data_file1(), data_file2())
+		showNotification("Running comparison...", type = "message", duration = 2)
+		
+		# Update protein column in data objects
+		d1 <- data_file1()
+		d1$protein_col <- input$file1_protein_col
+		
+		d2 <- data_file2()
+		d2$protein_col <- input$file2_protein_col
+		
+		comparison <- compare_files(d1, d2)
 		comparison_results(comparison)
+		
+		showNotification("✓ Comparison completed!", type = "message", duration = 3)
+	})
+	
+	# Shared columns analysis ####
+	shared_cols_data <- reactive({
+		req(data_file1(), data_file2(), input$file1_protein_col, input$file2_protein_col)
+		
+		identify_shared_columns(
+			data1 = data_file1(),
+			data2 = data_file2(),
+			protein_col1 = input$file1_protein_col,
+			protein_col2 = input$file2_protein_col
+		)
+	})
+	
+	# Render numeric column checkboxes ####
+	output$numeric_cols_checkboxes <- renderUI({
+		req(shared_cols_data())
+		shared <- shared_cols_data()
+		
+		if (shared$n_numeric == 0) {
+			return(p("No shared numeric columns found", style = "color: gray; font-style: italic;"))
+		}
+		
+		checkboxGroupInput(
+			"selected_numeric_cols",
+			NULL,
+			choices = shared$numeric_cols,
+			selected = head(shared$numeric_cols, 3)  # Auto-select first 3
+		)
+	})
+	
+	# Render categorical column checkboxes ####
+	output$character_cols_checkboxes <- renderUI({
+		req(shared_cols_data())
+		shared <- shared_cols_data()
+		
+		if (shared$n_character == 0) {
+			return(p("No shared categorical columns found", style = "color: gray; font-style: italic;"))
+		}
+		
+		checkboxGroupInput(
+			"selected_character_cols",
+			NULL,
+			choices = shared$character_cols,
+			selected = head(shared$character_cols, 3)  # Auto-select first 3
+		)
+	})
+	
+	# Compare numeric columns ####
+	numeric_comparison <- reactiveVal(NULL)
+	
+	observeEvent(input$compare_numeric, {
+		req(comparison_results(), input$selected_numeric_cols)
+		
+		if (length(input$selected_numeric_cols) == 0) {
+			showNotification("Please select at least one numeric column", type = "warning")
+			return()
+		}
+		
+		showNotification("Comparing numeric columns...", type = "message", duration = 2)
+		
+		results <- compare_columns(
+			comparison = comparison_results(),
+			data1 = data_file1(),
+			data2 = data_file2(),
+			columns = input$selected_numeric_cols
+		)
+		
+		numeric_comparison(results)
+		
+		showNotification("✓ Numeric comparison completed!", type = "message", duration = 3)
+	})
+	
+	output$numeric_comparison_results <- renderPrint({
+		req(numeric_comparison())
+		results <- numeric_comparison()
+		
+		cat("═══════════════════════════════════════════════════════\n")
+		cat("         NUMERIC COLUMN COMPARISON RESULTS\n")
+		cat("═══════════════════════════════════════════════════════\n\n")
+		
+		for (col_name in names(results)) {
+			col_result <- results[[col_name]]
+			
+			cat("Column:", col_name, "\n")
+			cat("───────────────────────────────────────────────────\n")
+			
+			if (!is.null(col_result$error)) {
+				cat("  ERROR:", col_result$error, "\n\n")
+				next
+			}
+			
+			if (col_result$identical) {
+				cat("  Status: ✅ IDENTICAL\n")
+			} else {
+				cat("  Status: ❌ DIFFERENT\n")
+				cat("  Correlation:       ", round(col_result$correlation, 6), "\n")
+				cat("  Max difference:    ", round(col_result$max_diff, 6), "\n")
+				cat("  Mean difference:   ", round(col_result$mean_diff, 6), "\n")
+				cat("  Median difference: ", round(col_result$median_diff, 6), "\n")
+				cat("  Different values:  ", col_result$n_different, 
+						" (", col_result$percent_different, "%)\n")
+			}
+			cat("\n")
+		}
+	})
+	
+	# Compare categorical columns ####
+	categorical_comparison <- reactiveVal(NULL)
+	
+	observeEvent(input$compare_categorical, {
+		req(comparison_results(), input$selected_character_cols)
+		
+		if (length(input$selected_character_cols) == 0) {
+			showNotification("Please select at least one categorical column", type = "warning")
+			return()
+		}
+		
+		showNotification("Comparing categorical columns...", type = "message", duration = 2)
+		
+		results <- compare_columns(
+			comparison = comparison_results(),
+			data1 = data_file1(),
+			data2 = data_file2(),
+			columns = input$selected_character_cols
+		)
+		
+		categorical_comparison(results)
+		
+		showNotification("✓ Categorical comparison completed!", type = "message", duration = 3)
+	})
+	
+	output$categorical_comparison_results <- renderPrint({
+		req(categorical_comparison())
+		results <- categorical_comparison()
+		
+		cat("═══════════════════════════════════════════════════════\n")
+		cat("       CATEGORICAL COLUMN COMPARISON RESULTS\n")
+		cat("═══════════════════════════════════════════════════════\n\n")
+		
+		for (col_name in names(results)) {
+			col_result <- results[[col_name]]
+			
+			cat("Column:", col_name, "\n")
+			cat("───────────────────────────────────────────────────\n")
+			
+			if (!is.null(col_result$error)) {
+				cat("  ERROR:", col_result$error, "\n\n")
+				next
+			}
+			
+			if (col_result$identical) {
+				cat("  Status: ✅ IDENTICAL\n")
+			} else {
+				cat("  Status: ❌ DIFFERENT\n")
+				cat("  Different values:  ", col_result$n_different, 
+						" (", col_result$percent_different, "%)\n")
+				cat("  Unique in File 1:  ", col_result$unique_file1, "\n")
+				cat("  Unique in File 2:  ", col_result$unique_file2, "\n")
+			}
+			cat("\n")
+		}
 	})
 	
 	# Value boxes

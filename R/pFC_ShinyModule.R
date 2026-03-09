@@ -11,7 +11,40 @@ pFC_UI <- function(id, use_box = FALSE) {
 	
 	# Core UI elements
 	ui_content <- tagList(
+		
+		# ← ADD DEBUG BUTTON (at top)
+		conditionalPanel(
+			condition = "true",  # Always evaluate server-side
+			uiOutput(ns("debug_ui"))
+		),
+		
 		# Parameters Section
+		fluidRow(
+			column(
+				width = 12,
+				h3("Pipeline Templates"),
+				p("Download R script templates for running pFC analysis in your own pipelines:"),
+				fluidRow(
+					column(
+						width = 6,
+						downloadButton(ns("download_package_pipeline"), "Download Package Pipeline Template", class = "btn-info btn-block"),
+						br(),
+						p(class = "text-muted", style = "font-size: 0.9em;",
+							icon("info-circle"), 
+							" Simplified pipeline using iOmeAiFunctions package. Requires ExpSet_list input. Best for standard analyses.")
+					),
+					column(
+						width = 6,
+						downloadButton(ns("download_downstream_pipeline"), "Download Downstream Pipeline Template", class = "btn-info btn-block"),
+						br(),
+						p(class = "text-muted", style = "font-size: 0.9em;",
+							icon("info-circle"),
+							" Complete downstream analysis template compatible with ExpSet_list. Includes additional analysis options.")
+					)
+				)
+			)
+		),
+						 
 		h3("pFC Analysis Parameters"),
 		fluidRow(
 			column(
@@ -187,6 +220,7 @@ pFC_UI <- function(id, use_box = FALSE) {
 	}
 }
 
+# Server ####
 #' pFC Analysis Shiny Module - Server
 #'
 #' Server component for pFC analysis in Shiny apps
@@ -196,10 +230,10 @@ pFC_UI <- function(id, use_box = FALSE) {
 #' @param default_var_reactive Reactive expression returning the default variable column name
 #'
 #' @export
-pFC_Server <- function(id, eset_reactive, default_var_reactive = reactive(NULL)) {
+pFC_Server <- function(id, eset_reactive, assay_name,default_var_reactive = reactive(NULL), debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		
-		# Reactive values to store results
+		## Reactive values to store results ####
 		rv <- reactiveValues(
 			pfc_results = NULL,
 			pfc_plots = NULL,
@@ -207,10 +241,60 @@ pFC_Server <- function(id, eset_reactive, default_var_reactive = reactive(NULL))
 			var_initialized = FALSE  # Track if var has been set to default
 		)
 		
-		# Update UI inputs when ExpressionSet changes
+		# Debug UI #### ← ADD THIS SECTION
+		output$debug_ui <- renderUI({
+			if (debug == TRUE) {
+				actionButton(session$ns("debug"), "pFC Debug", class = "btn-warning btn-sm")
+			}
+		})
+		
+		## Debug Handler ####
+		observeEvent(input$debug, {
+			message("\n╔═══════════════════════════════════════════════════════════╗")
+			message("║          🔍 DEBUG MODE - pFC Module                       ║")
+			message("╚═════════════════════��═════════════════════════════════════╝")
+			message("\n📊 Available Objects:")
+			message("   ✓ eset_reactive()           : Input ExpressionSet")
+			message("   ✓ rv$pfc_results            : pFC analysis results")
+			message("   ✓ rv$pfc_plots              : Generated plots")
+			message("   ✓ input$var                 : Selected variable")
+			message("   ✓ input$groupPos            : Positive group")
+			message("   ✓ input$groupNeg            : Negative group")
+			message("   ✓ input$fold_change         : FC threshold")
+			message("   ✓ input$p_val               : P-value threshold")
+			message("\n💡 Useful Commands:")
+			message("")
+			message("   # Check ExpressionSet")
+			message("   str(eset_reactive())")
+			message("   dim(Biobase::exprs(eset_reactive()))")
+			message("   head(Biobase::pData(eset_reactive()))")
+			message("")
+			message("   # Check results (if analysis run)")
+			message("   names(rv$pfc_results)")
+			message("   head(rv$pfc_results$pfc_significant)")
+			message("   str(rv$pfc_results$pfc_stats)")
+			message("")
+			message("   # Check input parameters")
+			message("   input$var")
+			message("   input$groupPos")
+			message("   input$groupNeg")
+			message("")
+			message("   # Validate data")
+			message("   table(Biobase::pData(eset_reactive())[[input$var]])")
+			message("")
+			message("⌨️  Commands:")
+			message("   c    Continue")
+			message("   Q    Quit browser")
+			message("═══════════════════════════════════════════════════════════\n")
+			
+			browser()
+		})
+		
+		## Update UI inputs when ExpressionSet changes ####
 		observe({
 			req(eset_reactive())
 			eset <- eset_reactive()
+			
 			metadata_cols <- colnames(Biobase::pData(eset))
 			
 			# Get default variable
@@ -308,6 +392,7 @@ pFC_Server <- function(id, eset_reactive, default_var_reactive = reactive(NULL))
 				# Run processing
 				rv$pfc_results <- pFC_process(
 					eset = eset_reactive(),
+					assay_name = assay_name,
 					var = input$var,
 					groupPos = input$groupPos,
 					groupNeg = input$groupNeg,
@@ -520,6 +605,45 @@ pFC_Server <- function(id, eset_reactive, default_var_reactive = reactive(NULL))
 				
 				# Clean up
 				unlink(temp_dir, recursive = TRUE)
+			}
+		)
+		
+		# Pipeline Template Download Handlers #### ← ADD THESE
+		
+		## Package Pipeline Template ----
+		output$download_package_pipeline <- downloadHandler(
+			filename = function() {
+				paste0("pFC_package_pipeline_", Sys.Date(), ".R")
+			},
+			content = function(file) {
+				# Get template from package
+				template_path <- system.file("templates/pipelines/pFC_package_pipeline.R", 
+																		 package = "iOmeAiFunctions")
+				template_path
+				
+				if (!file.exists(template_path)) {
+					stop("Pipeline template not found in package. Please reinstall iOmeAiFunctions.")
+				}
+				
+				file.copy(template_path, file, overwrite = TRUE)
+			}
+		)
+		
+		## Downstream Pipeline Template ----
+		output$download_downstream_pipeline <- downloadHandler(
+			filename = function() {
+				paste0("pFC_downstream_pipeline_", Sys.Date(), ".R")
+			},
+			content = function(file) {
+				# Get template from package
+				template_path <- system.file("templates/downstream/pFC_downstream_pipeline.R",
+																		 package = "iOmeAiFunctions")
+				
+				if (!file.exists(template_path)) {
+					stop("Downstream pipeline template not found in package. Please reinstall iOmeAiFunctions.")
+				}
+				
+				file.copy(template_path, file, overwrite = TRUE)
 			}
 		)
 		

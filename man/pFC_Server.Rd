@@ -4,7 +4,13 @@
 \alias{pFC_Server}
 \title{pFC Analysis Shiny Module - Server}
 \usage{
-pFC_Server(id, eset_reactive, default_var_reactive = reactive(NULL))
+pFC_Server(
+  id,
+  eset_reactive,
+  assay_name,
+  default_var_reactive = reactive(NULL),
+  debug = FALSE
+)
 }
 \arguments{
 \item{id}{Module namespace ID}

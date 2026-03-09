@@ -12,41 +12,67 @@
 #' @details
 #' Expects first column to be protein names, remaining columns to be samples
 load_data_file <- function(file_path, file_name) {
-  tryCatch({
-    # Load file using fread
-    dt <- data.table::fread(file_path, header = TRUE)
-    
-    # Validate structure
-    if (ncol(dt) < 2) {
-      stop("File must have at least 2 columns (proteins + 1 sample)")
-    }
-    
-    # Get protein column (assume first column)
-    protein_col <- names(dt)[1]
-    sample_cols <- names(dt)[-1]
-    
-    # Check for numeric data in sample columns
-    numeric_check <- sapply(dt[, ..sample_cols], is.numeric)
-    if (!all(numeric_check)) {
-      warning("Some sample columns contain non-numeric data")
-    }
-    
-    # Return structured list
-    list(
-      data = dt,
-      protein_col = protein_col,
-      sample_cols = sample_cols,
-      n_proteins = nrow(dt),
-      n_samples = length(sample_cols),
-      file_name = file_name,
-      loaded_at = Sys.time()
-    )
-    
-  }, error = function(e) {
-    message("Error loading file: ", e$message)
-    return(NULL)
-  })
+tryCatch({
+	# Load file using fread
+	dt <- data.table::fread(file_path, header = TRUE)
+	
+	# Validate structure
+	if (ncol(dt) < 2) {
+		stop("File must have at least 2 columns")
+	}
+	
+	# Return structured list (protein_col will be set by user)
+	list(
+		data = dt,
+		n_rows = nrow(dt),
+		n_cols = ncol(dt),
+		file_name = file_name,
+		loaded_at = Sys.time()
+	)
+	
+}, error = function(e) {
+	message("Error loading file: ", e$message)
+	return(NULL)
+})
 }
+# load_data_file <- function(file_path, file_name) {
+#   tryCatch({
+#     # Load file using fread
+#     dt <- data.table::fread(file_path, header = TRUE)
+#     
+#     # Validate structure
+#     if (ncol(dt) < 2) {
+#       stop("File must have at least 2 columns (proteins + 1 sample)")
+#     }
+#     
+#     # Get protein column (assume first column)
+#     protein_col <- names(dt)[1]
+#     sample_cols <- names(dt)[-1]
+#     
+#     # Check for numeric data in sample columns
+#     numeric_check <- sapply(dt[, ..sample_cols], is.numeric)
+#     if (!all(numeric_check)) {
+#       warning("Some sample columns contain non-numeric data")
+#     }
+#     
+#     # Return structured list
+#     list(
+#       data = dt,
+#       protein_col = protein_col,
+#       sample_cols = sample_cols,
+#       n_proteins = nrow(dt),
+#       n_samples = length(sample_cols),
+#       file_name = file_name,
+#       loaded_at = Sys.time()
+#     )
+#     
+#   }, error = function(e) {
+#     message("Error loading file: ", e$message)
+#     return(NULL)
+#   })
+# }
+
+
 
 #' Compare two data files
 #'
@@ -294,4 +320,127 @@ check_data_identity <- function(comparison, data1, data2, tolerance = 1e-6) {
   }
   
   return(results)
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADD THIS NEW SECTION AT THE END OF functions.R
+# ═══════════════════════════════════════════════════════════════════════════
+
+#' Identify Shared Columns Between Files
+#'
+#' @param data1 List. Output from load_data_file()
+#' @param data2 List. Output from load_data_file()
+#' @param protein_col1 Character. Protein column name for file 1
+#' @param protein_col2 Character. Protein column name for file 2
+#'
+#' @return List containing shared columns categorized by type
+#' @export
+identify_shared_columns <- function(data1, data2, protein_col1, protein_col2) {
+	
+	if (is.null(data1) || is.null(data2)) {
+		return(NULL)
+	}
+	
+	# Get all columns except protein columns
+	cols1 <- setdiff(names(data1$data), protein_col1)
+	cols2 <- setdiff(names(data2$data), protein_col2)
+	
+	# Find shared column names
+	shared_cols <- intersect(cols1, cols2)
+	
+	if (length(shared_cols) == 0) {
+		return(list(
+			n_shared = 0,
+			shared_cols = character(0),
+			numeric_cols = character(0),
+			character_cols = character(0),
+			message = "No shared column names found between files"
+		))
+	}
+	
+	# Categorize shared columns by data type
+	numeric_cols <- character(0)
+	character_cols <- character(0)
+	
+	for (col in shared_cols) {
+		# Check data type in both files
+		is_numeric_file1 <- is.numeric(data1$data[[col]])
+		is_numeric_file2 <- is.numeric(data2$data[[col]])
+		
+		if (is_numeric_file1 && is_numeric_file2) {
+			numeric_cols <- c(numeric_cols, col)
+		} else {
+			character_cols <- c(character_cols, col)
+		}
+	}
+	
+	return(list(
+		n_shared = length(shared_cols),
+		shared_cols = shared_cols,
+		numeric_cols = numeric_cols,
+		character_cols = character_cols,
+		n_numeric = length(numeric_cols),
+		n_character = length(character_cols)
+	))
+}
+
+
+#' Compare Specific Columns Between Files
+#'
+#' @param comparison List. Output from compare_files()
+#' @param data1 List. Output from load_data_file()
+#' @param data2 List. Output from load_data_file()
+#' @param columns Character vector. Column names to compare
+#'
+#' @return List containing comparison results for each column
+#' @export
+compare_columns <- function(comparison, data1, data2, columns) {
+	
+	if (is.null(comparison$merged_data) || length(columns) == 0) {
+		return(NULL)
+	}
+	
+	merged <- comparison$merged_data
+	results <- list()
+	
+	for (col in columns) {
+		col1 <- paste0(col, "_file1")
+		col2 <- paste0(col, "_file2")
+		
+		# Check if columns exist in merged data
+		if (!col1 %in% names(merged) || !col2 %in% names(merged)) {
+			results[[col]] <- list(error = "Column not found in merged data")
+			next
+		}
+		
+		vec1 <- merged[[col1]]
+		vec2 <- merged[[col2]]
+		
+		# Determine if numeric or character
+		if (is.numeric(vec1) && is.numeric(vec2)) {
+			# Numeric comparison
+			results[[col]] <- list(
+				type = "numeric",
+				identical = identical(vec1, vec2),
+				correlation = cor(vec1, vec2, use = "complete.obs"),
+				max_diff = max(abs(vec1 - vec2), na.rm = TRUE),
+				mean_diff = mean(abs(vec1 - vec2), na.rm = TRUE),
+				median_diff = median(abs(vec1 - vec2), na.rm = TRUE),
+				n_different = sum(vec1 != vec2, na.rm = TRUE),
+				percent_different = round(sum(vec1 != vec2, na.rm = TRUE) / length(vec1) * 100, 2)
+			)
+		} else {
+			# Categorical comparison
+			results[[col]] <- list(
+				type = "categorical",
+				identical = identical(as.character(vec1), as.character(vec2)),
+				n_different = sum(vec1 != vec2, na.rm = TRUE),
+				percent_different = round(sum(vec1 != vec2, na.rm = TRUE) / length(vec1) * 100, 2),
+				unique_file1 = length(unique(vec1)),
+				unique_file2 = length(unique(vec2))
+			)
+		}
+	}
+	
+	return(results)
 }

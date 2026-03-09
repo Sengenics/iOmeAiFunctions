@@ -36,6 +36,7 @@
 		conflicted::conflict_prefer("mutate", "dplyr", quiet = TRUE)
 		conflicted::conflict_prefer("desc", "dplyr", quiet = TRUE)
 		conflicted::conflict_prefer("arrange", "dplyr", quiet = TRUE)
+		conflicted::conflict_prefer("count", "dplyr", quiet = TRUE)
 		
 		# DT preferences (for Shiny datatables)
 		conflicted::conflict_prefer("dataTableOutput", "DT", quiet = TRUE)
