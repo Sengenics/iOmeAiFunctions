@@ -58,13 +58,14 @@ NULL
 #' Re-exported openxlsx functions
 #' 
 #' @name openxlsx-reexports
-#' @importFrom openxlsx read.xlsx write.xlsx createWorkbook addWorksheet writeData saveWorkbook
+#' @importFrom openxlsx read.xlsx write.xlsx createWorkbook addWorksheet writeData saveWorkbook getSheetNames
 #' @export read.xlsx
 #' @export write.xlsx
 #' @export createWorkbook
 #' @export addWorksheet
 #' @export writeData
 #' @export saveWorkbook
+#' @export getSheetNames
 NULL
 
 #' Re-exported data.table functions
