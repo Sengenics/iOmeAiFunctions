@@ -9,7 +9,15 @@
 pFC_v2_UI <- function(id, use_box = FALSE) {
 	ns <- NS(id)
 	
+	
+	
 	ui_content <- tagList(
+		
+		conditionalPanel(
+			condition = "true",
+			uiOutput(ns("debug_ui"))
+		),
+		
 		h3("pFC v2 Analysis"),
 		
 		fluidRow(
@@ -125,9 +133,13 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 		
 		hr(),
 		
-		tabsetPanel(
+		fluidRow(
+			column(
+				width = 12,
+				tabsetPanel(
+					tabPanel('Tables',
 			id = ns("v2_results_tabs"),
-			
+			tabsetPanel(
 			tabPanel(
 				"Guide",
 				br(),
@@ -193,8 +205,20 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 				br(),
 				DT::DTOutput(ns("v2_firth_table"))
 			)
+		)),
+		tabPanel("Plots",
+						 tabsetPanel(
+						 	tabPanel('Violin Plots',
+						 
+							 uiOutput(ns("v2_violin_ui"))
+							 )
+						 )
+		)
+		)
+			)
 		)
 	)
+	
 	
 	if (use_box) {
 		if (!requireNamespace("shinydashboard", quietly = TRUE)) {
@@ -237,8 +261,37 @@ pFC_v2_Server <- function(id,
 			baseline_stats = NULL,
 			sample_flags = NULL,
 			test_results = NULL,
+			v2_plot_data = NULL,
+			v2_violin_plots = NULL,
 			var_initialized = FALSE
 		)
+		
+		output$debug_ui <- renderUI({
+			if (debug == TRUE) {
+				actionButton(session$ns("debug"), "pFC v2 Debug", class = "btn-warning btn-sm")
+			}
+		})
+		
+		observeEvent(input$debug, {
+			message("\n========== pFC v2 DEBUG ==========")
+			message("Available objects:")
+			message("  eset_reactive()")
+			message("  rv$baseline_stats")
+			message("  rv$sample_flags")
+			message("  rv$test_results")
+			message("  input$v2_var")
+			message("  input$v2_baseline_source")
+			message("  input$v2_baseline_group")
+			message("  input$v2_fold_change")
+			message("  input$v2_threshold_method")
+			message("  input$v2_trim_outliers")
+			message("  input$v2_outlier_mad_multiplier")
+			message("  input$v2_min_baseline_n")
+			message("==================================\n")
+			
+			browser()
+		})
+		
 		
 		observe({
 			req(eset_reactive())
@@ -299,6 +352,7 @@ pFC_v2_Server <- function(id,
 		
 		observeEvent(input$run_pfc_v2, {
 			req(eset_reactive(), input$v2_var)
+			#req(rv$sample_flags, rv$test_results, input$v2_var, input$v2_threshold_method)
 			
 			showNotification("Running pFC v2 analysis...", type = "message", duration = NULL, id = "pfc_v2_progress")
 			
@@ -333,6 +387,22 @@ pFC_v2_Server <- function(id,
 					threshold_method = input$v2_threshold_method
 				)
 				
+				rv$v2_plot_data <- pFC_v2_violin_plot_data(
+					sample_flags = rv$sample_flags,
+					master_group_stats = rv$test_results$master_group_stats,
+					master_global_stats = rv$test_results$master_global_stats,
+					var = input$v2_var,
+					threshold_method = input$v2_threshold_method,
+					min_penetrance = 10,
+					top_n = 30
+				)
+				
+				rv$v2_violin_plots <- pFC_v2_plot_violins(
+					v2_plot_data = rv$v2_plot_data,
+					violin_ncol = 3,
+					violin_nrow = 3
+				)
+				
 				removeNotification("pfc_v2_progress")
 				showNotification("pFC v2 analysis completed.", type = "message", duration = 3)
 				
@@ -363,6 +433,132 @@ pFC_v2_Server <- function(id,
 			)
 		})
 		
+		output$v2_master_penetrance_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$master_penetrance)
+			
+			DT::datatable(
+				rv$test_results$master_penetrance,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_master_group_stats_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$master_group_stats)
+			
+			DT::datatable(
+				rv$test_results$master_group_stats,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_master_global_stats_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$master_global_stats)
+			
+			DT::datatable(
+				rv$test_results$master_global_stats,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_fisher_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$fisher_stats)
+			
+			DT::datatable(
+				rv$test_results$fisher_stats,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_chisq_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$chisq_stats)
+			
+			DT::datatable(
+				rv$test_results$chisq_stats,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_logistic_group_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$logistic_group_stats)
+			
+			DT::datatable(
+				rv$test_results$logistic_group_stats,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_logistic_global_table <- DT::renderDT({
+			req(rv$test_results, rv$test_results$logistic_global_stats)
+			
+			DT::datatable(
+				rv$test_results$logistic_global_stats,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+		output$v2_firth_table <- DT::renderDT({
+			req(rv$test_results)
+			
+			firth_df <- rv$test_results$firth_group_stats
+			
+			validate(
+				need(!is.null(firth_df), "Firth results are not available."),
+				need(is.data.frame(firth_df), "Firth results are not a data frame."),
+				need(nrow(firth_df) > 0, "Firth results table is empty.")
+			)
+			
+			DT::datatable(
+				firth_df,
+				options = list(pageLength = 25, scrollX = TRUE),
+				rownames = FALSE
+			)
+		})
+		
+
+		output$v2_violin_ui <- renderUI({
+			req(rv$v2_violin_plots)
+			
+			n_plots <- length(rv$v2_violin_plots)
+			
+			tagList(
+				if (n_plots > 1) {
+					fluidRow(
+						column(
+							width = 12,
+							sliderInput(
+								session$ns("v2_violin_page"),
+								"Page:",
+								min = 1,
+								max = n_plots,
+								value = 1,
+								step = 1,
+								width = "100%"
+							)
+						)
+					)
+				},
+				plotOutput(session$ns("v2_violin_plot"), height = "900px")
+			)
+		})
+		
+		output$v2_violin_plot <- renderPlot({
+			req(rv$v2_violin_plots)
+			page_num <- if (!is.null(input$v2_violin_page)) input$v2_violin_page else 1
+			rv$v2_violin_plots[[page_num]]
+		})	
+		
+		
+		
 	})
+	
+
+	
 }
 

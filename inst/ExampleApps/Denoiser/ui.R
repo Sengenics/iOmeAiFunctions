@@ -314,7 +314,7 @@ ui <- dashboardPage(
 							
 						),
 						tabPanel('pFC v2',
-										 pFC_v2_UI("pfc_v2"))
+										 pFC_v2_UI("pfc_v2",TRUE))
 				)
 				)
 				)

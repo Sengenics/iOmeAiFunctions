@@ -597,7 +597,8 @@ server <- function(input, output, session) {
 		id = "pfc_v2",
 		eset_reactive = eset_pFC,
 		assay_name = eset_pFC_selected$eset_name(),
-		default_var_reactive = reactive("Sample_Group")
+		default_var_reactive = reactive("Sample_Group"),
+		debug = run_debug
 	)
 	
 	### pFC Analysis Module #####
