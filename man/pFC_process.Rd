@@ -6,7 +6,7 @@
 \usage{
 pFC_process(
   eset,
-  assay_name = NULL,
+  assay_name,
   var,
   groupPos,
   groupNeg,

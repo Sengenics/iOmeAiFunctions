@@ -388,6 +388,8 @@ pFC_Server <- function(id, eset_reactive, assay_name,default_var_reactive = reac
 			# Show progress
 			showNotification("Running pFC analysis...", type = "message", duration = NULL, id = "pfc_progress")
 			
+			
+			
 			tryCatch({
 				# Run processing
 				rv$pfc_results <- pFC_process(
@@ -416,6 +418,38 @@ pFC_Server <- function(id, eset_reactive, assay_name,default_var_reactive = reac
 				showNotification(paste("Error:", e$message), type = "error", duration = 10)
 				print(e)  # Print to console for debugging
 			})
+			
+			### v2
+			v2 = F
+			if(v2 == T){
+				eset = eset_reactive()
+		
+				baseline_stats <- pFC_baseline_stats_v2(
+					eset = eset,
+					assay_name = "clinical_loess_normalised",
+					baseline_source = "all",
+					fold_change = 2,
+					trim_outliers = TRUE,
+					outlier_mad_multiplier = 4
+				)
+				sample_flags <- pFC_sample_flags_v2(
+					eset = eset,
+					assay_name = "clinical_loess_normalised",
+					baseline_stats = baseline_stats
+				)
+				
+				penetrance_by_group <- pFC_penetrance_by_group_v2(
+					sample_flags = sample_flags,
+					var = "Sample_Group",
+					threshold_method = "3mad"
+				)
+				
+				v2_results <- pFC_penetrance_test_suite_v2(
+					sample_flags = sample_flags,
+					var = "Sample_Group",
+					threshold_method = "3mad"
+				)
+			}
 		})
 		
 		# Summary text
@@ -591,11 +625,18 @@ pFC_Server <- function(id, eset_reactive, assay_name,default_var_reactive = reac
 				temp_dir <- tempfile()
 				dir.create(temp_dir)
 				
+				safe_descriptor <- trimws(input$descriptor)
+				safe_descriptor <- gsub("[^A-Za-z0-9_-]", "_", safe_descriptor)
+				if (!nzchar(safe_descriptor)) {
+					safe_descriptor <- "pFC_analysis"
+				}
+				
 				# Save all files to temp directory
 				pFC_save(
 					pfc_results = rv$pfc_results,
 					pfc_plots = rv$pfc_plots,
-					descriptor = temp_dir,
+					output_dir = temp_dir,
+					file_prefix = safe_descriptor,
 					plot_width = 15,
 					plot_height = 10
 				)

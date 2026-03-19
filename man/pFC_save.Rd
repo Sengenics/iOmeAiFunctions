@@ -4,18 +4,25 @@
 \alias{pFC_save}
 \title{Save pFC Analysis Results and Plots}
 \usage{
-pFC_save(pfc_results, pfc_plots, descriptor, plot_width = 15, plot_height = 10)
+pFC_save(
+  pfc_results,
+  pfc_plots,
+  output_dir,
+  file_prefix,
+  plot_width = 15,
+  plot_height = 10
+)
 }
 \arguments{
 \item{pfc_results}{List output from pFC_process()}
 
 \item{pfc_plots}{List output from pFC_plot()}
 
-\item{descriptor}{Character string; output directory path OR base filename descriptor}
-
 \item{plot_width}{Numeric; width for saved plots (default: 15)}
 
 \item{plot_height}{Numeric; height for saved plots (default: 10)}
+
+\item{descriptor}{Character string; output directory path OR base filename descriptor}
 }
 \value{
 Invisible NULL (files are saved to disk)

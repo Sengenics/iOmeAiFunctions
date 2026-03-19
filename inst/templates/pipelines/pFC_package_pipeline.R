@@ -110,8 +110,8 @@ start_time <- Sys.time()
 assayDataElementNames(eset)
 
 keep = features %>% 
-	filter(ncf == 'retain') %>% 
-	pull(Protein)
+	dplyr::filter(ncf == 'retain') %>% 
+	dplyr::pull(Protein)
 
 filtered_eset = eset[keep,]
 
@@ -151,7 +151,8 @@ dir.create(output_dir, showWarnings = FALSE)
 pFC_save(
 	pfc_results = pfc_results,
 	pfc_plots = pfc_plots,
-	descriptor = file.path(output_dir, descriptor),
+	output_dir = output_dir,
+	file_prefix = descriptor,
 	plot_width = 15,
 	plot_height = 10
 )

@@ -63,7 +63,7 @@
 #'
 #' @export
 pFC_process <- function(eset, 
-												assay_name = NULL,
+												assay_name,
 												var, 
 												groupPos, 
 												groupNeg,
@@ -72,6 +72,14 @@ pFC_process <- function(eset,
 												PSA_flag = TRUE,
 												PSA_colname = "PSA_class",
 												cores = 1) {
+	
+	if (missing(assay_name) || is.null(assay_name) ||
+			!is.character(assay_name) || length(assay_name) != 1 || !nzchar(assay_name)) {
+		stop(
+			"`assay_name` is required and must be a single non-empty character string naming an assay in the ExpressionSet, (clinical_loess_normalised)",
+			call. = FALSE
+		)
+	}
 	
 	# Check if assay exists
 	available_assays <- Biobase::assayDataElementNames(eset)
@@ -189,7 +197,7 @@ pFC_process <- function(eset,
 		)
 	
 	# Round numeric columns
-	final_stats[, c(3:5, 7:10)] <- round(final_stats[, c(3:5, 7:10)], 2)
+	final_stats[, c(3:5, 7:10)] <- round(final_stats[, c(3:5, 7:10)], 0)
 	
 	# Rename columns with group names
 	colnames(final_stats) <- c(
@@ -291,6 +299,717 @@ pFC_process <- function(eset,
 	
 	return(results)
 }
+
+#' Calculate pFC v2 baseline statistics
+#'
+#' Computes per-protein baseline statistics on the log2 scale, with optional
+#' robust outlier trimming using an initial median + k*MAD cutoff.
+#'
+#' @param eset ExpressionSet object containing assay data and phenotype data.
+#' @param assay_name Character string. Required assayData element name to analyze.
+#' @param var Character string or NULL. Grouping variable in `pData(eset)`.
+#'   Required when `baseline_source = "group"`.
+#' @param baseline_source Character string. One of `"all"` or `"group"`.
+#' @param baseline_group Character string or NULL. Reference group to use when
+#'   `baseline_source = "group"`.
+#' @param fold_change Numeric. Fold-change threshold used to derive
+#'   `fc_threshold_log2` and `fc_threshold_rfu`.
+#' @param trim_outliers Logical. If TRUE, remove provisional outliers using an
+#'   initial `median + outlier_mad_multiplier * MAD` cutoff and recalculate.
+#' @param outlier_mad_multiplier Numeric. Multiplier used for provisional outlier
+#'   trimming. Default is 4.
+#' @param min_baseline_n Integer. Minimum number of non-missing samples required
+#'   to compute baseline statistics.
+#'
+#' @return Data frame with one row per protein.
+#' @export
+pFC_baseline_stats_v2 <- function(eset,
+																	assay_name,
+																	var = NULL,
+																	baseline_source = c("all", "group"),
+																	baseline_group = NULL,
+																	fold_change = 2,
+																	trim_outliers = TRUE,
+																	outlier_mad_multiplier = 4,
+																	min_baseline_n = 3) {
+	
+	baseline_source <- match.arg(baseline_source, choices = c("all", "group"))
+	
+	if (missing(assay_name) || is.null(assay_name) ||
+			!is.character(assay_name) || length(assay_name) != 1 || !nzchar(assay_name)) {
+		stop("`assay_name` is required and must be a single non-empty character string.", call. = FALSE)
+	}
+	
+	if (!is.numeric(fold_change) || length(fold_change) != 1 || is.na(fold_change) || fold_change <= 0) {
+		stop("`fold_change` must be a single positive numeric value.", call. = FALSE)
+	}
+	
+	if (!is.numeric(outlier_mad_multiplier) || length(outlier_mad_multiplier) != 1 ||
+			is.na(outlier_mad_multiplier) || outlier_mad_multiplier <= 0) {
+		stop("`outlier_mad_multiplier` must be a single positive numeric value.", call. = FALSE)
+	}
+	
+	available_assays <- Biobase::assayDataElementNames(eset)
+	if (!assay_name %in% available_assays) {
+		stop(
+			"Assay '", assay_name, "' not found in ExpressionSet.\n",
+			"Available assays: ", paste(available_assays, collapse = ", "),
+			call. = FALSE
+		)
+	}
+	
+	metadata <- Biobase::pData(eset)
+	input_data <- Biobase::assayDataElement(eset, assay_name)
+	
+	if (baseline_source == "group") {
+		if (is.null(var) || !is.character(var) || length(var) != 1 || !var %in% colnames(metadata)) {
+			stop("`var` must name a metadata column when `baseline_source = \"group\"`.", call. = FALSE)
+		}
+		if (is.null(baseline_group) || !is.character(baseline_group) ||
+				length(baseline_group) != 1 || !nzchar(baseline_group)) {
+			stop("`baseline_group` must be provided when `baseline_source = \"group\"`.", call. = FALSE)
+		}
+		
+		metadata <- metadata %>%
+			dplyr::filter((!!rlang::sym(var)) == baseline_group)
+		
+		if (nrow(metadata) == 0) {
+			stop("No samples found for `baseline_group = \"", baseline_group, "\"`.", call. = FALSE)
+		}
+		
+		input_data <- input_data[, rownames(metadata), drop = FALSE]
+	}
+	
+	baseline_long <- input_data %>%
+		as.data.frame(check.names = FALSE) %>%
+		tibble::rownames_to_column("Protein") %>%
+		tidyr::pivot_longer(
+			cols = -Protein,
+			names_to = "Sample_ID",
+			values_to = "log2_value"
+		) %>%
+		dplyr::mutate(RFU = 2^log2_value)
+	
+	baseline_stats <- baseline_long %>%
+		dplyr::group_by(Protein) %>%
+		dplyr::group_modify(~{
+			x <- .x$log2_value
+			x <- x[!is.na(x)]
+			
+			if (length(x) < min_baseline_n) {
+				return(tibble::tibble(
+					baseline_n = length(x),
+					baseline_n_trimmed = NA_integer_,
+					baseline_n_removed = NA_integer_,
+					baseline_log2_median_initial = NA_real_,
+					baseline_log2_mad_initial = NA_real_,
+					baseline_log2_outlier_cutoff = NA_real_,
+					baseline_log2_median = NA_real_,
+					baseline_log2_mad = NA_real_,
+					baseline_log2_plus_2mad = NA_real_,
+					baseline_log2_plus_3mad = NA_real_,
+					fc_threshold_log2 = NA_real_
+				))
+			}
+			
+			median_initial <- stats::median(x, na.rm = TRUE)
+			mad_initial <- stats::mad(x, center = median_initial, constant = 1, na.rm = TRUE)
+			
+			x_trim <- x
+			cutoff <- NA_real_
+			
+			if (isTRUE(trim_outliers) && !is.na(mad_initial) && mad_initial > 0) {
+				cutoff <- median_initial + (outlier_mad_multiplier * mad_initial)
+				x_trim_candidate <- x[x <= cutoff]
+				
+				if (length(x_trim_candidate) >= min_baseline_n) {
+					x_trim <- x_trim_candidate
+				}
+			}
+			
+			median_final <- stats::median(x_trim, na.rm = TRUE)
+			mad_final <- stats::mad(x_trim, center = median_final, constant = 1, na.rm = TRUE)
+			
+			tibble::tibble(
+				baseline_n = length(x),
+				baseline_n_trimmed = length(x_trim),
+				baseline_n_removed = length(x) - length(x_trim),
+				baseline_log2_median_initial = median_initial,
+				baseline_log2_mad_initial = mad_initial,
+				baseline_log2_outlier_cutoff = cutoff,
+				baseline_log2_median = median_final,
+				baseline_log2_mad = mad_final,
+				baseline_log2_plus_2mad = median_final + (2 * mad_final),
+				baseline_log2_plus_3mad = median_final + (3 * mad_final),
+				fc_threshold_log2 = median_final + log2(fold_change)
+			)
+		}) %>%
+		dplyr::ungroup() %>%
+		dplyr::mutate(
+			baseline_rfu_median = 2^baseline_log2_median,
+			baseline_rfu_plus_2mad = 2^baseline_log2_plus_2mad,
+			baseline_rfu_plus_3mad = 2^baseline_log2_plus_3mad,
+			fc_threshold_rfu = 2^fc_threshold_log2
+		)
+	
+	baseline_stats
+}
+
+
+pFC_sample_flags_v2 <- function(eset,
+																assay_name,
+																baseline_stats,
+																var = NULL) {
+	
+	metadata <- Biobase::pData(eset)
+	input_data <- Biobase::assayDataElement(eset, assay_name)
+	
+	metadata$Sample_ID <- rownames(metadata)
+	
+	sample_flags <- input_data %>%
+		as.data.frame(check.names = FALSE) %>%
+		tibble::rownames_to_column("Protein") %>%
+		tidyr::pivot_longer(
+			cols = -Protein,
+			names_to = "Sample_ID",
+			values_to = "log2_value"
+		) %>%
+		dplyr::mutate(RFU = 2^log2_value) %>%
+		dplyr::left_join(metadata, by = "Sample_ID") %>%
+		dplyr::left_join(baseline_stats, by = "Protein") %>%
+		dplyr::mutate(
+			log2_fc = log2_value - baseline_log2_median,
+			FC = RFU / baseline_rfu_median,
+			pass_fc_threshold = log2_value >= fc_threshold_log2,
+			pass_2mad_threshold = log2_value >= baseline_log2_plus_2mad,
+			pass_3mad_threshold = log2_value >= baseline_log2_plus_3mad
+		)
+	
+	sample_flags
+}
+
+pFC_penetrance_by_group_v2 <- function(sample_flags,
+																			 var,
+																			 threshold_method = c("fc", "2mad", "3mad")) {
+	
+	threshold_method <- match.arg(threshold_method)
+	
+	pass_col <- switch(
+		threshold_method,
+		fc = "pass_fc_threshold",
+		`2mad` = "pass_2mad_threshold",
+		`3mad` = "pass_3mad_threshold"
+	)
+	
+	sample_flags %>%
+		dplyr::filter(!is.na(.data[[var]]), .data[[var]] != "") %>%
+		dplyr::group_by(Protein, .data[[var]]) %>%
+		dplyr::summarise(
+			n_samples = dplyr::n(),
+			n_positive = sum(.data[[pass_col]], na.rm = TRUE),
+			penetrance_percent = 100 * n_positive / n_samples,
+			baseline_rfu_median = dplyr::first(baseline_rfu_median),
+			fc_threshold_rfu = dplyr::first(fc_threshold_rfu),
+			baseline_rfu_plus_2mad = dplyr::first(baseline_rfu_plus_2mad),
+			baseline_rfu_plus_3mad = dplyr::first(baseline_rfu_plus_3mad),
+			.groups = "drop"
+		) %>%
+		dplyr::rename(Group = !!rlang::sym(var)) %>%
+		dplyr::arrange(Protein, Group)
+}
+
+.pfc_v2_pass_col <- function(threshold_method) {
+	threshold_method <- match.arg(
+		threshold_method,
+		choices = c("fc", "2mad", "3mad")
+	)
+	
+	switch(
+		threshold_method,
+		fc = "pass_fc_threshold",
+		`2mad` = "pass_2mad_threshold",
+		`3mad` = "pass_3mad_threshold"
+	)
+}
+
+.pfc_v2_validate_group_var <- function(sample_flags, var) {
+	if (is.null(var) || !is.character(var) || length(var) != 1 || !nzchar(var)) {
+		stop("`var` must be a single non-empty character string.", call. = FALSE)
+	}
+	
+	if (!var %in% colnames(sample_flags)) {
+		stop("`var` not found in `sample_flags`: ", var, call. = FALSE)
+	}
+	
+	invisible(TRUE)
+}
+
+
+pFC_fisher_one_vs_rest_v2 <- function(sample_flags,
+																			var,
+																			threshold_method = c("fc", "2mad", "3mad"),
+																			p_adjust_method = "BH") {
+	
+	.pfc_v2_validate_group_var(sample_flags, var)
+	pass_col <- .pfc_v2_pass_col(threshold_method)
+	
+	test_data <- sample_flags %>%
+		dplyr::filter(!is.na(.data[[var]]), .data[[var]] != "")
+	
+	groups <- sort(unique(as.character(test_data[[var]])))
+	proteins <- unique(test_data$Protein)
+	
+	results <- lapply(proteins, function(protein_i) {
+		prot_df <- test_data[test_data$Protein == protein_i, , drop = FALSE]
+		
+		lapply(groups, function(group_i) {
+			in_group <- as.character(prot_df[[var]]) == group_i
+			positive <- as.logical(prot_df[[pass_col]])
+			positive[is.na(positive)] <- FALSE
+			
+			tbl <- matrix(
+				c(
+					sum(in_group & positive),
+					sum(in_group & !positive),
+					sum(!in_group & positive),
+					sum(!in_group & !positive)
+				),
+				nrow = 2,
+				byrow = TRUE,
+				dimnames = list(
+					c("group", "rest"),
+					c("positive", "negative")
+				)
+			)
+			
+			ft <- stats::fisher.test(tbl)
+			
+			tibble::tibble(
+				Protein = protein_i,
+				Group = group_i,
+				test = "fisher_one_vs_rest",
+				comparison = paste0(group_i, "_vs_rest"),
+				group_positive = tbl["group", "positive"],
+				group_negative = tbl["group", "negative"],
+				rest_positive = tbl["rest", "positive"],
+				rest_negative = tbl["rest", "negative"],
+				odds_ratio = unname(ft$estimate),
+				conf_low = ft$conf.int[1],
+				conf_high = ft$conf.int[2],
+				p_value = ft$p.value
+			)
+		}) %>% dplyr::bind_rows()
+	}) %>% dplyr::bind_rows()
+	
+	results %>%
+		dplyr::group_by(Group) %>%
+		dplyr::mutate(p_adj = stats::p.adjust(p_value, method = p_adjust_method)) %>%
+		dplyr::ungroup() %>%
+		dplyr::mutate(threshold_method = threshold_method[1])
+}
+
+pFC_chisq_global_v2 <- function(sample_flags,
+																var,
+																threshold_method = c("fc", "2mad", "3mad"),
+																p_adjust_method = "BH") {
+	
+	.pfc_v2_validate_group_var(sample_flags, var)
+	pass_col <- .pfc_v2_pass_col(threshold_method)
+	
+	test_data <- sample_flags %>%
+		dplyr::filter(!is.na(.data[[var]]), .data[[var]] != "")
+	
+	proteins <- unique(test_data$Protein)
+	
+	results <- lapply(proteins, function(protein_i) {
+		prot_df <- test_data[test_data$Protein == protein_i, , drop = FALSE]
+		positive <- as.logical(prot_df[[pass_col]])
+		positive[is.na(positive)] <- FALSE
+		
+		tbl <- table(as.character(prot_df[[var]]), positive)
+		chisq_res <- tryCatch(stats::chisq.test(tbl), error = function(e) NULL)
+		
+		tibble::tibble(
+			Protein = protein_i,
+			test = "chisq_all_groups",
+			comparison = "all_groups",
+			chi_sq_statistic = if (is.null(chisq_res)) NA_real_ else unname(chisq_res$statistic),
+			chi_sq_df = if (is.null(chisq_res)) NA_real_ else unname(chisq_res$parameter),
+			p_value = if (is.null(chisq_res)) NA_real_ else chisq_res$p.value
+		)
+	}) %>% dplyr::bind_rows()
+	
+	results %>%
+		dplyr::mutate(
+			p_adj = stats::p.adjust(p_value, method = p_adjust_method),
+			threshold_method = threshold_method[1]
+		)
+}
+
+pFC_logistic_tests_v2 <- function(sample_flags,
+																	var,
+																	threshold_method = c("fc", "2mad", "3mad"),
+																	p_adjust_method = "BH") {
+	
+	.pfc_v2_validate_group_var(sample_flags, var)
+	pass_col <- .pfc_v2_pass_col(threshold_method)
+	
+	test_data <- sample_flags %>%
+		dplyr::filter(!is.na(.data[[var]]), .data[[var]] != "")
+	
+	groups <- sort(unique(as.character(test_data[[var]])))
+	proteins <- unique(test_data$Protein)
+	
+	group_results <- list()
+	global_results <- list()
+	
+	for (protein_i in proteins) {
+		prot_df <- test_data[test_data$Protein == protein_i, , drop = FALSE]
+		prot_df$positive <- as.integer(as.logical(prot_df[[pass_col]]))
+		prot_df$positive[is.na(prot_df$positive)] <- 0L
+		prot_df$group_var <- as.factor(as.character(prot_df[[var]]))
+		
+		global_fit <- tryCatch(
+			stats::glm(positive ~ group_var, family = stats::binomial(), data = prot_df),
+			error = function(e) NULL
+		)
+		null_fit <- tryCatch(
+			stats::glm(positive ~ 1, family = stats::binomial(), data = prot_df),
+			error = function(e) NULL
+		)
+		
+		global_p <- NA_real_
+		if (!is.null(global_fit) && !is.null(null_fit)) {
+			lrt <- tryCatch(stats::anova(null_fit, global_fit, test = "Chisq"), error = function(e) NULL)
+			if (!is.null(lrt) && nrow(lrt) >= 2) {
+				global_p <- lrt$`Pr(>Chi)`[2]
+			}
+		}
+		
+		global_results[[protein_i]] <- tibble::tibble(
+			Protein = protein_i,
+			test = "logistic_all_groups",
+			comparison = "all_groups",
+			p_value = global_p
+		)
+		
+		group_results[[protein_i]] <- lapply(groups, function(group_i) {
+			prot_df$target_group <- factor(
+				ifelse(as.character(prot_df[[var]]) == group_i, group_i, "rest"),
+				levels = c("rest", group_i)
+			)
+			
+			fit <- tryCatch(
+				stats::glm(positive ~ target_group, family = stats::binomial(), data = prot_df),
+				error = function(e) NULL
+			)
+			
+			if (is.null(fit)) {
+				return(tibble::tibble(
+					Protein = protein_i,
+					Group = group_i,
+					test = "logistic_one_vs_rest",
+					comparison = paste0(group_i, "_vs_rest"),
+					estimate = NA_real_,
+					std_error = NA_real_,
+					statistic = NA_real_,
+					p_value = NA_real_,
+					odds_ratio = NA_real_
+				))
+			}
+			
+			coef_tab <- summary(fit)$coefficients
+			row_i <- paste0("target_group", group_i)
+			
+			if (!row_i %in% rownames(coef_tab)) {
+				return(tibble::tibble(
+					Protein = protein_i,
+					Group = group_i,
+					test = "logistic_one_vs_rest",
+					comparison = paste0(group_i, "_vs_rest"),
+					estimate = NA_real_,
+					std_error = NA_real_,
+					statistic = NA_real_,
+					p_value = NA_real_,
+					odds_ratio = NA_real_
+				))
+			}
+			
+			tibble::tibble(
+				Protein = protein_i,
+				Group = group_i,
+				test = "logistic_one_vs_rest",
+				comparison = paste0(group_i, "_vs_rest"),
+				estimate = coef_tab[row_i, "Estimate"],
+				std_error = coef_tab[row_i, "Std. Error"],
+				statistic = coef_tab[row_i, "z value"],
+				p_value = coef_tab[row_i, "Pr(>|z|)"],
+				odds_ratio = unname(exp(coef_tab[row_i, "Estimate"]))
+			)
+		}) %>% dplyr::bind_rows()
+	}
+	
+	group_stats <- dplyr::bind_rows(group_results) %>%
+		dplyr::group_by(Group) %>%
+		dplyr::mutate(p_adj = stats::p.adjust(p_value, method = p_adjust_method)) %>%
+		dplyr::ungroup() %>%
+		dplyr::mutate(threshold_method = threshold_method[1])
+	
+	global_stats <- dplyr::bind_rows(global_results) %>%
+		dplyr::mutate(
+			p_adj = stats::p.adjust(p_value, method = p_adjust_method),
+			threshold_method = threshold_method[1]
+		)
+	
+	list(
+		group_stats = group_stats,
+		global_stats = global_stats
+	)
+}
+
+
+pFC_firth_tests_v2 <- function(sample_flags,
+															 var,
+															 threshold_method = c("fc", "2mad", "3mad"),
+															 p_adjust_method = "BH") {
+	
+	.pfc_v2_validate_group_var(sample_flags, var)
+	pass_col <- .pfc_v2_pass_col(threshold_method)
+	
+	test_data <- sample_flags %>%
+		dplyr::filter(!is.na(.data[[var]]), .data[[var]] != "")
+	
+	groups <- sort(unique(as.character(test_data[[var]])))
+	proteins <- unique(test_data$Protein)
+	
+	if (!requireNamespace("logistf", quietly = TRUE)) {
+		results <- expand.grid(
+			Protein = proteins,
+			Group = groups,
+			stringsAsFactors = FALSE
+		)
+		
+		return(tibble::as_tibble(results) %>%
+					 	dplyr::mutate(
+					 		test = "firth_one_vs_rest",
+					 		comparison = paste0(Group, "_vs_rest"),
+					 		estimate = NA_real_,
+					 		std_error = NA_real_,
+					 		statistic = NA_real_,
+					 		p_value = NA_real_,
+					 		odds_ratio = NA_real_,
+					 		p_adj = NA_real_,
+					 		threshold_method = threshold_method[1],
+					 		note = "Package `logistf` not installed"
+					 	))
+	}
+	
+	results <- lapply(proteins, function(protein_i) {
+		prot_df <- test_data[test_data$Protein == protein_i, , drop = FALSE]
+		prot_df$positive <- as.integer(as.logical(prot_df[[pass_col]]))
+		prot_df$positive[is.na(prot_df$positive)] <- 0L
+		
+		lapply(groups, function(group_i) {
+			prot_df$target_group <- factor(
+				ifelse(as.character(prot_df[[var]]) == group_i, group_i, "rest"),
+				levels = c("rest", group_i)
+			)
+			
+			fit <- tryCatch(
+				logistf::logistf(positive ~ target_group, data = prot_df),
+				error = function(e) NULL
+			)
+			
+			if (is.null(fit)) {
+				return(tibble::tibble(
+					Protein = protein_i,
+					Group = group_i,
+					test = "firth_one_vs_rest",
+					comparison = paste0(group_i, "_vs_rest"),
+					estimate = NA_real_,
+					std_error = NA_real_,
+					statistic = NA_real_,
+					p_value = NA_real_,
+					odds_ratio = NA_real_,
+					note = "Model fit failed"
+				))
+			}
+			
+			row_i <- grep("^target_group", names(fit$coefficients), value = TRUE)
+			if (length(row_i) != 1) {
+				return(tibble::tibble(
+					Protein = protein_i,
+					Group = group_i,
+					test = "firth_one_vs_rest",
+					comparison = paste0(group_i, "_vs_rest"),
+					estimate = NA_real_,
+					std_error = NA_real_,
+					statistic = NA_real_,
+					p_value = NA_real_,
+					odds_ratio = NA_real_,
+					note = "Coefficient not found"
+				))
+			}
+			
+			row_idx <- match(row_i, names(fit$coefficients))
+			
+			tibble::tibble(
+				Protein = protein_i,
+				Group = group_i,
+				test = "firth_one_vs_rest",
+				comparison = paste0(group_i, "_vs_rest"),
+				estimate = fit$coefficients[row_idx],
+				std_error = fit$se[row_idx],
+				statistic = fit$coefficients[row_idx] / fit$se[row_idx],
+				p_value = fit$prob[row_idx],
+				odds_ratio = unname(exp(fit$coefficients[row_idx])),
+				note = NA_character_
+			)
+		}) %>% dplyr::bind_rows()
+	}) %>% dplyr::bind_rows()
+	
+	results %>%
+		dplyr::group_by(Group) %>%
+		dplyr::mutate(p_adj = stats::p.adjust(p_value, method = p_adjust_method)) %>%
+		dplyr::ungroup() %>%
+		dplyr::mutate(threshold_method = threshold_method[1])
+}
+
+pFC_penetrance_test_suite_v2 <- function(sample_flags,
+																				 var,
+																				 threshold_method = c("fc", "2mad", "3mad"),
+																				 p_adjust_method = "BH") {
+	
+	threshold_method <- match.arg(threshold_method, choices = c("fc", "2mad", "3mad"))
+	
+	master_penetrance <- pFC_penetrance_by_group_v2(
+		sample_flags = sample_flags,
+		var = var,
+		threshold_method = threshold_method
+	)
+	
+	fisher_stats <- pFC_fisher_one_vs_rest_v2(
+		sample_flags = sample_flags,
+		var = var,
+		threshold_method = threshold_method,
+		p_adjust_method = p_adjust_method
+	)
+	
+	chisq_stats <- pFC_chisq_global_v2(
+		sample_flags = sample_flags,
+		var = var,
+		threshold_method = threshold_method,
+		p_adjust_method = p_adjust_method
+	)
+	
+	logistic_stats <- pFC_logistic_tests_v2(
+		sample_flags = sample_flags,
+		var = var,
+		threshold_method = threshold_method,
+		p_adjust_method = p_adjust_method
+	)
+	
+	firth_stats <- pFC_firth_tests_v2(
+		sample_flags = sample_flags,
+		var = var,
+		threshold_method = threshold_method,
+		p_adjust_method = p_adjust_method
+	)
+	
+	master_group_stats <- master_penetrance %>%
+		dplyr::left_join(
+			fisher_stats %>%
+				dplyr::select(Protein, Group, fisher_p_value = p_value, fisher_p_adj = p_adj, fisher_odds_ratio = odds_ratio),
+			by = c("Protein", "Group")
+		) %>%
+		dplyr::left_join(
+			logistic_stats$group_stats %>%
+				dplyr::select(Protein, Group, logistic_p_value = p_value, logistic_p_adj = p_adj, logistic_odds_ratio = odds_ratio),
+			by = c("Protein", "Group")
+		) %>%
+		dplyr::left_join(
+			firth_stats %>%
+				dplyr::select(Protein, Group, firth_p_value = p_value, firth_p_adj = p_adj, firth_odds_ratio = odds_ratio),
+			by = c("Protein", "Group")
+		)
+	
+	master_global_stats <- master_penetrance %>%
+		dplyr::group_by(Protein) %>%
+		dplyr::summarise(
+			max_penetrance_percent = max(penetrance_percent, na.rm = TRUE),
+			n_groups = dplyr::n_distinct(Group),
+			threshold_method = dplyr::first(threshold_method),
+			.groups = "drop"
+		) %>%
+		dplyr::left_join(
+			chisq_stats %>%
+				dplyr::select(Protein, chisq_p_value = p_value, chisq_p_adj = p_adj, chi_sq_statistic, chi_sq_df),
+			by = "Protein"
+		) %>%
+		dplyr::left_join(
+			logistic_stats$global_stats %>%
+				dplyr::select(Protein, logistic_global_p_value = p_value, logistic_global_p_adj = p_adj),
+			by = "Protein"
+		)
+	
+	list(
+		master_penetrance = master_penetrance,
+		master_group_stats = master_group_stats,
+		master_global_stats = master_global_stats,
+		fisher_stats = fisher_stats,
+		chisq_stats = chisq_stats,
+		logistic_group_stats = logistic_stats$group_stats,
+		logistic_global_stats = logistic_stats$global_stats,
+		firth_group_stats = firth_stats
+	)
+}
+
+pFC_v2_results_guide_ui <- function() {
+	shiny::tagList(
+		shiny::tags$div(
+			class = "alert alert-info",
+			shiny::tags$strong("How to read the pFC v2 result tables"),
+			shiny::tags$ul(
+				shiny::tags$li(
+					shiny::tags$strong("master_penetrance: "),
+					"Per protein and per group summary of threshold-positive samples. `penetrance_percent` is the percent of samples above the selected threshold."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("master_group_stats: "),
+					"Adds one-vs-rest Fisher, logistic, and Firth p-values to each Protein x Group row. Use these to identify which specific group is enriched."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("master_global_stats: "),
+					"Protein-level overview with maximum penetrance plus global chi-squared and logistic p-values. Use this to screen proteins that differ anywhere across groups."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("fisher_stats: "),
+					"Exact one-vs-rest enrichment test. Best for small sample sizes and sparse positives."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("chisq_stats: "),
+					"Global test across all groups. Good for overall heterogeneity, but less reliable with low counts."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("logistic_group/global_stats: "),
+					"Model-based tests for one-vs-rest and all-groups association. These are easiest to extend later with covariates."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("firth_group_stats: "),
+					"Bias-reduced logistic regression for sparse or separated data. Prefer this when ordinary logistic regression is unstable."
+				),
+				shiny::tags$li(
+					shiny::tags$strong("p_adj columns: "),
+					"Benjamini-Hochberg adjusted p-values within each test family. Use these for ranking and filtering rather than raw p-values alone."
+				)
+			)
+		)
+	)
+}
+
+
+
+
 
 #' Generate Plots for pFC Analysis
 #'
@@ -518,116 +1237,167 @@ pFC_plot <- function(pfc_results,
 #' @export
 pFC_save <- function(pfc_results,
 										 pfc_plots,
-										 descriptor,
+										 output_dir,
+										 file_prefix,
 										 plot_width = 15,
 										 plot_height = 10) {
 	
-	# Separate directory and base name ----
-	# If descriptor is a path, extract directory and basename
-	if (dirname(descriptor) != ".") {
-		output_dir <- descriptor
-		base_name <- basename(descriptor)
-	} else {
-		# descriptor is just a name, not a path
-		output_dir <- descriptor
-		base_name <- descriptor
+	if (missing(output_dir) || is.null(output_dir) || !nzchar(output_dir)) {
+		stop("`output_dir` is required.", call. = FALSE)
 	}
 	
-	# Create output directory
+	if (missing(file_prefix) || is.null(file_prefix) || !nzchar(file_prefix)) {
+		stop("`file_prefix` is required.", call. = FALSE)
+	}
+	
+	file_prefix <- trimws(file_prefix)
+	file_prefix <- gsub("[^A-Za-z0-9_-]", "_", file_prefix)
+	
 	if (!dir.exists(output_dir)) {
 		dir.create(output_dir, recursive = TRUE)
 	}
 	
-	params <- pfc_results$parameters
-	p_val <- params$p_val
+	p_val <- pfc_results$parameters$p_val
 	
-	message("Saving results to: ", output_dir)
-	
-	# ---- Save Tables ----
-	
-	# Normalized data (non-log2)
 	write.csv(
 		pfc_results$normalized_data,
-		file.path(output_dir, paste0("pFC_Normalised_NetI_nonlog2_", base_name, ".csv")),
+		file.path(output_dir, paste0("pFC_Normalised_NetI_nonlog2_", file_prefix, ".csv")),
 		row.names = FALSE
 	)
 	
-	# Fold change data
 	write.csv(
 		pfc_results$fc_data,
-		file.path(output_dir, paste0("pFC_per_feature_per_sample_FC_vs_groupNeg_mean_", base_name, ".csv")),
+		file.path(output_dir, paste0("pFC_per_feature_per_sample_FC_vs_groupNeg_mean_", file_prefix, ".csv")),
 		row.names = FALSE
 	)
 	
-	# All statistics
 	write.csv(
 		pfc_results$pfc_stats,
-		file.path(output_dir, paste0("pFC_all_stats_", base_name, ".csv")),
+		file.path(output_dir, paste0("pFC_all_stats_", file_prefix, ".csv")),
 		row.names = FALSE
 	)
 	
-	# Significant results
 	write.csv(
 		pfc_results$pfc_significant,
-		file.path(output_dir, paste0("pFC_Fishers_exact_p_", p_val, "_", base_name, ".csv")),
+		file.path(output_dir, paste0("pFC_Fishers_exact_p_", p_val, file_prefix, ".csv")),
 		row.names = FALSE
 	)
 	
-	message("✓ Saved ", nrow(pfc_results$pfc_stats), " features to CSV files")
-	
-	# ---- Save Plots ----
-	
-	# Violin plots
-	if (!is.null(pfc_plots$violin_plots) && length(pfc_plots$violin_plots) > 0) {
-		pdf(
-			file.path(output_dir, paste0("violin_pFC_", p_val, "_", base_name, ".pdf")),
-			width = plot_width,
-			height = plot_height
-		)
-		for (p in pfc_plots$violin_plots) {
-			print(p)
-		}
-		dev.off()
-		message("✓ Saved violin plots")
-	}
-	
-	# Heatmaps
-	if (!is.null(pfc_plots$heatmap_manual)) {
-		# Manual sort
-		pdf(
-			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_manualsort.pdf")),
-			width = plot_width,
-			height = plot_height
-		)
-		print(pfc_plots$heatmap_manual)
-		dev.off()
-		
-		# Manual sort, row-centered
-		pdf(
-			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_manualsort_RC.pdf")),
-			width = plot_width,
-			height = plot_height
-		)
-		print(pfc_plots$heatmap_manual_RC)
-		dev.off()
-		
-		# Clustered, row-centered
-		pdf(
-			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_RC.pdf")),
-			width = plot_width,
-			height = plot_height
-		)
-		print(pfc_plots$heatmap_clustered_RC)
-		dev.off()
-		
-		message("✓ Saved heatmaps")
-	}
-	
-	message("\n✓ All pFC results saved successfully!")
-	message("  Output directory: ", normalizePath(output_dir))
-	
-	invisible(NULL)
+	...
 }
+
+# pFC_save <- function(pfc_results,
+# 										 pfc_plots,
+# 										 descriptor,
+# 										 plot_width = 15,
+# 										 plot_height = 10) {
+# 	
+# 	# Separate directory and base name ----
+# 	# If descriptor is a path, extract directory and basename
+# 	if (dirname(descriptor) != ".") {
+# 		output_dir <- descriptor
+# 		base_name <- basename(descriptor)
+# 	} else {
+# 		# descriptor is just a name, not a path
+# 		output_dir <- descriptor
+# 		base_name <- descriptor
+# 	}
+# 	
+# 	# Create output directory
+# 	if (!dir.exists(output_dir)) {
+# 		dir.create(output_dir, recursive = TRUE)
+# 	}
+# 	
+# 	params <- pfc_results$parameters
+# 	p_val <- params$p_val
+# 	
+# 	message("Saving results to: ", output_dir)
+# 	
+# 	# ---- Save Tables ----
+# 	
+# 	# Normalized data (non-log2)
+# 	write.csv(
+# 		pfc_results$normalized_data,
+# 		file.path(output_dir, paste0("pFC_Normalised_NetI_nonlog2_", base_name, ".csv")),
+# 		row.names = FALSE
+# 	)
+# 	
+# 	# Fold change data
+# 	write.csv(
+# 		pfc_results$fc_data,
+# 		file.path(output_dir, paste0("pFC_per_feature_per_sample_FC_vs_groupNeg_mean_", base_name, ".csv")),
+# 		row.names = FALSE
+# 	)
+# 	
+# 	# All statistics
+# 	write.csv(
+# 		pfc_results$pfc_stats,
+# 		file.path(output_dir, paste0("pFC_all_stats_", base_name, ".csv")),
+# 		row.names = FALSE
+# 	)
+# 	
+# 	# Significant results
+# 	write.csv(
+# 		pfc_results$pfc_significant,
+# 		file.path(output_dir, paste0("pFC_Fishers_exact_p_", p_val, "_", base_name, ".csv")),
+# 		row.names = FALSE
+# 	)
+# 	
+# 	message("✓ Saved ", nrow(pfc_results$pfc_stats), " features to CSV files")
+# 	
+# 	# ---- Save Plots ----
+# 	
+# 	# Violin plots
+# 	if (!is.null(pfc_plots$violin_plots) && length(pfc_plots$violin_plots) > 0) {
+# 		pdf(
+# 			file.path(output_dir, paste0("violin_pFC_", p_val, "_", base_name, ".pdf")),
+# 			width = plot_width,
+# 			height = plot_height
+# 		)
+# 		for (p in pfc_plots$violin_plots) {
+# 			print(p)
+# 		}
+# 		dev.off()
+# 		message("✓ Saved violin plots")
+# 	}
+# 	
+# 	# Heatmaps
+# 	if (!is.null(pfc_plots$heatmap_manual)) {
+# 		# Manual sort
+# 		pdf(
+# 			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_manualsort.pdf")),
+# 			width = plot_width,
+# 			height = plot_height
+# 		)
+# 		print(pfc_plots$heatmap_manual)
+# 		dev.off()
+# 		
+# 		# Manual sort, row-centered
+# 		pdf(
+# 			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_manualsort_RC.pdf")),
+# 			width = plot_width,
+# 			height = plot_height
+# 		)
+# 		print(pfc_plots$heatmap_manual_RC)
+# 		dev.off()
+# 		
+# 		# Clustered, row-centered
+# 		pdf(
+# 			file.path(output_dir, paste0("heatmap_", p_val, "_", base_name, "_RC.pdf")),
+# 			width = plot_width,
+# 			height = plot_height
+# 		)
+# 		print(pfc_plots$heatmap_clustered_RC)
+# 		dev.off()
+# 		
+# 		message("✓ Saved heatmaps")
+# 	}
+# 	
+# 	message("\n✓ All pFC results saved successfully!")
+# 	message("  Output directory: ", normalizePath(output_dir))
+# 	
+# 	invisible(NULL)
+# }
 
 #' Penetrance Fold Change (pFC) Analysis - Pipeline Wrapper
 #'
