@@ -1318,6 +1318,7 @@ pFC_v2_violin_plot_data <- function(sample_flags,
 }
 
 pFC_v2_build_plot_spec <- function(sample_flags,
+																	 feature_data = NULL,
 																	 master_group_stats,
 																	 master_global_stats,
 																	 var,
@@ -1330,6 +1331,10 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 	if (!var %in% colnames(sample_flags)) {
 		stop("`var` not found in sample_flags: ", var, call. = FALSE)
 	}
+	
+	feature_annotations <- feature_data %>%
+		#tibble::rownames_to_column("Protein") %>%
+		dplyr::select(Protein, PSA_limma, ncf)
 	
 	plot_features <- master_global_stats %>%
 		dplyr::filter(max_penetrance_percent >= min_penetrance) %>%
@@ -1360,8 +1365,33 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 			logistic_global_p_adj
 		)
 	
+	# facet_labels <- global_df %>%
+	# 	dplyr::left_join(top_group_df, by = "Protein") %>%
+	# 	dplyr::mutate(
+	# 		chisq_label = dplyr::if_else(
+	# 			is.na(chisq_p_adj),
+	# 			"ChiFDR=NA",
+	# 			paste0("ChiFDR=", signif(chisq_p_adj, 2))
+	# 		),
+	# 		logit_label = dplyr::if_else(
+	# 			is.na(logistic_global_p_adj),
+	# 			"LogitFDR=NA",
+	# 			paste0("LogitFDR=", signif(logistic_global_p_adj, 2))
+	# 		),
+	# 		top_group_label = paste0("Top=", top_group, " (", round(top_group_penetrance, 1), "%)"),
+	# 		facet_label = paste0(
+	# 			Protein, "\n",
+	# 			"MaxPen=", round(max_penetrance_percent, 1), "%; ",
+	# 			chisq_label, "; ",
+	# 			logit_label, "\n",
+	# 			top_group_label
+	# 		)
+	# 	) %>%
+	# 	dplyr::select(Protein, facet_label)
+	
 	facet_labels <- global_df %>%
 		dplyr::left_join(top_group_df, by = "Protein") %>%
+		dplyr::left_join(feature_annotations, by = "Protein") %>%
 		dplyr::mutate(
 			chisq_label = dplyr::if_else(
 				is.na(chisq_p_adj),
@@ -1374,15 +1404,20 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 				paste0("LogitFDR=", signif(logistic_global_p_adj, 2))
 			),
 			top_group_label = paste0("Top=", top_group, " (", round(top_group_penetrance, 1), "%)"),
+			psa_limma_label = paste0("PSA_limma=", ifelse(is.na(PSA_limma), "NA", as.character(PSA_limma))),
+			ncf_label = paste0("NCF=", ifelse(is.na(ncf), "NA", as.character(ncf))),
 			facet_label = paste0(
 				Protein, "\n",
 				"MaxPen=", round(max_penetrance_percent, 1), "%; ",
 				chisq_label, "; ",
 				logit_label, "\n",
-				top_group_label
+				top_group_label, "; ",
+				psa_limma_label, "; ",
+				ncf_label
 			)
 		) %>%
 		dplyr::select(Protein, facet_label)
+	
 	
 	plot_data <- sample_flags %>%
 		dplyr::filter(Protein %in% plot_features) %>%
@@ -1454,9 +1489,27 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 			)
 	)
 	
+	# penetrance_annotations <- master_group_stats %>%
+	# 	dplyr::filter(Protein %in% plot_features) %>%
+	# 	dplyr::select(Protein, Group, penetrance_percent) %>%
+	# 	dplyr::left_join(
+	# 		threshold_df %>% dplyr::select(feature, facet_label, y_max_log2, y_max_rfu),
+	# 		by = c("Protein" = "feature")
+	# 	) %>%
+	# 	dplyr::transmute(
+	# 		feature = Protein,
+	# 		group = Group,
+	# 		facet_label = facet_label,
+	# 		annotation_type = "penetrance",
+	# 		label = paste0(round(penetrance_percent, 1), "%"),
+	# 		x = Group,
+	# 		y_log2 = y_max_log2 + 0.08 * pmax(abs(y_max_log2), 1),
+	# 		y_rfu = y_max_rfu * 1.08
+	# 	)
+	
 	penetrance_annotations <- master_group_stats %>%
 		dplyr::filter(Protein %in% plot_features) %>%
-		dplyr::select(Protein, Group, penetrance_percent) %>%
+		dplyr::select(Protein, Group, penetrance_percent, n_positive, n_samples) %>%
 		dplyr::left_join(
 			threshold_df %>% dplyr::select(feature, facet_label, y_max_log2, y_max_rfu),
 			by = c("Protein" = "feature")
@@ -1466,11 +1519,15 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 			group = Group,
 			facet_label = facet_label,
 			annotation_type = "penetrance",
-			label = paste0(round(penetrance_percent, 1), "%"),
+			label = paste0(
+				round(penetrance_percent, 1), "%\n",
+				n_positive, "/", n_samples
+			),
 			x = Group,
 			y_log2 = y_max_log2 + 0.08 * pmax(abs(y_max_log2), 1),
 			y_rfu = y_max_rfu * 1.08
 		)
+	
 	
 	first_group_df <- plot_data %>%
 		dplyr::group_by(feature) %>%
@@ -1495,6 +1552,27 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 				"\nLogitFDR=", ifelse(is.na(logistic_global_p_adj), "NA", signif(logistic_global_p_adj, 2))
 			),
 			x = x_group,
+			y_log2 = y_max_log2 + 0.18 * pmax(abs(y_max_log2), 1),
+			y_rfu = y_max_rfu * 1.18
+		)
+	
+	group_pvalue_annotations <- master_group_stats %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::select(Protein, Group, fisher_p_adj) %>%
+		dplyr::left_join(
+			threshold_df %>% dplyr::select(feature, facet_label, y_max_log2, y_max_rfu),
+			by = c("Protein" = "feature")
+		) %>%
+		dplyr::transmute(
+			feature = Protein,
+			group = Group,
+			facet_label = facet_label,
+			annotation_type = "group_pvalues",
+			label = paste0(
+				"FDR=",
+				ifelse(is.na(fisher_p_adj), "NA", signif(fisher_p_adj, 2))
+			),
+			x = Group,
 			y_log2 = y_max_log2 + 0.18 * pmax(abs(y_max_log2), 1),
 			y_rfu = y_max_rfu * 1.18
 		)
@@ -1524,13 +1602,15 @@ pFC_v2_build_plot_spec <- function(sample_flags,
 		line_annotations = line_annotations,
 		text_annotations = list(
 			penetrance = penetrance_annotations,
-			pvalues = pvalue_annotations
+			pvalues = pvalue_annotations,
+			group_pvalues = group_pvalue_annotations
 		),
 		plot_meta = list(
 			title = "pFC v2 annotated violin plots",
 			feature_col = "feature",
 			sample_col = "sample_id",
 			group_col = "group",
+			shape_col = "PSA_class",
 			facet_col = "facet_label",
 			y_log2_col = "y_log2",
 			y_rfu_col = "y_rfu",
@@ -1737,6 +1817,101 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 		rfu_plots = rfu_plots
 	)
 }
+
+pFC_v2_update_sample_eset <- function(eset,
+																			baseline_stats,
+																			master_global_stats) {
+	fd <- Biobase::fData(eset)
+	fd$Protein <- rownames(fd)
+	
+	protein_stats <- baseline_stats %>%
+		dplyr::left_join(master_global_stats, by = c("Protein" = "Protein"))
+	
+	fd <- fd %>%
+		dplyr::left_join(protein_stats, by = "Protein")
+	
+	rownames(fd) <- fd$Protein
+	fd$Protein <- NULL
+	
+	Biobase::fData(eset) <- fd
+	eset
+}
+
+pFC_v2_build_group_stats_eset <- function(sample_eset,
+																					master_group_stats,
+																					group_var) {
+	
+	proteins <- rownames(sample_eset)
+	groups <- unique(master_group_stats$Group)
+	
+	make_matrix <- function(value_col) {
+		df <- master_group_stats %>%
+			dplyr::select(Protein, Group, !!rlang::sym(value_col)) %>%
+			tidyr::pivot_wider(names_from = Group, values_from = !!rlang::sym(value_col))
+		
+		mat <- as.data.frame(df)
+		rownames(mat) <- mat$Protein
+		mat$Protein <- NULL
+		mat <- as.matrix(mat)
+		
+		mat[proteins, groups, drop = FALSE]
+	}
+	
+	assay_list <- list(
+		exprs = make_matrix("penetrance_percent"),
+		n_positive = make_matrix("n_positive"),
+		fisher_p_value = make_matrix("fisher_p_value"),
+		fisher_p_adj = make_matrix("fisher_p_adj"),
+		logistic_p_value = make_matrix("logistic_p_value"),
+		logistic_p_adj = make_matrix("logistic_p_adj"),
+		firth_p_value = make_matrix("firth_p_value"),
+		firth_p_adj = make_matrix("firth_p_adj")
+	)
+	
+	group_pd <- master_group_stats %>%
+		dplyr::distinct(Group, n_samples) %>%
+		dplyr::mutate(group_var = group_var) %>% 
+		as.data.frame()
+	
+	rownames(group_pd) <- group_pd$Group
+	#group_pd <- group_pd[groups, , drop = FALSE]
+	group_pd <- group_pd[colnames(assay_list$exprs), , drop = FALSE]
+	
+	feature_df <- Biobase::fData(sample_eset)
+	feature_df <- feature_df[rownames(assay_list$exprs), , drop = FALSE]
+	
+	identical(colnames(assay_list$exprs), rownames(group_pd))
+	
+	assay_env <- Biobase::assayDataNew(
+		exprs = assay_list$exprs,
+		penetrance_percent = assay_list$exprs,
+		n_positive = assay_list$n_positive,
+		fisher_p_value = assay_list$fisher_p_value,
+		fisher_p_adj = assay_list$fisher_p_adj,
+		logistic_p_value = assay_list$logistic_p_value,
+		logistic_p_adj = assay_list$logistic_p_adj,
+		firth_p_value = assay_list$firth_p_value,
+		firth_p_adj = assay_list$firth_p_adj
+	)
+	
+	group_eset <- Biobase::ExpressionSet(
+		assayData = assay_env,
+		phenoData = Biobase::AnnotatedDataFrame(group_pd),
+		featureData = Biobase::AnnotatedDataFrame(feature_df)
+	)
+	
+	# group_eset <- Biobase::ExpressionSet(
+	# 	assayData = assay_list,
+	# 	phenoData = Biobase::AnnotatedDataFrame(group_pd),
+	# 	featureData = Biobase::AnnotatedDataFrame(feature_df)
+	# )
+	
+	Biobase::experimentData(group_eset)@other$group_var <- group_var
+	
+	group_eset
+}
+
+
 
 
 # pFC_v2_violin_plot_data <- function(sample_flags,

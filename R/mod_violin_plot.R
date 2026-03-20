@@ -38,10 +38,12 @@ annotated_violin_UI <- function(id, use_box = FALSE) {
 					"Text Overlays:",
 					choices = c(
 						"Penetrance %" = "penetrance",
-						"P-values / FDR" = "pvalues"
+						"Global P-values / FDR" = "pvalues",
+						"Group P-values" = "group_pvalues"
 					),
 					selected = c("penetrance", "pvalues")
 				),
+				
 				numericInput(
 					ns("violin_ncol"),
 					"Plots Per Row:",
@@ -218,14 +220,34 @@ annotated_violin_Server <- function(id, plot_spec_reactive, debug = FALSE) {
 			}
 			names(violin_cols) <- group_levels
 			
-			p <- ggplot2::ggplot(
-				plot_data,
-				ggplot2::aes(
+			shape_col <- meta$shape_col
+			
+			if (!is.null(shape_col) && shape_col %in% colnames(plot_data)) {
+				point_mapping <- ggplot2::aes(
+					x = .data[[meta$group_col]],
+					y = .data[[y_col]],
+					color = .data[[meta$group_col]],
+					shape = .data[[shape_col]]
+				)
+			} else {
+				point_mapping <- ggplot2::aes(
 					x = .data[[meta$group_col]],
 					y = .data[[y_col]],
 					color = .data[[meta$group_col]]
 				)
-			) +
+			}
+			
+			p = ggplot2::ggplot(plot_data, point_mapping) + 
+			
+			
+			# p <- ggplot2::ggplot(
+			# 	plot_data,
+			# 	ggplot2::aes(
+			# 		x = .data[[meta$group_col]],
+			# 		y = .data[[y_col]],
+			# 		color = .data[[meta$group_col]]
+			# 	)
+			# ) +
 				ggplot2::geom_violin(alpha = 0.35, trim = FALSE) +
 				ggplot2::geom_point(
 					position = ggplot2::position_jitter(width = 0.18, height = 0, seed = 1),

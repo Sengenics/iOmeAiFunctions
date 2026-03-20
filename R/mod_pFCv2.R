@@ -137,6 +137,15 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 			column(
 				width = 12,
 				tabsetPanel(
+					tabPanel('ExpSets',
+									 tabsetPanel(
+									 	tabPanel('Sample',
+									 					 mod_expset_viewer_ui(ns('pFC_v2_sample_eset_viewer'))
+									 					 ),
+									 	tabPanel('Group',
+									 					 mod_expset_viewer_ui(ns('pFC_v2_group_stats_eset_viewer')))
+									 )
+									 ),
 					tabPanel('Tables',
 			id = ns("v2_results_tabs"),
 			tabsetPanel(
@@ -265,7 +274,9 @@ pFC_v2_Server <- function(id,
 			test_results = NULL,
 			v2_plot_data = NULL,
 			v2_violin_plots = NULL,
-			var_initialized = FALSE
+			var_initialized = FALSE,
+			updated_sample_eset = NULL,
+			group_stats_eset = NULL
 		)
 		
 		test_debug_module_Server('test_pFC_v2')
@@ -418,11 +429,47 @@ pFC_v2_Server <- function(id,
 				)
 				
 				showNotification(
-					"pFC v2: preparing plotting data...",
+					"pFC v2: updating sample ExpressionSet...",
 					type = "message",
 					duration = NULL,
 					id = progress_id
 				)
+				
+				rv$updated_sample_eset <- pFC_v2_update_sample_eset(
+					eset = eset_reactive(),
+					baseline_stats = rv$baseline_stats,
+					master_global_stats = rv$test_results$master_global_stats
+				)
+				
+				showNotification(
+					"pFC v2: building group statistics ExpressionSet...",
+					type = "message",
+					duration = NULL,
+					id = progress_id
+				)
+				
+				rv$group_stats_eset <- pFC_v2_build_group_stats_eset(
+					sample_eset = rv$updated_sample_eset,
+					master_group_stats = rv$test_results$master_group_stats,
+					group_var = input$v2_var
+				)
+				
+				# rv$ExpSet_list_v2 <- utils::modifyList(
+				# 	ExpSet_list,
+				# 	list(
+				# 		pFC_v2_sample_eset = rv$updated_sample_eset,
+				# 		pFC_v2_group_stats_eset = rv$group_stats_eset
+				# 	)
+				# )
+				
+				rv$ExpSet_list_v2 <- 
+					list(
+						pFC_v2_sample_eset = rv$updated_sample_eset,
+						pFC_v2_group_stats_eset = rv$group_stats_eset
+					)
+				
+			
+				
 				
 				# rv$v2_plot_data <- pFC_v2_violin_plot_data(
 				# 	sample_flags = rv$sample_flags,
@@ -461,6 +508,22 @@ pFC_v2_Server <- function(id,
 			print("pFC v2 analysis completed")
 		})
 		
+		
+		mod_expset_viewer_server(
+			"pFC_v2_sample_eset_viewer",
+			ExpSet_list = reactive(rv$ExpSet_list_v2),
+			ExpSet_list_version = reactive("pFC_v2"),
+			default_selection = "clinical_loess_normalised",
+			debug = run_debug
+		)
+		
+		mod_expset_viewer_server(
+			"pFC_v2_group_stats_eset_viewer",
+			ExpSet_list = reactive(rv$ExpSet_list_v2),
+			ExpSet_list_version = reactive("pFC_v2"),
+			default_selection = "n_positive",
+			debug = run_debug
+		)
 		
 		# observeEvent(input$run_pfc_v2, {
 		# 	req(eset_reactive(), input$v2_var)
@@ -635,10 +698,11 @@ pFC_v2_Server <- function(id,
 		
 
 		plot_spec_reactive <- reactive({
-			req(rv$sample_flags, rv$test_results)
+			req(rv$sample_flags, rv$test_results,eset_reactive())
 
 			pFC_v2_build_plot_spec(
 				sample_flags = rv$sample_flags,
+				feature_data = fData(eset_reactive()),
 				master_group_stats = rv$test_results$master_group_stats,
 				master_global_stats = rv$test_results$master_global_stats,
 				var = input$v2_var,
