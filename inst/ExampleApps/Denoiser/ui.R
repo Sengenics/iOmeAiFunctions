@@ -254,10 +254,10 @@ ui <- dashboardPage(
 				),
 				column(12,
 				fluidRow(
-					tabsetPanel(
+					tabsetPanel(selected = 'pFC v2',
 						tabPanel('pFC',
 		
-							
+							test_debug_module_UI('test_main'),
 							p("Penetrance Fold Change (pFC) analysis identifies features enriched in a case group compared to controls."),
 							p("This analysis uses normalized data. Select your groups below."),
 							

@@ -12,7 +12,7 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 	
 	
 	ui_content <- tagList(
-		
+		test_debug_module_UI(ns('test_pFC_v2')),
 		conditionalPanel(
 			condition = "true",
 			uiOutput(ns("debug_ui"))
@@ -209,8 +209,10 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 		tabPanel("Plots",
 						 tabsetPanel(
 						 	tabPanel('Violin Plots',
+						 					 br(),
+						 					 annotated_violin_UI(ns("pfc_v2_plot_test"))
 						 
-							 uiOutput(ns("v2_violin_ui"))
+							 
 							 )
 						 )
 		)
@@ -266,6 +268,7 @@ pFC_v2_Server <- function(id,
 			var_initialized = FALSE
 		)
 		
+		test_debug_module_Server('test_pFC_v2')
 		output$debug_ui <- renderUI({
 			if (debug == TRUE) {
 				actionButton(session$ns("debug"), "pFC v2 Debug", class = "btn-warning btn-sm")
@@ -352,15 +355,28 @@ pFC_v2_Server <- function(id,
 		
 		observeEvent(input$run_pfc_v2, {
 			req(eset_reactive(), input$v2_var)
-			#req(rv$sample_flags, rv$test_results, input$v2_var, input$v2_threshold_method)
 			
-			showNotification("Running pFC v2 analysis...", type = "message", duration = NULL, id = "pfc_v2_progress")
+			progress_id <- "pfc_v2_progress"
+			
+			showNotification(
+				"pFC v2: starting analysis...",
+				type = "message",
+				duration = NULL,
+				id = progress_id
+			)
 			
 			tryCatch({
 				baseline_group_value <- NULL
 				if (identical(input$v2_baseline_source, "group")) {
 					baseline_group_value <- input$v2_baseline_group
 				}
+				
+				showNotification(
+					"pFC v2: calculating baseline statistics...",
+					type = "message",
+					duration = NULL,
+					id = progress_id
+				)
 				
 				rv$baseline_stats <- pFC_baseline_stats_v2(
 					eset = eset_reactive(),
@@ -374,11 +390,25 @@ pFC_v2_Server <- function(id,
 					min_baseline_n = input$v2_min_baseline_n
 				)
 				
+				showNotification(
+					"pFC v2: generating per-sample threshold flags...",
+					type = "message",
+					duration = NULL,
+					id = progress_id
+				)
+				
 				rv$sample_flags <- pFC_sample_flags_v2(
 					eset = eset_reactive(),
 					assay_name = assay_name,
 					baseline_stats = rv$baseline_stats,
 					var = input$v2_var
+				)
+				
+				showNotification(
+					"pFC v2: running penetrance test suite...",
+					type = "message",
+					duration = NULL,
+					id = progress_id
 				)
 				
 				rv$test_results <- pFC_penetrance_test_suite_v2(
@@ -387,31 +417,113 @@ pFC_v2_Server <- function(id,
 					threshold_method = input$v2_threshold_method
 				)
 				
-				rv$v2_plot_data <- pFC_v2_violin_plot_data(
-					sample_flags = rv$sample_flags,
-					master_group_stats = rv$test_results$master_group_stats,
-					master_global_stats = rv$test_results$master_global_stats,
-					var = input$v2_var,
-					threshold_method = input$v2_threshold_method,
-					min_penetrance = 10,
-					top_n = 30
+				showNotification(
+					"pFC v2: preparing plotting data...",
+					type = "message",
+					duration = NULL,
+					id = progress_id
 				)
 				
-				rv$v2_violin_plots <- pFC_v2_plot_violins(
-					v2_plot_data = rv$v2_plot_data,
-					violin_ncol = 3,
-					violin_nrow = 3
+				# rv$v2_plot_data <- pFC_v2_violin_plot_data(
+				# 	sample_flags = rv$sample_flags,
+				# 	master_group_stats = rv$test_results$master_group_stats,
+				# 	master_global_stats = rv$test_results$master_global_stats,
+				# 	var = input$v2_var,
+				# 	threshold_method = input$v2_threshold_method,
+				# 	min_penetrance = 10,
+				# 	top_n = 30
+				# )
+				
+				showNotification(
+					"pFC v2: finalising outputs...",
+					type = "message",
+					duration = NULL,
+					id = progress_id
 				)
 				
-				removeNotification("pfc_v2_progress")
-				showNotification("pFC v2 analysis completed.", type = "message", duration = 3)
+				removeNotification(progress_id)
+				
+				showNotification(
+					"pFC v2 analysis completed.",
+					type = "message",
+					duration = 3
+				)
 				
 			}, error = function(e) {
-				removeNotification("pfc_v2_progress")
-				showNotification(paste("pFC v2 error:", e$message), type = "error", duration = 10)
+				removeNotification(progress_id)
+				showNotification(
+					paste("pFC v2 error:", e$message),
+					type = "error",
+					duration = 10
+				)
 				print(e)
 			})
+			print("pFC v2 analysis completed")
 		})
+		
+		
+		# observeEvent(input$run_pfc_v2, {
+		# 	req(eset_reactive(), input$v2_var)
+		# 	#req(rv$sample_flags, rv$test_results, input$v2_var, input$v2_threshold_method)
+		# 	
+		# 	showNotification("Running pFC v2 analysis...", type = "message", duration = NULL, id = "pfc_v2_progress")
+		# 	
+		# 	tryCatch({
+		# 		baseline_group_value <- NULL
+		# 		if (identical(input$v2_baseline_source, "group")) {
+		# 			baseline_group_value <- input$v2_baseline_group
+		# 		}
+		# 		
+		# 		rv$baseline_stats <- pFC_baseline_stats_v2(
+		# 			eset = eset_reactive(),
+		# 			assay_name = assay_name,
+		# 			var = input$v2_var,
+		# 			baseline_source = input$v2_baseline_source,
+		# 			baseline_group = baseline_group_value,
+		# 			fold_change = input$v2_fold_change,
+		# 			trim_outliers = isTRUE(input$v2_trim_outliers),
+		# 			outlier_mad_multiplier = input$v2_outlier_mad_multiplier,
+		# 			min_baseline_n = input$v2_min_baseline_n
+		# 		)
+		# 		
+		# 		rv$sample_flags <- pFC_sample_flags_v2(
+		# 			eset = eset_reactive(),
+		# 			assay_name = assay_name,
+		# 			baseline_stats = rv$baseline_stats,
+		# 			var = input$v2_var
+		# 		)
+		# 		
+		# 		rv$test_results <- pFC_penetrance_test_suite_v2(
+		# 			sample_flags = rv$sample_flags,
+		# 			var = input$v2_var,
+		# 			threshold_method = input$v2_threshold_method
+		# 		)
+		# 		
+		# 		rv$v2_plot_data <- pFC_v2_violin_plot_data(
+		# 			sample_flags = rv$sample_flags,
+		# 			master_group_stats = rv$test_results$master_group_stats,
+		# 			master_global_stats = rv$test_results$master_global_stats,
+		# 			var = input$v2_var,
+		# 			threshold_method = input$v2_threshold_method,
+		# 			min_penetrance = 10,
+		# 			top_n = 30
+		# 		)
+		# 		
+		# 		# rv$v2_violin_plots <- pFC_v2_plot_violins(
+		# 		# 	v2_plot_data = rv$v2_plot_data,
+		# 		# 	violin_ncol = 3,
+		# 		# 	violin_nrow = 3
+		# 		# )
+		# 		
+		# 		removeNotification("pfc_v2_progress")
+		# 		showNotification("pFC v2 analysis completed.", type = "message", duration = 3)
+		# 		
+		# 	}, error = function(e) {
+		# 		removeNotification("pfc_v2_progress")
+		# 		showNotification(paste("pFC v2 error:", e$message), type = "error", duration = 10)
+		# 		print(e)
+		# 	})
+		# })
 		
 		output$v2_baseline_table <- DT::renderDT({
 			req(rv$baseline_stats)
@@ -522,37 +634,91 @@ pFC_v2_Server <- function(id,
 		})
 		
 
-		output$v2_violin_ui <- renderUI({
-			req(rv$v2_violin_plots)
-			
-			n_plots <- length(rv$v2_violin_plots)
-			
-			tagList(
-				if (n_plots > 1) {
-					fluidRow(
-						column(
-							width = 12,
-							sliderInput(
-								session$ns("v2_violin_page"),
-								"Page:",
-								min = 1,
-								max = n_plots,
-								value = 1,
-								step = 1,
-								width = "100%"
-							)
-						)
-					)
-				},
-				plotOutput(session$ns("v2_violin_plot"), height = "900px")
+		plot_spec_reactive <- reactive({
+			req(rv$sample_flags, rv$test_results)
+
+			pFC_v2_build_plot_spec(
+				sample_flags = rv$sample_flags,
+				master_group_stats = rv$test_results$master_group_stats,
+				master_global_stats = rv$test_results$master_global_stats,
+				var = input$v2_var,
+				threshold_method = input$v2_threshold_method,
+				min_penetrance = 10,
+				top_n = 30
 			)
 		})
 		
-		output$v2_violin_plot <- renderPlot({
-			req(rv$v2_violin_plots)
-			page_num <- if (!is.null(input$v2_violin_page)) input$v2_violin_page else 1
-			rv$v2_violin_plots[[page_num]]
-		})	
+		annotated_violin_Server("pfc_v2_plot_test",plot_spec_reactive = plot_spec_reactive, debug = debug)
+		
+		
+		# output$v2_violin_ui <- renderUI({
+		# 	req(rv$v2_violin_plots, rv$v2_violin_plots$log2_plots)
+		# 	
+		# 	n_plots <- length(rv$v2_violin_plots$log2_plots)
+		# 	
+		# 	tagList(
+		# 		if (n_plots > 1) {
+		# 			fluidRow(
+		# 				column(
+		# 					width = 12,
+		# 					sliderInput(
+		# 						session$ns("v2_violin_page"),
+		# 						"Page:",
+		# 						min = 1,
+		# 						max = n_plots,
+		# 						value = 1,
+		# 						step = 1,
+		# 						width = "100%"
+		# 					)
+		# 				)
+		# 			)
+		# 		},
+		# 		plotOutput(session$ns("v2_violin_plot"), height = "900px")
+		# 	)
+		# })
+		# 
+		# output$v2_violin_plot <- renderPlot({
+		# 	req(rv$v2_violin_plots, rv$v2_violin_plots$log2_plots)
+		# 	
+		# 	page_num <- if (!is.null(input$v2_violin_page)) input$v2_violin_page else 1
+		# 	rv$v2_violin_plots$log2_plots[[page_num]]
+		# })
+		# 
+		# 
+		# output$v2_rfu_violin_ui <- renderUI({
+		# 	req(rv$v2_violin_plots, rv$v2_violin_plots$rfu_plots)
+		# 	
+		# 	n_plots <- length(rv$v2_violin_plots$rfu_plots)
+		# 	
+		# 	tagList(
+		# 		if (n_plots > 1) {
+		# 			fluidRow(
+		# 				column(
+		# 					width = 12,
+		# 					sliderInput(
+		# 						session$ns("v2_rfu_violin_page"),
+		# 						"Page:",
+		# 						min = 1,
+		# 						max = n_plots,
+		# 						value = 1,
+		# 						step = 1,
+		# 						width = "100%"
+		# 					)
+		# 				)
+		# 			)
+		# 		},
+		# 		plotOutput(session$ns("v2_rfu_violin_plot"), height = "900px")
+		# 	)
+		# })
+		# 
+		# 
+		# output$v2_violin_plot <- renderPlot({
+		# 	req(rv$v2_violin_plots, rv$v2_violin_plots$log2_plots)
+		# 	
+		# 	page_num <- if (!is.null(input$v2_violin_page)) input$v2_violin_page else 1
+		# 	rv$v2_violin_plots$log2_plots[[page_num]]
+		# })
+		
 		
 		
 		

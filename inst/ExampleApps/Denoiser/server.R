@@ -592,6 +592,8 @@ server <- function(input, output, session) {
 	
 	# Analysis Modules ####
 	
+	test_debug_module_Server('test_main')
+	
 	### pFCv2 #####
 	pFC_v2_Server(
 		id = "pfc_v2",

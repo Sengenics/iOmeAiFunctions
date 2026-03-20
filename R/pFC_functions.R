@@ -441,16 +441,20 @@ pFC_baseline_stats_v2 <- function(eset,
 				baseline_log2_mad = mad_final,
 				baseline_log2_plus_2mad = median_final + (2 * mad_final),
 				baseline_log2_plus_3mad = median_final + (3 * mad_final),
+				baseline_log2_plus_4mad = median_final + (4 * mad_final),
 				fc_threshold_log2 = median_final + log2(fold_change)
 			)
+			
 		}) %>%
 		dplyr::ungroup() %>%
 		dplyr::mutate(
 			baseline_rfu_median = 2^baseline_log2_median,
 			baseline_rfu_plus_2mad = 2^baseline_log2_plus_2mad,
 			baseline_rfu_plus_3mad = 2^baseline_log2_plus_3mad,
+			baseline_rfu_plus_4mad = 2^baseline_log2_plus_4mad,
 			fc_threshold_rfu = 2^fc_threshold_log2
 		)
+	
 	
 	baseline_stats
 }
@@ -878,16 +882,28 @@ pFC_firth_tests_v2 <- function(sample_flags,
 pFC_penetrance_test_suite_v2 <- function(sample_flags,
 																				 var,
 																				 threshold_method = c("fc", "2mad", "3mad"),
-																				 p_adjust_method = "BH") {
+																				 p_adjust_method = "BH",
+																				 progress = TRUE,
+																				 verbose = FALSE) {
 	
 	threshold_method <- match.arg(threshold_method, choices = c("fc", "2mad", "3mad"))
 	
+	notify_progress <- function(msg) {
+		if (is.function(progress)) {
+			progress(msg)
+		} else if (isTRUE(verbose)) {
+			message(msg)
+		}
+	}
+	
+	notify_progress("Building master penetrance table...")
 	master_penetrance <- pFC_penetrance_by_group_v2(
 		sample_flags = sample_flags,
 		var = var,
 		threshold_method = threshold_method
 	)
 	
+	notify_progress("Running Fisher one-vs-rest tests...")
 	fisher_stats <- pFC_fisher_one_vs_rest_v2(
 		sample_flags = sample_flags,
 		var = var,
@@ -895,6 +911,7 @@ pFC_penetrance_test_suite_v2 <- function(sample_flags,
 		p_adjust_method = p_adjust_method
 	)
 	
+	notify_progress("Running chi-squared global tests...")
 	chisq_stats <- pFC_chisq_global_v2(
 		sample_flags = sample_flags,
 		var = var,
@@ -902,6 +919,7 @@ pFC_penetrance_test_suite_v2 <- function(sample_flags,
 		p_adjust_method = p_adjust_method
 	)
 	
+	notify_progress("Running logistic tests...")
 	logistic_stats <- pFC_logistic_tests_v2(
 		sample_flags = sample_flags,
 		var = var,
@@ -909,6 +927,7 @@ pFC_penetrance_test_suite_v2 <- function(sample_flags,
 		p_adjust_method = p_adjust_method
 	)
 	
+	notify_progress("Running Firth logistic tests...")
 	firth_stats <- pFC_firth_tests_v2(
 		sample_flags = sample_flags,
 		var = var,
@@ -916,23 +935,40 @@ pFC_penetrance_test_suite_v2 <- function(sample_flags,
 		p_adjust_method = p_adjust_method
 	)
 	
+	notify_progress("Joining group-level statistics...")
 	master_group_stats <- master_penetrance %>%
 		dplyr::left_join(
 			fisher_stats %>%
-				dplyr::select(Protein, Group, fisher_p_value = p_value, fisher_p_adj = p_adj, fisher_odds_ratio = odds_ratio),
+				dplyr::select(
+					Protein, Group,
+					fisher_p_value = p_value,
+					fisher_p_adj = p_adj,
+					fisher_odds_ratio = odds_ratio
+				),
 			by = c("Protein", "Group")
 		) %>%
 		dplyr::left_join(
 			logistic_stats$group_stats %>%
-				dplyr::select(Protein, Group, logistic_p_value = p_value, logistic_p_adj = p_adj, logistic_odds_ratio = odds_ratio),
+				dplyr::select(
+					Protein, Group,
+					logistic_p_value = p_value,
+					logistic_p_adj = p_adj,
+					logistic_odds_ratio = odds_ratio
+				),
 			by = c("Protein", "Group")
 		) %>%
 		dplyr::left_join(
 			firth_stats %>%
-				dplyr::select(Protein, Group, firth_p_value = p_value, firth_p_adj = p_adj, firth_odds_ratio = odds_ratio),
+				dplyr::select(
+					Protein, Group,
+					firth_p_value = p_value,
+					firth_p_adj = p_adj,
+					firth_odds_ratio = odds_ratio
+				),
 			by = c("Protein", "Group")
 		)
 	
+	notify_progress("Joining global statistics...")
 	master_global_stats <- master_penetrance %>%
 		dplyr::group_by(Protein) %>%
 		dplyr::summarise(
@@ -943,14 +979,26 @@ pFC_penetrance_test_suite_v2 <- function(sample_flags,
 		) %>%
 		dplyr::left_join(
 			chisq_stats %>%
-				dplyr::select(Protein, chisq_p_value = p_value, chisq_p_adj = p_adj, chi_sq_statistic, chi_sq_df),
+				dplyr::select(
+					Protein,
+					chisq_p_value = p_value,
+					chisq_p_adj = p_adj,
+					chi_sq_statistic,
+					chi_sq_df
+				),
 			by = "Protein"
 		) %>%
 		dplyr::left_join(
 			logistic_stats$global_stats %>%
-				dplyr::select(Protein, logistic_global_p_value = p_value, logistic_global_p_adj = p_adj),
+				dplyr::select(
+					Protein,
+					logistic_global_p_value = p_value,
+					logistic_global_p_adj = p_adj
+				),
 			by = "Protein"
 		)
+	
+	notify_progress("pFC v2 test suite complete.")
 	
 	list(
 		master_penetrance = master_penetrance,
@@ -963,6 +1011,96 @@ pFC_penetrance_test_suite_v2 <- function(sample_flags,
 		firth_group_stats = firth_stats
 	)
 }
+
+
+# pFC_penetrance_test_suite_v2 <- function(sample_flags,
+# 																				 var,
+# 																				 threshold_method = c("fc", "2mad", "3mad"),
+# 																				 p_adjust_method = "BH") {
+# 	
+# 	threshold_method <- match.arg(threshold_method, choices = c("fc", "2mad", "3mad"))
+# 	
+# 	master_penetrance <- pFC_penetrance_by_group_v2(
+# 		sample_flags = sample_flags,
+# 		var = var,
+# 		threshold_method = threshold_method
+# 	)
+# 	
+# 	fisher_stats <- pFC_fisher_one_vs_rest_v2(
+# 		sample_flags = sample_flags,
+# 		var = var,
+# 		threshold_method = threshold_method,
+# 		p_adjust_method = p_adjust_method
+# 	)
+# 	
+# 	chisq_stats <- pFC_chisq_global_v2(
+# 		sample_flags = sample_flags,
+# 		var = var,
+# 		threshold_method = threshold_method,
+# 		p_adjust_method = p_adjust_method
+# 	)
+# 	
+# 	logistic_stats <- pFC_logistic_tests_v2(
+# 		sample_flags = sample_flags,
+# 		var = var,
+# 		threshold_method = threshold_method,
+# 		p_adjust_method = p_adjust_method
+# 	)
+# 	
+# 	firth_stats <- pFC_firth_tests_v2(
+# 		sample_flags = sample_flags,
+# 		var = var,
+# 		threshold_method = threshold_method,
+# 		p_adjust_method = p_adjust_method
+# 	)
+# 	
+# 	master_group_stats <- master_penetrance %>%
+# 		dplyr::left_join(
+# 			fisher_stats %>%
+# 				dplyr::select(Protein, Group, fisher_p_value = p_value, fisher_p_adj = p_adj, fisher_odds_ratio = odds_ratio),
+# 			by = c("Protein", "Group")
+# 		) %>%
+# 		dplyr::left_join(
+# 			logistic_stats$group_stats %>%
+# 				dplyr::select(Protein, Group, logistic_p_value = p_value, logistic_p_adj = p_adj, logistic_odds_ratio = odds_ratio),
+# 			by = c("Protein", "Group")
+# 		) %>%
+# 		dplyr::left_join(
+# 			firth_stats %>%
+# 				dplyr::select(Protein, Group, firth_p_value = p_value, firth_p_adj = p_adj, firth_odds_ratio = odds_ratio),
+# 			by = c("Protein", "Group")
+# 		)
+# 	
+# 	master_global_stats <- master_penetrance %>%
+# 		dplyr::group_by(Protein) %>%
+# 		dplyr::summarise(
+# 			max_penetrance_percent = max(penetrance_percent, na.rm = TRUE),
+# 			n_groups = dplyr::n_distinct(Group),
+# 			threshold_method = dplyr::first(threshold_method),
+# 			.groups = "drop"
+# 		) %>%
+# 		dplyr::left_join(
+# 			chisq_stats %>%
+# 				dplyr::select(Protein, chisq_p_value = p_value, chisq_p_adj = p_adj, chi_sq_statistic, chi_sq_df),
+# 			by = "Protein"
+# 		) %>%
+# 		dplyr::left_join(
+# 			logistic_stats$global_stats %>%
+# 				dplyr::select(Protein, logistic_global_p_value = p_value, logistic_global_p_adj = p_adj),
+# 			by = "Protein"
+# 		)
+# 	
+# 	list(
+# 		master_penetrance = master_penetrance,
+# 		master_group_stats = master_group_stats,
+# 		master_global_stats = master_global_stats,
+# 		fisher_stats = fisher_stats,
+# 		chisq_stats = chisq_stats,
+# 		logistic_group_stats = logistic_stats$group_stats,
+# 		logistic_global_stats = logistic_stats$global_stats,
+# 		firth_group_stats = firth_stats
+# 	)
+# }
 
 pFC_v2_results_guide_ui <- function() {
 	shiny::tagList(
@@ -1021,22 +1159,6 @@ pFC_v2_violin_plot_data <- function(sample_flags,
 		stop("`var` not found in sample_flags: ", var, call. = FALSE)
 	}
 	
-	if (!all(c("Protein", "Group", "penetrance_percent") %in% colnames(master_group_stats))) {
-		stop("`master_group_stats` is missing required columns.", call. = FALSE)
-	}
-	
-	if (!all(c("Protein", "max_penetrance_percent") %in% colnames(master_global_stats))) {
-		stop("`master_global_stats` is missing required columns.", call. = FALSE)
-	}
-	
-	threshold_col <- switch(
-		threshold_method,
-		fc = "fc_threshold_log2",
-		`2mad` = "baseline_log2_plus_2mad",
-		`3mad` = "baseline_log2_plus_3mad"
-	)
-	
-	# Select proteins to plot
 	plot_features <- master_global_stats %>%
 		dplyr::filter(max_penetrance_percent >= min_penetrance) %>%
 		dplyr::arrange(
@@ -1050,7 +1172,6 @@ pFC_v2_violin_plot_data <- function(sample_flags,
 		plot_features <- plot_features[seq_len(top_n)]
 	}
 	
-	# Per-protein top group annotation
 	top_group_df <- master_group_stats %>%
 		dplyr::filter(Protein %in% plot_features) %>%
 		dplyr::group_by(Protein) %>%
@@ -1058,7 +1179,6 @@ pFC_v2_violin_plot_data <- function(sample_flags,
 		dplyr::ungroup() %>%
 		dplyr::select(Protein, top_group = Group, top_group_penetrance = penetrance_percent)
 	
-	# Global stats annotation
 	global_df <- master_global_stats %>%
 		dplyr::filter(Protein %in% plot_features) %>%
 		dplyr::select(
@@ -1068,7 +1188,6 @@ pFC_v2_violin_plot_data <- function(sample_flags,
 			logistic_global_p_adj
 		)
 	
-	# Build compact facet label text
 	facet_labels <- global_df %>%
 		dplyr::left_join(top_group_df, by = "Protein") %>%
 		dplyr::mutate(
@@ -1093,34 +1212,337 @@ pFC_v2_violin_plot_data <- function(sample_flags,
 		) %>%
 		dplyr::select(Protein, facet_label)
 	
-	# Main plotting data
 	plot_df <- sample_flags %>%
 		dplyr::filter(Protein %in% plot_features) %>%
-		dplyr::mutate(
-			Group = as.character(.data[[var]])
-		) %>%
+		dplyr::mutate(Group = as.character(.data[[var]])) %>%
 		dplyr::filter(!is.na(Group), Group != "") %>%
 		dplyr::left_join(facet_labels, by = "Protein") %>%
 		dplyr::mutate(
 			facet_label = factor(facet_label, levels = unique(facet_label))
 		)
 	
-	# Threshold line data
 	threshold_df <- plot_df %>%
 		dplyr::group_by(Protein, facet_label) %>%
 		dplyr::summarise(
 			baseline_log2_median = dplyr::first(baseline_log2_median),
-			selected_threshold_log2 = dplyr::first(.data[[threshold_col]]),
+			baseline_rfu_median = dplyr::first(baseline_rfu_median),
+			fc_threshold_log2 = dplyr::first(fc_threshold_log2),
+			fc_threshold_rfu = dplyr::first(fc_threshold_rfu),
+			baseline_log2_plus_2mad = dplyr::first(baseline_log2_plus_2mad),
+			baseline_log2_plus_3mad = dplyr::first(baseline_log2_plus_3mad),
+			baseline_log2_plus_4mad = dplyr::first(baseline_log2_plus_4mad),
+			baseline_rfu_plus_2mad = dplyr::first(baseline_rfu_plus_2mad),
+			baseline_rfu_plus_3mad = dplyr::first(baseline_rfu_plus_3mad),
+			baseline_rfu_plus_4mad = dplyr::first(baseline_rfu_plus_4mad),
+			y_max_log2 = max(log2_value, na.rm = TRUE),
+			y_max_rfu = max(RFU, na.rm = TRUE),
 			.groups = "drop"
+		)
+	
+	line_df <- dplyr::bind_rows(
+		threshold_df %>%
+			dplyr::transmute(
+				Protein, facet_label,
+				line_type = "median",
+				y_log2 = baseline_log2_median,
+				y_rfu = baseline_rfu_median
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				Protein, facet_label,
+				line_type = "fc",
+				y_log2 = fc_threshold_log2,
+				y_rfu = fc_threshold_rfu
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				Protein, facet_label,
+				line_type = "2mad",
+				y_log2 = baseline_log2_plus_2mad,
+				y_rfu = baseline_rfu_plus_2mad
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				Protein, facet_label,
+				line_type = "3mad",
+				y_log2 = baseline_log2_plus_3mad,
+				y_rfu = baseline_rfu_plus_3mad
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				Protein, facet_label,
+				line_type = "4mad",
+				y_log2 = baseline_log2_plus_4mad,
+				y_rfu = baseline_rfu_plus_4mad
+			)
+	)
+	
+	penetrance_labels <- master_group_stats %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::select(Protein, Group, penetrance_percent) %>%
+		dplyr::left_join(
+			threshold_df %>% dplyr::select(Protein, facet_label, y_max_log2, y_max_rfu),
+			by = "Protein"
+		) %>%
+		dplyr::mutate(
+			penetrance_label = paste0(round(penetrance_percent, 1), "%"),
+			y_log2 = y_max_log2 + 0.08 * pmax(abs(y_max_log2), 1),
+			y_rfu = y_max_rfu * 1.08
+		)
+	
+	pvalue_labels <- global_df %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::left_join(
+			threshold_df %>% dplyr::select(Protein, facet_label, y_max_log2, y_max_rfu),
+			by = "Protein"
+		) %>%
+		dplyr::mutate(
+			pvalue_label = paste0(
+				"ChiFDR=", ifelse(is.na(chisq_p_adj), "NA", signif(chisq_p_adj, 2)),
+				"\nLogitFDR=", ifelse(is.na(logistic_global_p_adj), "NA", signif(logistic_global_p_adj, 2))
+			),
+			x = 1,
+			y_log2 = y_max_log2 + 0.18 * pmax(abs(y_max_log2), 1),
+			y_rfu = y_max_rfu * 1.18
 		)
 	
 	list(
 		plot_df = plot_df,
 		threshold_df = threshold_df,
+		line_df = line_df,
+		penetrance_labels = penetrance_labels,
+		pvalue_labels = pvalue_labels,
 		plot_features = plot_features,
 		threshold_method = threshold_method
 	)
 }
+
+pFC_v2_build_plot_spec <- function(sample_flags,
+																	 master_group_stats,
+																	 master_global_stats,
+																	 var,
+																	 threshold_method = c("fc", "2mad", "3mad"),
+																	 min_penetrance = 10,
+																	 top_n = 30) {
+	
+	threshold_method <- match.arg(threshold_method, choices = c("fc", "2mad", "3mad"))
+	
+	if (!var %in% colnames(sample_flags)) {
+		stop("`var` not found in sample_flags: ", var, call. = FALSE)
+	}
+	
+	plot_features <- master_global_stats %>%
+		dplyr::filter(max_penetrance_percent >= min_penetrance) %>%
+		dplyr::arrange(
+			dplyr::if_else(is.na(chisq_p_adj), Inf, chisq_p_adj),
+			dplyr::desc(max_penetrance_percent)
+		) %>%
+		dplyr::pull(Protein) %>%
+		unique()
+	
+	if (!is.null(top_n) && length(plot_features) > top_n) {
+		plot_features <- plot_features[seq_len(top_n)]
+	}
+	
+	top_group_df <- master_group_stats %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::group_by(Protein) %>%
+		dplyr::slice_max(order_by = penetrance_percent, n = 1, with_ties = FALSE) %>%
+		dplyr::ungroup() %>%
+		dplyr::select(Protein, top_group = Group, top_group_penetrance = penetrance_percent)
+	
+	global_df <- master_global_stats %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::select(
+			Protein,
+			max_penetrance_percent,
+			chisq_p_adj,
+			logistic_global_p_adj
+		)
+	
+	facet_labels <- global_df %>%
+		dplyr::left_join(top_group_df, by = "Protein") %>%
+		dplyr::mutate(
+			chisq_label = dplyr::if_else(
+				is.na(chisq_p_adj),
+				"ChiFDR=NA",
+				paste0("ChiFDR=", signif(chisq_p_adj, 2))
+			),
+			logit_label = dplyr::if_else(
+				is.na(logistic_global_p_adj),
+				"LogitFDR=NA",
+				paste0("LogitFDR=", signif(logistic_global_p_adj, 2))
+			),
+			top_group_label = paste0("Top=", top_group, " (", round(top_group_penetrance, 1), "%)"),
+			facet_label = paste0(
+				Protein, "\n",
+				"MaxPen=", round(max_penetrance_percent, 1), "%; ",
+				chisq_label, "; ",
+				logit_label, "\n",
+				top_group_label
+			)
+		) %>%
+		dplyr::select(Protein, facet_label)
+	
+	plot_data <- sample_flags %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::mutate(Group = as.character(.data[[var]])) %>%
+		dplyr::filter(!is.na(Group), Group != "") %>%
+		dplyr::left_join(facet_labels, by = "Protein") %>%
+		dplyr::mutate(
+			feature = Protein,
+			sample_id = Sample_ID,
+			group = Group,
+			y_log2 = log2_value,
+			y_rfu = RFU,
+			facet_label = factor(facet_label, levels = unique(facet_label))
+		)
+	
+	threshold_df <- plot_data %>%
+		dplyr::group_by(feature, facet_label) %>%
+		dplyr::summarise(
+			baseline_log2_median = dplyr::first(baseline_log2_median),
+			baseline_rfu_median = dplyr::first(baseline_rfu_median),
+			fc_threshold_log2 = dplyr::first(fc_threshold_log2),
+			fc_threshold_rfu = dplyr::first(fc_threshold_rfu),
+			baseline_log2_plus_2mad = dplyr::first(baseline_log2_plus_2mad),
+			baseline_log2_plus_3mad = dplyr::first(baseline_log2_plus_3mad),
+			baseline_log2_plus_4mad = dplyr::first(baseline_log2_plus_4mad),
+			baseline_rfu_plus_2mad = dplyr::first(baseline_rfu_plus_2mad),
+			baseline_rfu_plus_3mad = dplyr::first(baseline_rfu_plus_3mad),
+			baseline_rfu_plus_4mad = dplyr::first(baseline_rfu_plus_4mad),
+			y_max_log2 = max(y_log2, na.rm = TRUE),
+			y_max_rfu = max(y_rfu, na.rm = TRUE),
+			.groups = "drop"
+		)
+	
+	line_annotations <- dplyr::bind_rows(
+		threshold_df %>%
+			dplyr::transmute(
+				feature, facet_label,
+				line_type = "median",
+				y_log2 = baseline_log2_median,
+				y_rfu = baseline_rfu_median
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				feature, facet_label,
+				line_type = "fc",
+				y_log2 = fc_threshold_log2,
+				y_rfu = fc_threshold_rfu
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				feature, facet_label,
+				line_type = "2mad",
+				y_log2 = baseline_log2_plus_2mad,
+				y_rfu = baseline_rfu_plus_2mad
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				feature, facet_label,
+				line_type = "3mad",
+				y_log2 = baseline_log2_plus_3mad,
+				y_rfu = baseline_rfu_plus_3mad
+			),
+		threshold_df %>%
+			dplyr::transmute(
+				feature, facet_label,
+				line_type = "4mad",
+				y_log2 = baseline_log2_plus_4mad,
+				y_rfu = baseline_rfu_plus_4mad
+			)
+	)
+	
+	penetrance_annotations <- master_group_stats %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::select(Protein, Group, penetrance_percent) %>%
+		dplyr::left_join(
+			threshold_df %>% dplyr::select(feature, facet_label, y_max_log2, y_max_rfu),
+			by = c("Protein" = "feature")
+		) %>%
+		dplyr::transmute(
+			feature = Protein,
+			group = Group,
+			facet_label = facet_label,
+			annotation_type = "penetrance",
+			label = paste0(round(penetrance_percent, 1), "%"),
+			x = Group,
+			y_log2 = y_max_log2 + 0.08 * pmax(abs(y_max_log2), 1),
+			y_rfu = y_max_rfu * 1.08
+		)
+	
+	first_group_df <- plot_data %>%
+		dplyr::group_by(feature) %>%
+		dplyr::summarise(x_group = dplyr::first(group), .groups = "drop")
+	
+	pvalue_annotations <- global_df %>%
+		dplyr::filter(Protein %in% plot_features) %>%
+		dplyr::left_join(
+			threshold_df %>% dplyr::select(feature, facet_label, y_max_log2, y_max_rfu),
+			by = c("Protein" = "feature")
+		) %>%
+		dplyr::left_join(
+			first_group_df,
+			by = c("Protein" = "feature")
+		) %>%
+		dplyr::transmute(
+			feature = Protein,
+			facet_label = facet_label,
+			annotation_type = "pvalues",
+			label = paste0(
+				"ChiFDR=", ifelse(is.na(chisq_p_adj), "NA", signif(chisq_p_adj, 2)),
+				"\nLogitFDR=", ifelse(is.na(logistic_global_p_adj), "NA", signif(logistic_global_p_adj, 2))
+			),
+			x = x_group,
+			y_log2 = y_max_log2 + 0.18 * pmax(abs(y_max_log2), 1),
+			y_rfu = y_max_rfu * 1.18
+		)
+	
+	
+	# pvalue_annotations <- global_df %>%
+	# 	dplyr::filter(Protein %in% plot_features) %>%
+	# 	dplyr::left_join(
+	# 		threshold_df %>% dplyr::select(feature, facet_label, y_max_log2, y_max_rfu),
+	# 		by = c("Protein" = "feature")
+	# 	) %>%
+	# 	dplyr::transmute(
+	# 		feature = Protein,
+	# 		facet_label = facet_label,
+	# 		annotation_type = "pvalues",
+	# 		label = paste0(
+	# 			"ChiFDR=", ifelse(is.na(chisq_p_adj), "NA", signif(chisq_p_adj, 2)),
+	# 			"\nLogitFDR=", ifelse(is.na(logistic_global_p_adj), "NA", signif(logistic_global_p_adj, 2))
+	# 		),
+	# 		x = 1,
+	# 		y_log2 = y_max_log2 + 0.18 * pmax(abs(y_max_log2), 1),
+	# 		y_rfu = y_max_rfu * 1.18
+	# 	)
+	
+	list(
+		plot_data = plot_data,
+		line_annotations = line_annotations,
+		text_annotations = list(
+			penetrance = penetrance_annotations,
+			pvalues = pvalue_annotations
+		),
+		plot_meta = list(
+			title = "pFC v2 annotated violin plots",
+			feature_col = "feature",
+			sample_col = "sample_id",
+			group_col = "group",
+			facet_col = "facet_label",
+			y_log2_col = "y_log2",
+			y_rfu_col = "y_rfu",
+			available_scales = c("log2", "RFU"),
+			available_line_types = c("median", "fc", "2mad", "3mad", "4mad"),
+			default_line_types = c("median", "fc", "3mad"),
+			default_threshold_method = threshold_method
+		)
+	)
+}
+
+
 
 pFC_v2_plot_violins <- function(v2_plot_data,
 																violin_ncol = 3,
@@ -1128,10 +1550,12 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 	
 	plot_df <- v2_plot_data$plot_df
 	threshold_df <- v2_plot_data$threshold_df
+	penetrance_labels_log2 <- v2_plot_data$penetrance_labels_log2
+	penetrance_labels_rfu <- v2_plot_data$penetrance_labels_rfu
 	threshold_method <- v2_plot_data$threshold_method
 	
 	if (is.null(plot_df) || nrow(plot_df) == 0) {
-		return(NULL)
+		return(list(log2_plots = NULL, rfu_plots = NULL))
 	}
 	
 	group_levels <- unique(as.character(plot_df$Group))
@@ -1149,12 +1573,13 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 	
 	threshold_label <- switch(
 		threshold_method,
-		fc = "FC threshold",
-		`2mad` = "Baseline + 2MAD",
-		`3mad` = "Baseline + 3MAD"
+		fc = "Selected = FC threshold",
+		`2mad` = "Selected = Baseline + 2MAD",
+		`3mad` = "Selected = Baseline + 3MAD"
 	)
 	
-	violin_base <- ggplot2::ggplot(
+	# log2 plot
+	log2_base <- ggplot2::ggplot(
 		plot_df,
 		ggplot2::aes(x = Group, y = log2_value, color = Group)
 	) +
@@ -1174,11 +1599,26 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 		) +
 		ggplot2::geom_hline(
 			data = threshold_df,
+			ggplot2::aes(yintercept = fc_threshold_log2),
+			inherit.aes = FALSE,
+			linetype = "dotdash",
+			linewidth = 0.7,
+			color = "#1f78b4"
+		) +
+		ggplot2::geom_hline(
+			data = threshold_df,
 			ggplot2::aes(yintercept = selected_threshold_log2),
 			inherit.aes = FALSE,
 			linetype = "solid",
-			linewidth = 0.7,
+			linewidth = 0.8,
 			color = "#d7301f"
+		) +
+		ggplot2::geom_text(
+			data = penetrance_labels_log2,
+			ggplot2::aes(x = Group, y = y, label = label),
+			inherit.aes = FALSE,
+			color = "black",
+			size = 3
 		) +
 		ggplot2::scale_color_manual(values = violin_cols) +
 		ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(n.dodge = 2)) +
@@ -1186,7 +1626,8 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 			x = NULL,
 			y = "Log2 Intensity",
 			subtitle = paste0(
-				"Grey dashed = baseline median; red = ", threshold_label
+				"Grey dashed = baseline median; blue dotdash = FC threshold; red solid = selected threshold; ",
+				"labels = penetrance %; ", threshold_label
 			)
 		) +
 		ggplot2::theme_minimal(base_size = 11) +
@@ -1202,10 +1643,9 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 			scales = "free_y"
 		)
 	
-	n_pages <- ggforce::n_pages(violin_base)
-	
-	violin_plots <- lapply(seq_len(n_pages), function(i) {
-		violin_base +
+	n_log2_pages <- ggforce::n_pages(log2_base)
+	log2_plots <- lapply(seq_len(n_log2_pages), function(i) {
+		log2_base +
 			ggforce::facet_wrap_paginate(
 				~ facet_label,
 				ncol = violin_ncol,
@@ -1215,8 +1655,300 @@ pFC_v2_plot_violins <- function(v2_plot_data,
 			)
 	})
 	
-	violin_plots
+	# RFU plot
+	rfu_base <- ggplot2::ggplot(
+		plot_df,
+		ggplot2::aes(x = Group, y = RFU, color = Group)
+	) +
+		ggplot2::geom_violin(alpha = 0.35, trim = FALSE) +
+		ggplot2::geom_point(
+			position = ggplot2::position_jitter(width = 0.18, height = 0, seed = 1),
+			size = 1.2,
+			alpha = 0.8
+		) +
+		ggplot2::geom_hline(
+			data = threshold_df,
+			ggplot2::aes(yintercept = baseline_rfu_median),
+			inherit.aes = FALSE,
+			linetype = "dashed",
+			linewidth = 0.5,
+			color = "grey40"
+		) +
+		ggplot2::geom_hline(
+			data = threshold_df,
+			ggplot2::aes(yintercept = fc_threshold_rfu),
+			inherit.aes = FALSE,
+			linetype = "dotdash",
+			linewidth = 0.7,
+			color = "#1f78b4"
+		) +
+		ggplot2::geom_hline(
+			data = threshold_df,
+			ggplot2::aes(yintercept = selected_threshold_rfu),
+			inherit.aes = FALSE,
+			linetype = "solid",
+			linewidth = 0.8,
+			color = "#d7301f"
+		) +
+		ggplot2::geom_text(
+			data = penetrance_labels_rfu,
+			ggplot2::aes(x = Group, y = y, label = label),
+			inherit.aes = FALSE,
+			color = "black",
+			size = 3
+		) +
+		ggplot2::scale_color_manual(values = violin_cols) +
+		ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(n.dodge = 2)) +
+		ggplot2::labs(
+			x = NULL,
+			y = "RFU",
+			subtitle = paste0(
+				"Grey dashed = baseline median; blue dotdash = FC threshold; red solid = selected threshold; ",
+				"labels = penetrance %; ", threshold_label
+			)
+		) +
+		ggplot2::theme_minimal(base_size = 11) +
+		ggplot2::theme(
+			legend.position = "none",
+			panel.grid.minor = ggplot2::element_blank(),
+			strip.text = ggplot2::element_text(face = "bold", size = 9)
+		) +
+		ggforce::facet_wrap_paginate(
+			~ facet_label,
+			ncol = violin_ncol,
+			nrow = violin_nrow,
+			scales = "free_y"
+		)
+	
+	n_rfu_pages <- ggforce::n_pages(rfu_base)
+	rfu_plots <- lapply(seq_len(n_rfu_pages), function(i) {
+		rfu_base +
+			ggforce::facet_wrap_paginate(
+				~ facet_label,
+				ncol = violin_ncol,
+				nrow = violin_nrow,
+				page = i,
+				scales = "free_y"
+			)
+	})
+	
+	list(
+		log2_plots = log2_plots,
+		rfu_plots = rfu_plots
+	)
 }
+
+
+# pFC_v2_violin_plot_data <- function(sample_flags,
+# 																		master_group_stats,
+# 																		master_global_stats,
+# 																		var,
+# 																		threshold_method = c("fc", "2mad", "3mad"),
+# 																		min_penetrance = 10,
+# 																		top_n = 30) {
+# 	
+# 	threshold_method <- match.arg(threshold_method, choices = c("fc", "2mad", "3mad"))
+# 	
+# 	if (!var %in% colnames(sample_flags)) {
+# 		stop("`var` not found in sample_flags: ", var, call. = FALSE)
+# 	}
+# 	
+# 	if (!all(c("Protein", "Group", "penetrance_percent") %in% colnames(master_group_stats))) {
+# 		stop("`master_group_stats` is missing required columns.", call. = FALSE)
+# 	}
+# 	
+# 	if (!all(c("Protein", "max_penetrance_percent") %in% colnames(master_global_stats))) {
+# 		stop("`master_global_stats` is missing required columns.", call. = FALSE)
+# 	}
+# 	
+# 	threshold_col <- switch(
+# 		threshold_method,
+# 		fc = "fc_threshold_log2",
+# 		`2mad` = "baseline_log2_plus_2mad",
+# 		`3mad` = "baseline_log2_plus_3mad"
+# 	)
+# 	
+# 	# Select proteins to plot
+# 	plot_features <- master_global_stats %>%
+# 		dplyr::filter(max_penetrance_percent >= min_penetrance) %>%
+# 		dplyr::arrange(
+# 			dplyr::if_else(is.na(chisq_p_adj), Inf, chisq_p_adj),
+# 			dplyr::desc(max_penetrance_percent)
+# 		) %>%
+# 		dplyr::pull(Protein) %>%
+# 		unique()
+# 	
+# 	if (!is.null(top_n) && length(plot_features) > top_n) {
+# 		plot_features <- plot_features[seq_len(top_n)]
+# 	}
+# 	
+# 	# Per-protein top group annotation
+# 	top_group_df <- master_group_stats %>%
+# 		dplyr::filter(Protein %in% plot_features) %>%
+# 		dplyr::group_by(Protein) %>%
+# 		dplyr::slice_max(order_by = penetrance_percent, n = 1, with_ties = FALSE) %>%
+# 		dplyr::ungroup() %>%
+# 		dplyr::select(Protein, top_group = Group, top_group_penetrance = penetrance_percent)
+# 	
+# 	# Global stats annotation
+# 	global_df <- master_global_stats %>%
+# 		dplyr::filter(Protein %in% plot_features) %>%
+# 		dplyr::select(
+# 			Protein,
+# 			max_penetrance_percent,
+# 			chisq_p_adj,
+# 			logistic_global_p_adj
+# 		)
+# 	
+# 	# Build compact facet label text
+# 	facet_labels <- global_df %>%
+# 		dplyr::left_join(top_group_df, by = "Protein") %>%
+# 		dplyr::mutate(
+# 			chisq_label = dplyr::if_else(
+# 				is.na(chisq_p_adj),
+# 				"ChiFDR=NA",
+# 				paste0("ChiFDR=", signif(chisq_p_adj, 2))
+# 			),
+# 			logit_label = dplyr::if_else(
+# 				is.na(logistic_global_p_adj),
+# 				"LogitFDR=NA",
+# 				paste0("LogitFDR=", signif(logistic_global_p_adj, 2))
+# 			),
+# 			top_group_label = paste0("Top=", top_group, " (", round(top_group_penetrance, 1), "%)"),
+# 			facet_label = paste0(
+# 				Protein, "\n",
+# 				"MaxPen=", round(max_penetrance_percent, 1), "%; ",
+# 				chisq_label, "; ",
+# 				logit_label, "\n",
+# 				top_group_label
+# 			)
+# 		) %>%
+# 		dplyr::select(Protein, facet_label)
+# 	
+# 	# Main plotting data
+# 	plot_df <- sample_flags %>%
+# 		dplyr::filter(Protein %in% plot_features) %>%
+# 		dplyr::mutate(
+# 			Group = as.character(.data[[var]])
+# 		) %>%
+# 		dplyr::filter(!is.na(Group), Group != "") %>%
+# 		dplyr::left_join(facet_labels, by = "Protein") %>%
+# 		dplyr::mutate(
+# 			facet_label = factor(facet_label, levels = unique(facet_label))
+# 		)
+# 	
+# 	# Threshold line data
+# 	threshold_df <- plot_df %>%
+# 		dplyr::group_by(Protein, facet_label) %>%
+# 		dplyr::summarise(
+# 			baseline_log2_median = dplyr::first(baseline_log2_median),
+# 			selected_threshold_log2 = dplyr::first(.data[[threshold_col]]),
+# 			.groups = "drop"
+# 		)
+# 	
+# 	list(
+# 		plot_df = plot_df,
+# 		threshold_df = threshold_df,
+# 		plot_features = plot_features,
+# 		threshold_method = threshold_method
+# 	)
+# }
+# 
+# pFC_v2_plot_violins <- function(v2_plot_data,
+# 																violin_ncol = 3,
+# 																violin_nrow = 3) {
+# 	
+# 	plot_df <- v2_plot_data$plot_df
+# 	threshold_df <- v2_plot_data$threshold_df
+# 	threshold_method <- v2_plot_data$threshold_method
+# 	
+# 	if (is.null(plot_df) || nrow(plot_df) == 0) {
+# 		return(NULL)
+# 	}
+# 	
+# 	group_levels <- unique(as.character(plot_df$Group))
+# 	n_levels <- length(group_levels)
+# 	
+# 	if (n_levels <= 2) {
+# 		violin_cols <- c("#009E73", "#BEAED4")
+# 	} else if (n_levels == 3) {
+# 		violin_cols <- c("#009E73", "#BEAED4", "#80B1D3")
+# 	} else {
+# 		violin_cols <- scales::hue_pal()(n_levels)
+# 	}
+# 	
+# 	names(violin_cols) <- group_levels
+# 	
+# 	threshold_label <- switch(
+# 		threshold_method,
+# 		fc = "FC threshold",
+# 		`2mad` = "Baseline + 2MAD",
+# 		`3mad` = "Baseline + 3MAD"
+# 	)
+# 	
+# 	violin_base <- ggplot2::ggplot(
+# 		plot_df,
+# 		ggplot2::aes(x = Group, y = log2_value, color = Group)
+# 	) +
+# 		ggplot2::geom_violin(alpha = 0.35, trim = FALSE) +
+# 		ggplot2::geom_point(
+# 			position = ggplot2::position_jitter(width = 0.18, height = 0, seed = 1),
+# 			size = 1.2,
+# 			alpha = 0.8
+# 		) +
+# 		ggplot2::geom_hline(
+# 			data = threshold_df,
+# 			ggplot2::aes(yintercept = baseline_log2_median),
+# 			inherit.aes = FALSE,
+# 			linetype = "dashed",
+# 			linewidth = 0.5,
+# 			color = "grey40"
+# 		) +
+# 		ggplot2::geom_hline(
+# 			data = threshold_df,
+# 			ggplot2::aes(yintercept = selected_threshold_log2),
+# 			inherit.aes = FALSE,
+# 			linetype = "solid",
+# 			linewidth = 0.7,
+# 			color = "#d7301f"
+# 		) +
+# 		ggplot2::scale_color_manual(values = violin_cols) +
+# 		ggplot2::scale_x_discrete(guide = ggplot2::guide_axis(n.dodge = 2)) +
+# 		ggplot2::labs(
+# 			x = NULL,
+# 			y = "Log2 Intensity",
+# 			subtitle = paste0(
+# 				"Grey dashed = baseline median; red = ", threshold_label
+# 			)
+# 		) +
+# 		ggplot2::theme_minimal(base_size = 11) +
+# 		ggplot2::theme(
+# 			legend.position = "none",
+# 			panel.grid.minor = ggplot2::element_blank(),
+# 			strip.text = ggplot2::element_text(face = "bold", size = 9)
+# 		) +
+# 		ggforce::facet_wrap_paginate(
+# 			~ facet_label,
+# 			ncol = violin_ncol,
+# 			nrow = violin_nrow,
+# 			scales = "free_y"
+# 		)
+# 	
+# 	n_pages <- ggforce::n_pages(violin_base)
+# 	
+# 	violin_plots <- lapply(seq_len(n_pages), function(i) {
+# 		violin_base +
+# 			ggforce::facet_wrap_paginate(
+# 				~ facet_label,
+# 				ncol = violin_ncol,
+# 				nrow = violin_nrow,
+# 				page = i,
+# 				scales = "free_y"
+# 			)
+# 	})
+# 	
+# 	violin_plots
+# }
 
 
 
