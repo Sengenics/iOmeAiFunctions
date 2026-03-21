@@ -19,7 +19,7 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 		),
 		
 		h3("pFC v2 Analysis"),
-		
+		## Variables ####
 		fluidRow(
 			column(
 				width = 4,
@@ -133,9 +133,11 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 		
 		hr(),
 		
+		## Results ####
 		fluidRow(
 			column(
 				width = 12,
+				### ExpSets ####
 				tabsetPanel(
 					tabPanel('ExpSets',
 									 tabsetPanel(
@@ -146,6 +148,7 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 									 					 mod_expset_viewer_ui(ns('pFC_v2_group_stats_eset_viewer')))
 									 )
 									 ),
+		### Tables ####
 					tabPanel('Tables',
 			id = ns("v2_results_tabs"),
 			tabsetPanel(
@@ -215,11 +218,13 @@ pFC_v2_UI <- function(id, use_box = FALSE) {
 				DT::DTOutput(ns("v2_firth_table"))
 			)
 		)),
+		### Plots ####
 		tabPanel("Plots",
 						 tabsetPanel(
 						 	tabPanel('Violin Plots',
 						 					 br(),
-						 					 annotated_violin_UI(ns("pfc_v2_plot_test"))
+						 					 mod_simple_violin_UI(ns("simple_violin"))
+						 					 #annotated_violin_UI(ns("pfc_v2_plot_test"))
 						 
 							 
 							 )
@@ -268,6 +273,7 @@ pFC_v2_Server <- function(id,
 													debug = FALSE) {
 	moduleServer(id, function(input, output, session) {
 		
+		## rv ####
 		rv <- reactiveValues(
 			baseline_stats = NULL,
 			sample_flags = NULL,
@@ -364,6 +370,8 @@ pFC_v2_Server <- function(id,
 			)
 		})
 		
+		
+		## run pFC v2 ####
 		observeEvent(input$run_pfc_v2, {
 			req(eset_reactive(), input$v2_var)
 			
@@ -509,6 +517,7 @@ pFC_v2_Server <- function(id,
 		})
 		
 		
+		## ExpSet Viewer ####
 		mod_expset_viewer_server(
 			"pFC_v2_sample_eset_viewer",
 			ExpSet_list = reactive(rv$ExpSet_list_v2),
@@ -588,6 +597,7 @@ pFC_v2_Server <- function(id,
 		# 	})
 		# })
 		
+		## Tables ####
 		output$v2_baseline_table <- DT::renderDT({
 			req(rv$baseline_stats)
 			
@@ -712,7 +722,27 @@ pFC_v2_Server <- function(id,
 			)
 		})
 		
-		annotated_violin_Server("pfc_v2_plot_test",plot_spec_reactive = plot_spec_reactive, debug = debug)
+		
+		## Violin Plot ####
+		#annotated_violin_Server("pfc_v2_plot_test",plot_spec_reactive = plot_spec_reactive, debug = debug)
+		
+		
+		mod_simple_violin_Server(
+			id = "simple_violin",
+			eset_reactive = reactive(rv$updated_sample_eset),
+			assay_name = assay_name,
+			default_group_var_reactive = reactive(input$v2_var),
+			default_proteins_reactive = reactive({
+				req(rv$test_results, rv$test_results$master_global_stats)
+				
+				rv$test_results$master_global_stats %>%
+					dplyr::filter(max_penetrance_percent >= 50) %>%
+					dplyr::pull(Protein)
+			}),
+			group_eset_reactive = reactive(rv$pFC_v2_group_stats_eset),
+			debug = debug
+		)
+
 		
 		
 		# output$v2_violin_ui <- renderUI({
